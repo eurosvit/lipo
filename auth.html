@@ -55,7 +55,7 @@ body { font-family:'Nunito',system-ui,sans-serif; color:var(--dark); background:
 <div class="auth-container">
   <div class="auth-card">
     <div class="logo">
-      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQW7b7lDuX9_YMpD2F7ayKrhtZLV8B-yUyf9A&s" alt="LipoLand">
+      <img src="/favicon.png" alt="LipoLand">
       <h1>LipoLand</h1>
       <p>Система управління для майстрів ліпучок</p>
     </div>
@@ -211,7 +211,7 @@ async function handleRegister(e) {
     });
     var data = await res.json();
     if (data.ok) {
-      window.location.href = '/app';
+      window.location.href = data.isNewUser ? '/app?welcome=1' : '/app';
     } else {
       showError(data.error || 'Помилка реєстрації');
     }

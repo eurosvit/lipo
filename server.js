@@ -15,6 +15,8 @@ const COOKIE_NAME = 'lipo_session';
 const TRIAL_DAYS = 30;
 const WAYFORPAY_MERCHANT = process.env.WAYFORPAY_MERCHANT || 'lipoland_top';
 const WAYFORPAY_SECRET = process.env.WAYFORPAY_SECRET || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'LipoLand <hello@lipoland.top>';
 
 // Subscription plans
 const PLANS = {
@@ -114,6 +116,37 @@ async function initDB() {
     )
   `);
 
+  // Notification preferences
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_prefs (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      email_welcome BOOLEAN NOT NULL DEFAULT true,
+      email_trial_reminder BOOLEAN NOT NULL DEFAULT true,
+      email_trial_expired BOOLEAN NOT NULL DEFAULT true,
+      email_subscription_reminder BOOLEAN NOT NULL DEFAULT true,
+      email_payment_confirm BOOLEAN NOT NULL DEFAULT true,
+      email_material_alert BOOLEAN NOT NULL DEFAULT false,
+      email_stock_alert BOOLEAN NOT NULL DEFAULT false,
+      telegram_enabled BOOLEAN NOT NULL DEFAULT false,
+      telegram_chat_id TEXT,
+      telegram_material_alert BOOLEAN NOT NULL DEFAULT false,
+      telegram_stock_alert BOOLEAN NOT NULL DEFAULT false,
+      telegram_order_alert BOOLEAN NOT NULL DEFAULT false,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  // Sent emails log (to avoid duplicate sends)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      email_type TEXT NOT NULL,
+      sent_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, email_type, (sent_at::date))
+    )
+  `);
+
   console.log('PostgreSQL connected, tables ready');
 }
 
@@ -136,6 +169,288 @@ async function writeUserData(userId, data) {
     return;
   }
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+// ==================== EMAIL SERVICE (Resend) ====================
+const https = require('https');
+
+function sendEmail(to, subject, html) {
+  if (!RESEND_API_KEY) {
+    console.log('[Email] No RESEND_API_KEY, skipping email to', to);
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({
+      from: EMAIL_FROM,
+      to: [to],
+      subject: subject,
+      html: html
+    });
+    const options = {
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log('[Email] Sent to', to, ':', subject);
+          resolve(body);
+        } else {
+          console.error('[Email] Error:', res.statusCode, body);
+          resolve(); // don't fail registration if email fails
+        }
+      });
+    });
+    req.on('error', (e) => {
+      console.error('[Email] Request error:', e.message);
+      resolve(); // don't fail registration
+    });
+    req.write(data);
+    req.end();
+  });
+}
+
+function emailTemplate(content) {
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F8F5FF;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;">
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+  <div style="text-align:center;padding:24px 0;">
+    <img src="${BASE_URL}/favicon.png" alt="LipoLand" style="width:40px;height:40px;border-radius:50%;vertical-align:middle;margin-right:8px;"><span style="font-size:28px;font-weight:800;color:#7B1FA2;">LipoLand</span>
+  </div>
+  <div style="background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 2px 12px rgba(123,31,162,0.08);border:1px solid #E0D8E8;">
+    ${content}
+  </div>
+  <div style="text-align:center;padding:20px;font-size:12px;color:#757575;">
+    <p>LipoLand — система управління виробництвом липучкових книжок</p>
+    <p><a href="${BASE_URL}" style="color:#7B1FA2;">lipoland.top</a></p>
+  </div>
+</div>
+</body></html>`;
+}
+
+function sendWelcomeEmail(name, email, trialDays) {
+  const subject = '🎉 Ласкаво просимо до LipoLand!';
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Вітаємо, ${name}! 👋</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Дякуємо за реєстрацію в <strong>LipoLand</strong> — першій спеціалізованій CRM-системі для майстринь липучкових книжок в Україні!
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      У вас є <strong style="color:#7B1FA2;">${trialDays} днів безкоштовного</strong> пробного періоду. За цей час ви зможете повністю оцінити всі можливості системи.
+    </p>
+
+    <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+      <h3 style="color:#4A148C;margin:0 0 12px;font-size:16px;">📋 З чого почати?</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">1️⃣</td><td style="padding:6px 8px;font-size:14px;color:#2d2d2d;"><strong>Матеріали</strong> — додайте ліпучки, папір, плівку та інші матеріали</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">2️⃣</td><td style="padding:6px 8px;font-size:14px;color:#2d2d2d;"><strong>Продукція</strong> — створіть каталог ваших ігор</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">3️⃣</td><td style="padding:6px 8px;font-size:14px;color:#2d2d2d;"><strong>Собівартість</strong> — заповніть склад виробу для автоматичного розрахунку</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">4️⃣</td><td style="padding:6px 8px;font-size:14px;color:#2d2d2d;"><strong>Замовлення</strong> — ведіть облік замовлень та виробництва</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">5️⃣</td><td style="padding:6px 8px;font-size:14px;color:#2d2d2d;"><strong>Налаштування</strong> — налаштуйте принтер, ставку майстра, підключіть майстрів</td></tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до LipoLand →</a>
+    </div>
+
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">
+      Якщо у вас є питання — напишіть нам у відповідь на цей лист 💜
+    </p>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendTrialReminderEmail(name, email, daysLeft) {
+  const subject = `⏰ ${name}, залишилось ${daysLeft} днів пробного періоду`;
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">⏰ Пробний період закінчується</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>! У вас залишилось <strong style="color:#F9A825;">${daysLeft} днів</strong> безкоштовного пробного періоду в LipoLand.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Після закінчення пробного періоду доступ до системи буде обмежено. Оформіть підписку, щоб продовжити користуватися всіма можливостями.
+    </p>
+    <div style="background:#FFF8E1;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 8px;font-size:14px;color:#2d2d2d;">Тарифи від</p>
+      <p style="margin:0;font-size:32px;font-weight:800;color:#7B1FA2;">183 грн/міс</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#757575;">при оплаті за 12 місяців</p>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Оформити підписку →</a>
+    </div>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendTrialExpiredEmail(name, email) {
+  const subject = '🚨 Пробний період LipoLand закінчився';
+  const html = emailTemplate(`
+    <h2 style="color:#D32F2F;margin:0 0 16px;font-size:22px;">Пробний період завершено</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>. Ваш безкоштовний пробний період в LipoLand завершився.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Ваші дані збережено — вони нікуди не зникнуть! Оформіть підписку і продовжуйте працювати з того місця, де зупинились.
+    </p>
+    <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+      <table style="width:100%;border-collapse:collapse;text-align:center;">
+        <tr>
+          <td style="padding:8px;"><strong style="font-size:18px;color:#4A148C;">250 грн</strong><br><span style="font-size:12px;color:#757575;">1 місяць</span></td>
+          <td style="padding:8px;border-left:1px solid #E0D8E8;border-right:1px solid #E0D8E8;"><strong style="font-size:18px;color:#4A148C;">1 250 грн</strong><br><span style="font-size:12px;color:#757575;">6 місяців (-17%)</span></td>
+          <td style="padding:8px;"><strong style="font-size:18px;color:#4A148C;">2 200 грн</strong><br><span style="font-size:12px;color:#757575;">12 місяців (-27%)</span></td>
+        </tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#D32F2F,#E53935);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Оформити підписку →</a>
+    </div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">
+      Якщо у вас є питання — напишіть нам у відповідь на цей лист 💜
+    </p>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendPaymentConfirmEmail(name, email, planName, amount, endsAt) {
+  const endDate = new Date(endsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const subject = '💳 Підписка LipoLand PRO активована!';
+  const html = emailTemplate(`
+    <h2 style="color:#2E7D32;margin:0 0 16px;font-size:22px;">✅ Оплата пройшла успішно!</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>! Дякуємо за оплату підписки LipoLand PRO.
+    </p>
+    <div style="background:#E8F5E9;border-radius:10px;padding:20px;margin:20px 0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">📋 Тариф:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">${planName}</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">💰 Сума:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">${amount} грн</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;color:#2d2d2d;">📅 Діє до:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">${endDate}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#2E7D32,#43A047);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Продовжити роботу →</a>
+    </div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">
+      Приємного користування! 💜
+    </p>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendSubscriptionReminderEmail(name, email, daysLeft, endsAt) {
+  const endDate = new Date(endsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const subject = `⏰ ${name}, підписка закінчується через ${daysLeft} день`;
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">📅 Підписка скоро закінчується</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>! Ваша підписка LipoLand PRO діє до <strong>${endDate}</strong> — це через <strong style="color:#F9A825;">${daysLeft} день</strong>.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Подовжте підписку, щоб не втратити доступ до системи. Ваші дані збережені — просто оформіть новий період.
+    </p>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Подовжити підписку →</a>
+    </div>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendPromoWelcomeEmail(name, email, trialDays, promoCode, bonusDays) {
+  const subject = '🎁 Промокод активовано — додаткові дні в LipoLand!';
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">🎁 Промокод активовано!</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>! Ви зареєструвались з промокодом <strong style="color:#7B1FA2;">${promoCode}</strong>.
+    </p>
+    <div style="background:#E8F5E9;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 4px;font-size:14px;color:#2d2d2d;">Ваш пробний період:</p>
+      <p style="margin:0;font-size:36px;font-weight:800;color:#2E7D32;">${trialDays} днів</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#757575;">Стандартний ${trialDays - bonusDays} + бонус ${bonusDays} днів 🎉</p>
+    </div>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Використовуйте цей час на повну — додайте матеріали, створіть ігри, налаштуйте собівартість.
+    </p>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до LipoLand →</a>
+    </div>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendAccountDeletedEmail(name, email) {
+  const subject = '🗑 Акаунт LipoLand видалено';
+  const html = emailTemplate(`
+    <h2 style="color:#D32F2F;margin:0 0 16px;font-size:22px;">Акаунт видалено</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>. Ваш акаунт та всі пов'язані дані були повністю видалені з LipoLand.
+    </p>
+    <div style="background:#FFF3E0;border-radius:10px;padding:20px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;color:#2d2d2d;line-height:1.6;">
+        <strong>Що було видалено:</strong><br>
+        • Профіль та налаштування<br>
+        • Всі матеріали, товари, замовлення<br>
+        • Історія виробництва та зарплат<br>
+        • Підключені майстри та запрошення
+      </p>
+    </div>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Ця дія незворотна. Якщо ви передумаєте — ви завжди можете створити новий акаунт.
+    </p>
+    <p style="color:#757575;font-size:13px;margin:16px 0 0;">
+      Якщо ви не видаляли акаунт — терміново напишіть нам у відповідь на цей лист.
+    </p>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendMaterialAlertEmail(name, email, materials) {
+  const rows = materials.map(m =>
+    `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;">${m.name}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;text-align:center;color:#D32F2F;font-weight:700;">${m.qty} ${m.unit}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;text-align:center;">${m.min} ${m.unit}</td></tr>`
+  ).join('');
+  const subject = `⚠️ ${materials.length} матеріал(ів) закінчується — LipoLand`;
+  const html = emailTemplate(`
+    <h2 style="color:#F9A825;margin:0 0 16px;font-size:22px;">⚠️ Матеріали закінчуються</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${name}</strong>! У вас ${materials.length} матеріал(ів) нижче мінімального запасу:
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr style="background:#F3E5F5;"><th style="padding:8px 12px;text-align:left;font-size:13px;">Матеріал</th><th style="padding:8px 12px;text-align:center;font-size:13px;">Залишок</th><th style="padding:8px 12px;text-align:center;font-size:13px;">Мінімум</th></tr>
+      ${rows}
+    </table>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Переглянути матеріали →</a>
+    </div>
+  `);
+  return sendEmail(email, subject, html);
+}
+
+function sendWorkerInviteEmail(workerEmail, ownerName) {
+  const subject = `🤝 ${ownerName} запрошує вас до LipoLand`;
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Запрошення до LipoLand</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      <strong>${ownerName}</strong> запрошує вас приєднатися як майстер до системи LipoLand.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Після реєстрації ви зможете бачити замовлення, виробництво та інші дані, до яких вам надано доступ.
+    </p>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/auth" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Зареєструватися →</a>
+    </div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">
+      Зареєструйтесь з email <strong>${workerEmail}</strong>, щоб автоматично підключитися.
+    </p>
+  `);
+  return sendEmail(workerEmail, subject, html);
 }
 
 // ==================== AUTH HELPERS ====================
@@ -254,6 +569,116 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- EMAIL PREVIEW (admin only, remove in production) ----
+    if (req.method === 'GET' && url === '/api/email-preview') {
+      const type = query.get('type') || 'welcome';
+      let html = '';
+      switch(type) {
+        case 'welcome': html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Вітаємо, Олена! 👋</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Дякуємо за реєстрацію в <strong>LipoLand</strong> — першій спеціалізованій CRM-системі для майстринь липучкових книжок в Україні!</p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">У вас є <strong style="color:#7B1FA2;">30 днів безкоштовного</strong> пробного періоду.</p>
+    <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+      <h3 style="color:#4A148C;margin:0 0 12px;font-size:16px;">📋 З чого почати?</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;font-size:14px;">1️⃣</td><td style="padding:6px 8px;font-size:14px;"><strong>Матеріали</strong> — додайте ліпучки, папір, плівку</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">2️⃣</td><td style="padding:6px 8px;font-size:14px;"><strong>Продукція</strong> — створіть каталог ігор</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">3️⃣</td><td style="padding:6px 8px;font-size:14px;"><strong>Собівартість</strong> — заповніть склад виробу</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">4️⃣</td><td style="padding:6px 8px;font-size:14px;"><strong>Замовлення</strong> — ведіть облік замовлень</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">5️⃣</td><td style="padding:6px 8px;font-size:14px;"><strong>Налаштування</strong> — принтер, ставка, майстри</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до LipoLand →</a></div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">Якщо у вас є питання — напишіть нам 💜</p>
+  `); break;
+        case 'trial': html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">⏰ Пробний період закінчується</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>! У вас залишилось <strong style="color:#F9A825;">3 дні</strong> безкоштовного пробного періоду.</p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Оформіть підписку, щоб продовжити користуватися всіма можливостями.</p>
+    <div style="background:#FFF8E1;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 8px;font-size:14px;">Тарифи від</p>
+      <p style="margin:0;font-size:32px;font-weight:800;color:#7B1FA2;">183 грн/міс</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#757575;">при оплаті за 12 місяців</p>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Оформити підписку →</a></div>
+  `); break;
+        case 'expired': html = emailTemplate(`
+    <h2 style="color:#D32F2F;margin:0 0 16px;font-size:22px;">Пробний період завершено</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>. Ваш безкоштовний пробний період завершився.</p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Ваші дані збережено — вони нікуди не зникнуть!</p>
+    <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+      <table style="width:100%;border-collapse:collapse;text-align:center;">
+        <tr>
+          <td style="padding:8px;"><strong style="font-size:18px;color:#4A148C;">250 грн</strong><br><span style="font-size:12px;color:#757575;">1 місяць</span></td>
+          <td style="padding:8px;border-left:1px solid #E0D8E8;border-right:1px solid #E0D8E8;"><strong style="font-size:18px;color:#4A148C;">1 250 грн</strong><br><span style="font-size:12px;color:#757575;">6 місяців (-17%)</span></td>
+          <td style="padding:8px;"><strong style="font-size:18px;color:#4A148C;">2 200 грн</strong><br><span style="font-size:12px;color:#757575;">12 місяців (-27%)</span></td>
+        </tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#D32F2F,#E53935);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Оформити підписку →</a></div>
+  `); break;
+        case 'payment': html = emailTemplate(`
+    <h2 style="color:#2E7D32;margin:0 0 16px;font-size:22px;">✅ Оплата пройшла успішно!</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>! Дякуємо за оплату підписки LipoLand PRO.</p>
+    <div style="background:#E8F5E9;border-radius:10px;padding:20px;margin:20px 0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;font-size:14px;">📋 Тариф:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">6 місяців</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">💰 Сума:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">1 250 грн</td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">📅 Діє до:</td><td style="padding:6px 0;font-size:14px;font-weight:700;text-align:right;">12 жовтня 2026</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#2E7D32,#43A047);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Продовжити роботу →</a></div>
+  `); break;
+        case 'promo': html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">🎁 Промокод активовано!</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>! Ви зареєструвались з промокодом <strong style="color:#7B1FA2;">WELCOME50</strong>.</p>
+    <div style="background:#E8F5E9;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 4px;font-size:14px;">Ваш пробний період:</p>
+      <p style="margin:0;font-size:36px;font-weight:800;color:#2E7D32;">60 днів</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#757575;">Стандартний 30 + бонус 30 днів 🎉</p>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до LipoLand →</a></div>
+  `); break;
+        case 'deleted': html = emailTemplate(`
+    <h2 style="color:#D32F2F;margin:0 0 16px;font-size:22px;">Акаунт видалено</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>. Ваш акаунт та всі пов'язані дані були повністю видалені.</p>
+    <div style="background:#FFF3E0;border-radius:10px;padding:20px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;line-height:1.6;"><strong>Що було видалено:</strong><br>• Профіль та налаштування<br>• Всі матеріали, товари, замовлення<br>• Історія виробництва та зарплат<br>• Підключені майстри та запрошення</p>
+    </div>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Ця дія незворотна. Якщо передумаєте — створіть новий акаунт.</p>
+    <p style="color:#757575;font-size:13px;margin:16px 0 0;">Якщо ви не видаляли акаунт — терміново напишіть нам.</p>
+  `); break;
+        case 'material': html = emailTemplate(`
+    <h2 style="color:#F9A825;margin:0 0 16px;font-size:22px;">⚠️ Матеріали закінчуються</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>! У вас 3 матеріал(ів) нижче мінімального запасу:</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr style="background:#F3E5F5;"><th style="padding:8px 12px;text-align:left;font-size:13px;">Матеріал</th><th style="padding:8px 12px;text-align:center;font-size:13px;">Залишок</th><th style="padding:8px 12px;text-align:center;font-size:13px;">Мінімум</th></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">Ліпучка біла 25мм</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;color:#D32F2F;font-weight:700;">2 м.п.</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">10 м.п.</td></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">Папір 180г глянець</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;color:#D32F2F;font-weight:700;">5 арк.</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">20 арк.</td></tr>
+      <tr><td style="padding:8px 12px;">Плівка для ламінації</td><td style="padding:8px 12px;text-align:center;color:#D32F2F;font-weight:700;">0 м.п.</td><td style="padding:8px 12px;text-align:center;">5 м.п.</td></tr>
+    </table>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Переглянути матеріали →</a></div>
+  `); break;
+        case 'invite': html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Запрошення до LipoLand</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;"><strong>Олена Майстренко</strong> запрошує вас приєднатися як майстер до системи LipoLand.</p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Після реєстрації ви зможете бачити замовлення, виробництво та інші дані.</p>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Зареєструватися →</a></div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">Зареєструйтесь з email <strong>maria@example.com</strong>, щоб автоматично підключитися.</p>
+  `); break;
+        case 'sub-reminder': html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">📅 Підписка скоро закінчується</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Привіт, <strong>Олена</strong>! Ваша підписка LipoLand PRO діє до <strong>13 квітня 2026</strong> — це через <strong style="color:#F9A825;">1 день</strong>.</p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">Подовжте підписку, щоб не втратити доступ до системи.</p>
+    <div style="text-align:center;margin:24px 0 8px;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Подовжити підписку →</a></div>
+  `); break;
+        default: html = '<h1>Types: welcome, trial, expired, payment, promo, deleted, material, invite, sub-reminder</h1>';
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
     // ---- AUTH: Register ----
     if (req.method === 'POST' && url === '/api/auth/register') {
       if (!pool) { sendJSON(res, 400, { error: 'Auth not available locally' }); return; }
@@ -310,8 +735,20 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      // Create default notification preferences
+      await pool.query(
+        "INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
+        [userId]
+      );
+
       await createSession(res, userId);
-      sendJSON(res, 200, { ok: true });
+      // Send welcome email (async, don't wait)
+      if (bonusDays > 0 && promo) {
+        sendPromoWelcomeEmail(name, email.toLowerCase(), TRIAL_DAYS + bonusDays, promo.toUpperCase(), bonusDays).catch(() => {});
+      } else {
+        sendWelcomeEmail(name, email.toLowerCase(), TRIAL_DAYS + bonusDays).catch(() => {});
+      }
+      sendJSON(res, 200, { ok: true, isNewUser: true });
       return;
     }
 
@@ -411,10 +848,18 @@ const server = http.createServer(async (req, res) => {
           );
           await pool.query("UPDATE worker_invites SET status = 'accepted' WHERE id = $1", [inv.id]);
         }
+        // Create default notification preferences
+        await pool.query(
+          "INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
+          [userId]
+        );
+        // Send welcome email for new Google users
+        sendWelcomeEmail(googleUser.name || '', googleUser.email.toLowerCase(), TRIAL_DAYS).catch(() => {});
       }
 
       await createSession(res, userId);
-      redirect(res, '/app');
+      const isNew = !result.rows.length;
+      redirect(res, isNew ? '/app?welcome=1' : '/app');
       return;
     }
 
@@ -475,12 +920,93 @@ const server = http.createServer(async (req, res) => {
       if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
       const body = JSON.parse(await readBody(req));
       if (body.confirmEmail !== user.email) { sendJSON(res, 400, { error: 'Email не співпадає' }); return; }
-      // Delete user data, sessions, then user
+      // Save info before deleting
+      const deletedName = user.name || '';
+      const deletedEmail = user.email || '';
+      // Delete user data, sessions, prefs, then user
+      await pool.query("DELETE FROM notification_prefs WHERE user_id = $1", [user.id]);
+      await pool.query("DELETE FROM email_log WHERE user_id = $1", [user.id]);
       await pool.query("DELETE FROM app_data WHERE id = $1", [user.id]);
       await pool.query("DELETE FROM sessions WHERE user_id = $1", [user.id]);
+      await pool.query("DELETE FROM worker_links WHERE owner_id = $1 OR worker_id = $1", [user.id]);
+      await pool.query("DELETE FROM worker_invites WHERE owner_id = $1", [user.id]);
       await pool.query("DELETE FROM users WHERE id = $1", [user.id]);
       clearSessionCookie(res);
+      // Send deletion confirmation email
+      sendAccountDeletedEmail(deletedName, deletedEmail).catch(() => {});
       sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- NOTIFICATIONS: Get preferences ----
+    if (req.method === 'GET' && url === '/api/notifications/prefs') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (pool) {
+        const r = await pool.query("SELECT * FROM notification_prefs WHERE user_id = $1", [user.id]);
+        if (r.rows.length) {
+          sendJSON(res, 200, r.rows[0]);
+        } else {
+          await pool.query("INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING", [user.id]);
+          const r2 = await pool.query("SELECT * FROM notification_prefs WHERE user_id = $1", [user.id]);
+          sendJSON(res, 200, r2.rows[0] || {});
+        }
+      } else {
+        sendJSON(res, 200, {});
+      }
+      return;
+    }
+
+    // ---- NOTIFICATIONS: Update preferences ----
+    if (req.method === 'POST' && url === '/api/notifications/prefs') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const body = JSON.parse(await readBody(req));
+      if (pool) {
+        const fields = [
+          'email_welcome', 'email_trial_reminder', 'email_trial_expired',
+          'email_subscription_reminder', 'email_payment_confirm',
+          'email_material_alert', 'email_stock_alert',
+          'telegram_enabled', 'telegram_material_alert', 'telegram_stock_alert', 'telegram_order_alert'
+        ];
+        const updates = [];
+        const values = [user.id];
+        let idx = 2;
+        for (const f of fields) {
+          if (body[f] !== undefined) {
+            updates.push(`${f} = $${idx}`);
+            values.push(body[f]);
+            idx++;
+          }
+        }
+        if (updates.length) {
+          await pool.query(
+            `INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO UPDATE SET ${updates.join(', ')}, updated_at = NOW()`,
+            values
+          );
+        }
+        sendJSON(res, 200, { ok: true });
+      } else {
+        sendJSON(res, 200, { ok: true });
+      }
+      return;
+    }
+
+    // ---- NOTIFICATIONS: Link Telegram ----
+    if (req.method === 'POST' && url === '/api/notifications/telegram-link') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const body = JSON.parse(await readBody(req));
+      if (body.chatId && pool) {
+        await pool.query(
+          `INSERT INTO notification_prefs (user_id, telegram_chat_id, telegram_enabled) VALUES ($1, $2, true)
+           ON CONFLICT (user_id) DO UPDATE SET telegram_chat_id = $2, telegram_enabled = true, updated_at = NOW()`,
+          [user.id, body.chatId]
+        );
+        sendJSON(res, 200, { ok: true });
+      } else {
+        sendJSON(res, 400, { error: 'chatId required' });
+      }
       return;
     }
 
@@ -528,8 +1054,9 @@ const server = http.createServer(async (req, res) => {
           `INSERT INTO worker_invites (id, owner_id, email, token, permissions, status) VALUES ($1, $2, $3, $4, $5, 'pending')`,
           [inviteId, user.id, email.toLowerCase(), token, JSON.stringify(perms)]
         );
-        // For now, return the invite link (later could send via email)
-        const inviteUrl = `${BASE_URL}/register?invite=${token}`;
+        const inviteUrl = `${BASE_URL}/auth?invite=${token}`;
+        // Send invitation email
+        sendWorkerInviteEmail(email.toLowerCase(), user.name || 'Власник').catch(() => {});
         sendJSON(res, 200, { ok: true, linked: false, inviteUrl });
       }
       return;
@@ -684,6 +1211,14 @@ const server = http.createServer(async (req, res) => {
               await pool.query("UPDATE users SET subscription_ends_at = $1 WHERE id = $2", [newEnd, payment.user_id]);
               await pool.query("UPDATE payments SET status = 'paid', paid_at = NOW() WHERE id = $1", [payment.id]);
               console.log(`Payment confirmed: ${orderReference}, user ${payment.user_id}, until ${newEnd.toISOString()}`);
+
+              // Send payment confirmation email
+              const paidUser = await pool.query("SELECT name, email FROM users WHERE id = $1", [payment.user_id]);
+              if (paidUser.rows.length) {
+                const pu = paidUser.rows[0];
+                const planInfo = Object.values(PLANS).find(p => p.price === payment.amount) || { name: payment.plan };
+                sendPaymentConfirmEmail(pu.name, pu.email, planInfo.name || payment.plan, payment.amount, newEnd).catch(() => {});
+              }
             }
           }
         }
@@ -774,7 +1309,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Login/Register
-    if (url === '/login' || url === '/register') {
+    if (url === '/login' || url === '/register' || url === '/auth') {
       const user = await getSessionUser(req);
       if (user) { redirect(res, '/app'); return; }
       serveFile(res, FILES.auth);
@@ -800,6 +1335,114 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// ==================== TRIAL REMINDER CRON ====================
+// Helper: check if user opted into email type
+async function userWantsEmail(userId, emailType) {
+  if (!pool) return true;
+  const r = await pool.query(`SELECT ${emailType} FROM notification_prefs WHERE user_id = $1`, [userId]);
+  if (!r.rows.length) return true; // default = on
+  return r.rows[0][emailType] !== false;
+}
+
+// Helper: check if email was already sent today
+async function wasEmailSentToday(userId, emailType) {
+  if (!pool) return false;
+  const r = await pool.query(
+    "SELECT 1 FROM email_log WHERE user_id = $1 AND email_type = $2 AND sent_at::date = NOW()::date LIMIT 1",
+    [userId, emailType]
+  );
+  return r.rows.length > 0;
+}
+
+async function logEmailSent(userId, emailType) {
+  if (!pool) return;
+  await pool.query(
+    "INSERT INTO email_log (user_id, email_type) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    [userId, emailType]
+  ).catch(() => {});
+}
+
+async function checkTrialReminders() {
+  if (!pool || !RESEND_API_KEY) return;
+  try {
+    // === TRIAL REMINDERS (7 days and 3 days) ===
+    const trialUsers = await pool.query(`
+      SELECT u.id, u.name, u.email, u.trial_ends_at FROM users u
+      WHERE u.role != 'admin'
+        AND (u.subscription_ends_at IS NULL OR u.subscription_ends_at < NOW())
+        AND u.trial_ends_at > NOW()
+        AND u.trial_ends_at <= NOW() + INTERVAL '7 days'
+    `);
+    for (const u of trialUsers.rows) {
+      const days = Math.ceil((new Date(u.trial_ends_at) - new Date()) / (1000*60*60*24));
+      const key = `trial_reminder_${days}d`;
+      if (days === 7 || days === 3 || days === 1) {
+        if (await wasEmailSentToday(u.id, key)) continue;
+        if (!(await userWantsEmail(u.id, 'email_trial_reminder'))) continue;
+        console.log(`[Cron] Trial reminder: ${u.email}, ${days} days left`);
+        await sendTrialReminderEmail(u.name || '', u.email, days);
+        await logEmailSent(u.id, key);
+      }
+    }
+
+    // === TRIAL EXPIRED (today) ===
+    const expired = await pool.query(`
+      SELECT u.id, u.name, u.email FROM users u
+      WHERE u.role != 'admin'
+        AND (u.subscription_ends_at IS NULL OR u.subscription_ends_at < NOW())
+        AND u.trial_ends_at <= NOW()
+        AND u.trial_ends_at > NOW() - INTERVAL '1 day'
+    `);
+    for (const u of expired.rows) {
+      if (await wasEmailSentToday(u.id, 'trial_expired')) continue;
+      if (!(await userWantsEmail(u.id, 'email_trial_expired'))) continue;
+      console.log(`[Cron] Trial expired: ${u.email}`);
+      await sendTrialExpiredEmail(u.name || '', u.email);
+      await logEmailSent(u.id, 'trial_expired');
+    }
+
+    // === SUBSCRIPTION RENEWAL REMINDER (1 day before) ===
+    const subExpiring = await pool.query(`
+      SELECT u.id, u.name, u.email, u.subscription_ends_at FROM users u
+      WHERE u.role != 'admin'
+        AND u.subscription_ends_at > NOW()
+        AND u.subscription_ends_at <= NOW() + INTERVAL '1 day'
+    `);
+    for (const u of subExpiring.rows) {
+      if (await wasEmailSentToday(u.id, 'sub_reminder_1d')) continue;
+      if (!(await userWantsEmail(u.id, 'email_subscription_reminder'))) continue;
+      console.log(`[Cron] Subscription reminder: ${u.email}, 1 day left`);
+      await sendSubscriptionReminderEmail(u.name || '', u.email, 1, u.subscription_ends_at);
+      await logEmailSent(u.id, 'sub_reminder_1d');
+    }
+
+    // === MATERIAL ALERTS (daily check) ===
+    const allUsers = await pool.query(`
+      SELECT u.id, u.name, u.email FROM users u
+      JOIN notification_prefs np ON np.user_id = u.id
+      WHERE np.email_material_alert = true AND u.role != 'admin'
+    `);
+    for (const u of allUsers.rows) {
+      if (await wasEmailSentToday(u.id, 'material_alert')) continue;
+      // Check user's materials
+      const dataRes = await pool.query("SELECT data FROM app_data WHERE id = $1", [u.id]);
+      if (!dataRes.rows.length) continue;
+      const data = dataRes.rows[0].data;
+      if (!data.materials) continue;
+      const lowMaterials = data.materials.filter(m => m.min && m.qty <= m.min);
+      if (lowMaterials.length > 0) {
+        console.log(`[Cron] Material alert: ${u.email}, ${lowMaterials.length} low`);
+        await sendMaterialAlertEmail(u.name || '', u.email, lowMaterials);
+        await logEmailSent(u.id, 'material_alert');
+      }
+    }
+
+    console.log(`[Cron] Check completed at ${new Date().toISOString()}`);
+  } catch (e) {
+    console.error('[Cron] Reminder error:', e.message);
+  }
+}
+
 // ==================== START ====================
 async function start() {
   await initDB();
@@ -807,8 +1450,15 @@ async function start() {
     console.log(`LipoLand system running at ${BASE_URL}`);
     console.log(`Database: ${DATABASE_URL ? 'PostgreSQL' : 'local file'}`);
     console.log(`Google OAuth: ${GOOGLE_CLIENT_ID ? 'configured' : 'not configured'}`);
+    console.log(`Resend email: ${RESEND_API_KEY ? 'configured' : 'not configured'}`);
     console.log(`Admin email: ${ADMIN_EMAIL}`);
   });
+
+  // Run trial reminders every 24 hours (check at startup + every 24h)
+  if (pool && RESEND_API_KEY) {
+    setTimeout(() => checkTrialReminders(), 10000); // 10s after start
+    setInterval(() => checkTrialReminders(), 24 * 60 * 60 * 1000); // every 24h
+  }
 }
 
 start().catch(err => {

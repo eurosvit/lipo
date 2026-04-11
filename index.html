@@ -24,7 +24,23 @@
 body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
 
 /* NAV */
-.nav { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); padding: 0 16px; display:flex; align-items:center; gap:4px; overflow:visible; position:sticky; top:0; z-index:100; box-shadow: 0 2px 8px rgba(123,31,162,0.25); }
+.nav { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); padding: 0 16px; display:flex; align-items:center; gap:4px; overflow:visible; position:sticky; top:0; z-index:100; box-shadow: 0 2px 8px rgba(123,31,162,0.25); flex-wrap:nowrap; }
+.nav-links { display:flex; align-items:center; gap:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex:1; min-width:0; }
+.nav-links::-webkit-scrollbar { display:none; }
+/* Burger menu */
+.burger-btn { display:none; background:none; border:none; color:#fff; font-size:22px; padding:8px; cursor:pointer; line-height:1; }
+.mobile-menu { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:300; }
+.mobile-menu.show { display:block; }
+.mobile-menu-panel { position:absolute; top:0; left:0; bottom:0; width:280px; background:linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%); padding:20px 0; overflow-y:auto; box-shadow:4px 0 20px rgba(0,0,0,0.3); animation:slideIn .25s ease; }
+@keyframes slideIn { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+.mobile-menu-panel .menu-header { padding:12px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.15); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+.mobile-menu-panel .menu-header span { color:#fff; font-weight:700; font-size:18px; }
+.mobile-menu-panel .menu-close { background:none; border:none; color:rgba(255,255,255,0.7); font-size:24px; cursor:pointer; padding:4px 8px; }
+.mobile-menu-panel button { display:block; width:100%; background:none; border:none; color:rgba(255,255,255,0.8); padding:14px 24px; font-size:15px; text-align:left; cursor:pointer; transition:all .15s; font-family:inherit; }
+.mobile-menu-panel button:hover, .mobile-menu-panel button.active { background:rgba(255,255,255,0.12); color:#fff; }
+.mobile-menu-panel button.active { border-left:3px solid #fff; font-weight:600; }
+.mobile-menu-panel .menu-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.15); margin-top:8px; }
+.mobile-menu-panel .menu-footer a { color:rgba(255,255,255,0.7); font-size:13px; text-decoration:none; display:flex; align-items:center; gap:6px; }
 .nav-brand { color:#fff; font-weight:700; font-size:16px; padding:8px 12px 8px 0; white-space:nowrap; margin-right:4px; display:flex; align-items:center; gap:8px; }
 .nav-brand img { height:32px; width:32px; border-radius:50%; }
 .nav button { background:none; border:none; color:rgba(255,255,255,0.7); padding:10px 14px; cursor:pointer; font-size:13px; white-space:nowrap; border-bottom:2px solid transparent; transition:all .2s; }
@@ -87,7 +103,7 @@ textarea { resize:vertical; min-height:60px; }
 .alert-warning { background:#FFF8E1; border:1px solid #FFE082; color:#E65100; }
 
 /* MODAL */
-.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
 .modal-overlay.show { display:flex; }
 .modal { background:#fff; border-radius:4px; padding:24px; max-width:700px; width:100%; max-height:90vh; overflow-y:auto; }
 .modal h3 { margin-bottom:16px; }
@@ -123,8 +139,11 @@ a.order-link:hover { text-decoration:underline; }
 .notif-badge { position:absolute; top:2px; right:2px; background:#FF5252; color:#fff; font-size:10px; font-weight:700; min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
 .notif-panel { display:none; position:absolute; top:100%; right:0; background:#fff; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.15); width:340px; max-height:400px; overflow-y:auto; z-index:200; border:1px solid var(--border); }
 .notif-panel.show { display:block; }
-.notif-panel h4 { padding:12px 16px; margin:0; font-size:14px; border-bottom:1px solid var(--border); color:var(--primary-dark); }
-.notif-item { padding:10px 16px; border-bottom:1px solid rgba(0,0,0,0.04); font-size:13px; display:flex; gap:8px; align-items:flex-start; }
+.notif-panel h4 { padding:12px 16px; margin:0; font-size:14px; border-bottom:1px solid var(--border); color:var(--primary-dark); display:flex; align-items:center; justify-content:space-between; }
+.notif-panel h4 button { background:none; border:none; color:var(--primary); font-size:12px; cursor:pointer; font-family:inherit; padding:2px 6px; border-radius:4px; }
+.notif-panel h4 button:hover { background:var(--bg); }
+.notif-item { padding:10px 16px; border-bottom:1px solid rgba(0,0,0,0.04); font-size:13px; display:flex; gap:8px; align-items:flex-start; transition:opacity .3s; }
+.notif-item.read { opacity:0.45; }
 .notif-item:last-child { border-bottom:none; }
 .notif-item.danger { border-left:3px solid var(--danger); }
 .notif-item.warning { border-left:3px solid var(--warning); }
@@ -153,40 +172,89 @@ a.order-link:hover { text-decoration:underline; }
 .account-actions .logout { color:var(--danger); }
 
 @media(max-width:768px) {
-  .nav-brand { font-size:14px; }
-  .nav button { padding:10px 10px; font-size:12px; }
-  .page { padding:12px; }
+  .nav { padding:0 8px; }
+  .nav-brand { font-size:14px; padding:8px 6px 8px 0; margin-right:0; }
+  .nav-links { display:none; }
+  .burger-btn { display:block; }
+  .page { padding:12px; padding-bottom:100px; }
   .form-row { flex-direction:column; }
   .form-group { min-width:100%; }
   .cards { grid-template-columns:1fr 1fr; }
   .filter-bar { flex-direction:column; }
   .filter-bar input { min-width:100%; }
+  .modal { max-width:95vw !important; margin:10px; }
+  .modal-overlay { padding:10px; }
+  .table-wrap { font-size:13px; }
+}
+@media(max-width:640px) {
+  .table-wrap table thead { display:none; }
+  .table-wrap table, .table-wrap table tbody, .table-wrap table tr, .table-wrap table td { display:block; width:100%; }
+  .table-wrap table tr { padding:12px 14px; border-bottom:1px solid var(--border); position:relative; }
+  .table-wrap table tr:last-child { border-bottom:none; }
+  .table-wrap table td { padding:3px 0; border:none; font-size:13px; }
+  .table-wrap table td:before { content:attr(data-label); font-weight:700; font-size:11px; color:var(--text-light); text-transform:uppercase; letter-spacing:0.3px; display:block; margin-bottom:1px; }
+  .table-wrap table td:first-child { padding-top:0; }
+  .table-wrap table td:last-child { padding-bottom:0; }
+  .notif-panel { width:calc(100vw - 20px); right:-60px; }
+  .account-panel { width:calc(100vw - 20px); right:-10px; }
 }
 @media(max-width:480px) {
   .cards { grid-template-columns:1fr; }
+}
+@media(max-width:700px) {
+  #payment-plans { grid-template-columns:1fr !important; }
+  #modal-payment .modal { padding:0; }
+  #modal-payment .modal > div { padding-left:20px !important; padding-right:20px !important; }
+}
+/* Onboarding */
+.onboarding-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:500; align-items:center; justify-content:center; }
+.onboarding-overlay.show { display:flex; }
+.onboarding-card { background:#fff; border-radius:20px; max-width:640px; width:92vw; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); animation: onb-in 0.4s ease; }
+@keyframes onb-in { from { opacity:0; transform:scale(0.9) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.onboarding-header { background:linear-gradient(135deg,#4A148C 0%,#7B1FA2 60%,#BA68C8 100%); padding:36px 40px 28px; color:#fff; text-align:center; }
+.onboarding-body { padding:32px 40px; }
+.onboarding-footer { padding:0 40px 28px; display:flex; justify-content:space-between; align-items:center; }
+.onb-dots { display:flex; gap:8px; }
+.onb-dot { width:10px; height:10px; border-radius:50%; background:var(--border); transition:all .3s; }
+.onb-dot.active { background:var(--primary); width:28px; border-radius:5px; }
+.onb-feature { display:flex; align-items:flex-start; gap:16px; padding:12px 0; border-bottom:1px solid #f0f0f0; }
+.onb-feature:last-child { border-bottom:none; }
+.onb-feature-icon { font-size:28px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#F3E5F5; border-radius:10px; flex-shrink:0; }
+.onb-feature-text h4 { font-size:15px; color:var(--text); margin:0 0 2px; }
+.onb-feature-text p { font-size:13px; color:var(--text-light); margin:0; line-height:1.4; }
+@media(max-width:480px) {
+  .onboarding-header { padding:24px 20px 20px; }
+  .onboarding-body { padding:20px; }
+  .onboarding-footer { padding:0 20px 20px; }
 }
 </style>
 </head>
 <body>
 
 <nav class="nav">
-  <span class="nav-brand">&#x1F9F8; LipoLand</span>
-  <button onclick="showPage('dashboard')" class="active" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
-  <button onclick="showPage('materials')" data-page="materials">&#x1F4E6; &#x041C;&#x0430;&#x0442;&#x0435;&#x0440;&#x0456;&#x0430;&#x043B;&#x0438;</button>
-  <button onclick="showPage('products')" data-page="products">&#x1F3AE; &#x041F;&#x0440;&#x043E;&#x0434;&#x0443;&#x043A;&#x0446;&#x0456;&#x044F;</button>
-  <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
-  <button onclick="showPage('orders')" data-page="orders">&#x1F4CB; &#x0417;&#x0430;&#x043C;&#x043E;&#x0432;&#x043B;&#x0435;&#x043D;&#x043D;&#x044F;</button>
-  <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
-  <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
-  <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
-  <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
-  <button onclick="showPage('settings')" data-page="settings">&#x2699;&#xFE0F; &#x041D;&#x0430;&#x043B;&#x0430;&#x0448;&#x0442;&#x0443;&#x0432;&#x0430;&#x043D;&#x043D;&#x044F;</button>
+  <button class="burger-btn" onclick="toggleMobileMenu()">☰</button>
+  <span class="nav-brand"><img src="/favicon.png" alt="LipoLand"> LipoLand</span>
+  <div class="nav-links">
+    <button onclick="showPage('dashboard')" class="active" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
+    <button onclick="showPage('materials')" data-page="materials">&#x1F4E6; &#x041C;&#x0430;&#x0442;&#x0435;&#x0440;&#x0456;&#x0430;&#x043B;&#x0438;</button>
+    <button onclick="showPage('products')" data-page="products">&#x1F3AE; &#x041F;&#x0440;&#x043E;&#x0434;&#x0443;&#x043A;&#x0446;&#x0456;&#x044F;</button>
+    <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
+    <button onclick="showPage('orders')" data-page="orders">&#x1F4CB; &#x0417;&#x0430;&#x043C;&#x043E;&#x0432;&#x043B;&#x0435;&#x043D;&#x043D;&#x044F;</button>
+    <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
+    <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
+    <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
+    <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
+    <button onclick="showPage('settings')" data-page="settings">&#x2699;&#xFE0F; &#x041D;&#x0430;&#x043B;&#x0430;&#x0448;&#x0442;&#x0443;&#x0432;&#x0430;&#x043D;&#x043D;&#x044F;</button>
+  </div>
   <div class="nav-right">
     <div style="position:relative;">
       <button class="notif-bell" onclick="toggleNotifPanel()" title="Сповіщення">🔔<span id="notif-count" class="notif-badge" style="display:none;">0</span></button>
       <div id="notif-panel" class="notif-panel">
-        <h4>Сповіщення</h4>
+        <h4>Сповіщення <button id="notif-read-all" onclick="markAllNotifsRead()" title="Прочитати всі">Прочитати всі</button></h4>
         <div id="notif-list"></div>
+        <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:center;">
+          <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Спільнота LipoLand в Telegram</a>
+        </div>
       </div>
     </div>
     <div style="position:relative;">
@@ -206,13 +274,36 @@ a.order-link:hover { text-decoration:underline; }
         </div>
         <div class="account-actions">
           <button onclick="openPaymentModal()" style="color:var(--primary);font-weight:600;">💳 Оплатити підписку</button>
+          <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="display:block;padding:8px 16px;font-size:14px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);transition:background .2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">💬 Спільнота в Telegram</a>
           <button onclick="window.location.href='/api/auth/logout'" class="logout">🚪 Вийти</button>
-          <button onclick="deleteAccount()" class="logout" style="font-size:12px;color:var(--text-light);">🗑 Видалити акаунт</button>
         </div>
       </div>
     </div>
   </div>
 </nav>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" id="mobile-menu" onclick="if(event.target===this)closeMobileMenu()">
+  <div class="mobile-menu-panel">
+    <div class="menu-header">
+      <span><img src="/favicon.png" alt="LipoLand" style="height:28px;width:28px;border-radius:50%;vertical-align:middle;margin-right:6px;">LipoLand</span>
+      <button class="menu-close" onclick="closeMobileMenu()">&times;</button>
+    </div>
+    <button onclick="mobileNav('dashboard')">📊 Дашборд</button>
+    <button onclick="mobileNav('materials')">📦 Матеріали</button>
+    <button onclick="mobileNav('products')">🎮 Продукція</button>
+    <button onclick="mobileNav('production')">🔧 Виробництво</button>
+    <button onclick="mobileNav('orders')">📋 Замовлення</button>
+    <button onclick="mobileNav('worker-stock')">👷 Майстри</button>
+    <button onclick="mobileNav('salary')">💰 Зарплата</button>
+    <button onclick="mobileNav('costs')">📈 Собівартість</button>
+    <button onclick="mobileNav('equipment')">🖨 Обладнання</button>
+    <button onclick="mobileNav('settings')">⚙️ Налаштування</button>
+    <div class="menu-footer">
+      <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank">💬 Спільнота в Telegram</a>
+    </div>
+  </div>
+</div>
 
 <!-- ========== DASHBOARD ========== -->
 <div id="dashboard" class="page active">
@@ -526,6 +617,73 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div id="excel-import-result" style="margin-top:8px;"></div>
   </div>
+
+  <!-- Notification Preferences -->
+  <div class="card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">🔔 Сповіщення</div>
+    <p class="text-muted mb-16" style="font-size:13px;">Оберіть які сповіщення ви хочете отримувати.</p>
+
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">📧 Email-сповіщення</div>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-welcome" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        Привітальний лист при реєстрації
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-trial-reminder" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        Нагадування про закінчення пробного періоду
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-trial-expired" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        Сповіщення коли пробний період закінчився
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-sub-reminder" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        Нагадування за день до закінчення підписки
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-payment" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        Підтвердження оплати
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
+        <input type="checkbox" id="pref-email-material" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        ⚠️ Матеріали нижче мінімального запасу (щодня)
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="pref-email-stock" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+        ⚠️ Товари закінчуються на складі (щодня)
+      </label>
+    </div>
+
+    <div style="margin-bottom:8px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);display:flex;align-items:center;gap:8px;">
+        <span>📱 Telegram-сповіщення</span>
+        <span style="font-size:11px;background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:10px;font-weight:600;">скоро</span>
+      </div>
+      <p class="text-muted" style="font-size:13px;margin-bottom:10px;">Підключіть Telegram-бота щоб отримувати миттєві сповіщення.</p>
+      <div id="telegram-status" style="margin-bottom:12px;"></div>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
+        <input type="checkbox" id="pref-tg-material" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
+        Матеріали закінчуються
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
+        <input type="checkbox" id="pref-tg-stock" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
+        Товари закінчуються на складі
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
+        <input type="checkbox" id="pref-tg-order" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
+        Нові замовлення
+      </label>
+    </div>
+
+    <div id="notif-save-status" style="font-size:13px;color:var(--success);display:none;margin-top:8px;">✅ Збережено</div>
+  </div>
+
+  <!-- Danger zone -->
+  <div style="max-width:600px;margin-top:40px;padding-top:20px;border-top:1px solid var(--border);">
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Небезпечна зона</p>
+    <button onclick="deleteAccount()" style="background:none;border:none;color:#999;font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline;font-family:inherit;">Видалити акаунт та всі дані</button>
+  </div>
 </div>
 
 <!-- ========== MODALS ========== -->
@@ -830,34 +988,81 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
-<!-- Payment Modal -->
-<div class="modal-overlay" id="modal-payment">
-  <div class="modal" style="max-width:550px;">
-    <h3>💳 Оплата підписки LipoLand</h3>
-    <p class="text-muted mb-16" style="font-size:14px;">Оберіть тарифний план. Оплата через WayForPay (Visa, Mastercard, Google Pay, Apple Pay).</p>
-    <div id="payment-plans" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month1')">
-        <input type="radio" name="plan" value="month1" style="accent-color:var(--primary);">
-        <div style="flex:1;"><strong>1 місяць</strong><br><span class="text-muted" style="font-size:13px;">Щомісячна оплата</span></div>
-        <div style="font-size:18px;font-weight:700;color:var(--primary);">250 грн</div>
-      </label>
-      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month6')">
-        <input type="radio" name="plan" value="month6" style="accent-color:var(--primary);">
-        <div style="flex:1;"><strong>6 місяців</strong> <span class="badge badge-ok">-17%</span><br><span class="text-muted" style="font-size:13px;">≈ 208 грн/міс</span></div>
-        <div style="font-size:18px;font-weight:700;color:var(--primary);">1 250 грн</div>
-      </label>
-      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month12')">
-        <input type="radio" name="plan" value="month12" style="accent-color:var(--primary);">
-        <div style="flex:1;"><strong>12 місяців</strong> <span class="badge badge-success">-27%</span><br><span class="text-muted" style="font-size:13px;">≈ 183 грн/міс</span></div>
-        <div style="font-size:18px;font-weight:700;color:var(--primary);">2 200 грн</div>
-      </label>
+<!-- Payment Modal (Full-screen pricing) -->
+<div class="modal-overlay" id="modal-payment" style="align-items:flex-start;padding:0;">
+  <div class="modal" style="max-width:900px;width:95vw;margin:24px auto;border-radius:16px;padding:0;overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 60%, var(--primary-light) 100%);padding:32px 40px 28px;color:#fff;text-align:center;position:relative;">
+      <button onclick="closeModal('payment')" style="position:absolute;top:12px;right:16px;background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;line-height:1;transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">&times;</button>
+      <div style="font-size:36px;margin-bottom:8px;">👑</div>
+      <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;letter-spacing:-0.5px;">Підписка LipoLand PRO</h2>
+      <p style="font-size:16px;opacity:0.9;max-width:500px;margin:0 auto;">Повний доступ до системи управління виробництвом липучкових книжок</p>
     </div>
-    <div id="payment-error" style="display:none;" class="alert alert-danger mb-16"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal('payment')">Скасувати</button>
-      <button class="btn btn-primary" id="pay-btn" onclick="initPayment()" disabled style="min-width:180px;">Оплатити</button>
+
+    <!-- Features included -->
+    <div style="background:#F3E5F5;padding:16px 40px;display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:center;">
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Необмежена кількість ігор</span>
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Управління матеріалами</span>
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Калькуляція собівартості</span>
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Облік замовлень</span>
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Підключення майстрів</span>
+      <span style="font-size:14px;color:var(--primary-dark);">✓ Зарплати та звіти</span>
     </div>
-    <p class="text-muted" style="font-size:11px;margin-top:12px;text-align:center;">Безпечна оплата через WayForPay. Visa, Mastercard, Google Pay, Apple Pay.</p>
+
+    <!-- Plan cards -->
+    <div style="padding:32px 40px 24px;">
+      <div id="payment-plans" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+
+        <!-- Plan 1 month -->
+        <div class="payment-plan-card" onclick="selectPlan(this,'month1')" style="border:2px solid var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;background:#fff;">
+          <input type="radio" name="plan" value="month1" style="display:none;">
+          <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">1 місяць</div>
+          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">250</div>
+          <div style="font-size:16px;color:var(--text-light);margin-bottom:16px;">грн / місяць</div>
+          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Щомісячна оплата<br>Без зобов'язань</div>
+        </div>
+
+        <!-- Plan 6 months (popular) -->
+        <div class="payment-plan-card" onclick="selectPlan(this,'month6')" style="border:2px solid var(--primary);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;background:#fff;transform:scale(1.04);box-shadow:0 8px 30px rgba(123,31,162,0.15);">
+          <input type="radio" name="plan" value="month6" style="display:none;">
+          <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;">⭐ ПОПУЛЯРНИЙ</div>
+          <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">6 місяців</div>
+          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">208</div>
+          <div style="font-size:16px;color:var(--text-light);margin-bottom:4px;">грн / місяць</div>
+          <div style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 17%</div>
+          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">1 250 грн</strong><br><s style="color:#ccc;">1 500 грн</s></div>
+        </div>
+
+        <!-- Plan 12 months -->
+        <div class="payment-plan-card" onclick="selectPlan(this,'month12')" style="border:2px solid var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;background:#fff;">
+          <input type="radio" name="plan" value="month12" style="display:none;">
+          <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--success),#43A047);color:#fff;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;">💰 НАЙВИГІДНІШИЙ</div>
+          <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">12 місяців</div>
+          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">183</div>
+          <div style="font-size:16px;color:var(--text-light);margin-bottom:4px;">грн / місяць</div>
+          <div style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 27%</div>
+          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">2 200 грн</strong><br><s style="color:#ccc;">3 000 грн</s></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Error + Pay button -->
+    <div style="padding:0 40px 32px;text-align:center;">
+      <div id="payment-error" style="display:none;background:#FFEBEE;color:var(--danger);padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;"></div>
+      <button class="btn btn-primary" id="pay-btn" onclick="initPayment()" disabled style="min-width:280px;padding:14px 32px;font-size:17px;font-weight:700;border-radius:10px;letter-spacing:0.3px;">
+        Оплатити
+      </button>
+      <div style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;color:var(--text-light);">🔒 Безпечна оплата</span>
+        <span style="font-size:13px;color:var(--text-light);">💳 Visa / Mastercard</span>
+        <span style="font-size:13px;color:var(--text-light);"> Google Pay</span>
+        <span style="font-size:13px;color:var(--text-light);"> Apple Pay</span>
+      </div>
+      <div style="margin-top:12px;">
+        <img src="https://www.wayforpay.com/public/img/logo_wfp.svg" alt="WayForPay" style="height:20px;opacity:0.5;" onerror="this.style.display='none'">
+      </div>
+    </div>
   </div>
 </div>
 
@@ -904,12 +1109,42 @@ fetch('/api/data').then(function(r){ return r.json(); }).then(function(serverDat
 }).catch(function(){});
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+// ==================== MOBILE MENU ====================
+function toggleMobileMenu() {
+  document.getElementById('mobile-menu').classList.toggle('show');
+  // Highlight active page
+  var btns = document.querySelectorAll('.mobile-menu-panel button[onclick^="mobileNav"]');
+  var current = document.querySelector('.page.active');
+  btns.forEach(function(b) {
+    var page = b.getAttribute('onclick').match(/'([^']+)'/);
+    if (page && current && current.id === page[1]) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+}
+
+function closeMobileMenu() {
+  document.getElementById('mobile-menu').classList.remove('show');
+}
+
+function mobileNav(id) {
+  closeMobileMenu();
+  showPage(id);
+}
+
 // ==================== NAVIGATION ====================
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  document.querySelector('.nav button[data-page="'+id+'"]').classList.add('active');
+  var activeBtn = document.querySelector('.nav-links button[data-page="'+id+'"]');
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    // Auto-scroll nav to show active button on mobile
+    activeBtn.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+  }
   renderPage(id);
 }
 
@@ -1015,15 +1250,15 @@ function renderMaterials() {
     }
     var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
     return '<tr>'+
-      '<td><strong>'+esc(m.name)+'</strong></td>'+
-      '<td>'+esc(m.unit)+'</td>'+
-      '<td>'+fmt(m.qty)+'</td>'+
-      '<td>'+fmt(m.min)+'</td>'+
-      '<td>'+fmt(m.price)+' грн</td>'+
-      '<td>'+supplierHtml+'</td>'+
-      '<td>'+noteHtml+'</td>'+
-      '<td>'+status+'</td>'+
-      '<td><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
+      '<td data-label="Назва"><strong>'+esc(m.name)+'</strong></td>'+
+      '<td data-label="Од.">'+esc(m.unit)+'</td>'+
+      '<td data-label="Залишок">'+fmt(m.qty)+'</td>'+
+      '<td data-label="Мінімум">'+fmt(m.min)+'</td>'+
+      '<td data-label="Ціна/од.">'+fmt(m.price)+' грн</td>'+
+      '<td data-label="Постачальник">'+supplierHtml+'</td>'+
+      '<td data-label="Коментар">'+noteHtml+'</td>'+
+      '<td data-label="Статус">'+status+'</td>'+
+      '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
 }
@@ -1269,17 +1504,17 @@ function renderProducts() {
     var margin = p.sellPrice - cost.total;
     var inactive = p.active===false;
     return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
-      '<td><code>'+esc(p.sku||'—')+'</code></td>'+
-      '<td><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
-      '<td>'+esc(p.size||'—')+'</td>'+
-      '<td><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>'+
-      '<td>'+(p.stock||0)+'</td>'+
-      '<td>'+(p.inProgress||0)+'</td>'+
-      '<td>'+fmt(cost.total)+' грн</td>'+
-      '<td>'+fmt(p.sellPrice)+' грн</td>'+
-      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
-      '<td>'+can+' шт</td>'+
-      '<td style="white-space:nowrap;">'+(p.active===false?
+      '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>'+
+      '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
+      '<td data-label="Розмір">'+esc(p.size||'—')+'</td>'+
+      '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>'+
+      '<td data-label="На складі">'+(p.stock||0)+'</td>'+
+      '<td data-label="В роботі">'+(p.inProgress||0)+'</td>'+
+      '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>'+
+      '<td data-label="Ціна продажу">'+fmt(p.sellPrice)+' грн</td>'+
+      '<td data-label="Маржа" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
+      '<td data-label="Можна зібрати">'+can+' шт</td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+(p.active===false?
         '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
@@ -1412,16 +1647,16 @@ function renderProduction() {
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
-      '<td>'+b.date+'</td><td><code>'+(p?esc(p.sku||''):'-')+'</code></td><td>'+(p?esc(p.name):'?')+'</td><td>'+b.qty+'</td><td>'+esc(b.worker)+'</td>'+
-      '<td><span class="badge badge-warning">В роботі</span></td>'+
-      '<td><button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')">Здати</button></td>'+
+      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+b.qty+'</td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
+      '<td data-label="Статус"><span class="badge badge-warning">В роботі</span></td>'+
+      '<td data-label="Дії"><button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')">Здати</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Немає активного виробництва</td></tr>';
 
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    return '<tr><td>'+(b.completedDate||b.date)+'</td><td><code>'+(p?esc(p.sku||''):'-')+'</code></td><td>'+(p?esc(p.name):'?')+'</td><td>'+(b.completedQty||b.qty)+'</td><td>'+esc(b.worker)+'</td>'+
-      '<td><span class="badge badge-success">Готово</span></td></tr>';
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
+      '<td data-label="Статус"><span class="badge badge-success">Готово</span></td></tr>';
   }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
 }
 
@@ -1522,15 +1757,15 @@ function renderOrders() {
     var crmBadge = o.crmId ? '<span class="badge badge-ok" style="font-size:10px;" title="SalesDrive #'+o.crmId+'">CRM #'+o.crmId+'</span>' : '<span class="text-muted" style="font-size:11px;">ручне</span>';
     var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
     return '<tr>'+
-      '<td>#'+o.num+'</td>'+
-      '<td>'+crmBadge+'</td>'+
-      '<td>'+o.date+'</td>'+
-      '<td>'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
-      '<td>'+itemsStr+'</td>'+
-      '<td>'+fmt(o.total)+' грн</td>'+
-      '<td><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;">'+workerOpts+'</select></td>'+
-      '<td><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+'">'+statusOpts+'</select></td>'+
-      '<td style="white-space:nowrap;">'+
+      '<td data-label="№">#'+o.num+'</td>'+
+      '<td data-label="Джерело">'+crmBadge+'</td>'+
+      '<td data-label="Дата">'+o.date+'</td>'+
+      '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
+      '<td data-label="Товари">'+itemsStr+'</td>'+
+      '<td data-label="Сума">'+fmt(o.total)+' грн</td>'+
+      '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>'+
+      '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
@@ -1838,13 +2073,13 @@ function renderWorkerStock() {
   var typeLabels = { material:'📦 Матеріал', product:'🎮 Напівфабрикат' };
   document.getElementById('ws-table').innerHTML = filtered.map(function(s){
     return '<tr>'+
-      '<td><strong>'+esc(s.worker)+'</strong></td>'+
-      '<td>'+(typeLabels[s.type]||s.type)+'</td>'+
-      '<td>'+esc(s.itemName)+'</td>'+
-      '<td>'+fmt(s.qty)+'</td>'+
-      '<td>'+s.date+'</td>'+
-      '<td><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
-      '<td><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
+      '<td data-label="Майстер"><strong>'+esc(s.worker)+'</strong></td>'+
+      '<td data-label="Тип">'+(typeLabels[s.type]||s.type)+'</td>'+
+      '<td data-label="Назва">'+esc(s.itemName)+'</td>'+
+      '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
+      '<td data-label="Дата">'+s.date+'</td>'+
+      '<td data-label="Коментар"><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
+      '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Нічого не передано</td></tr>';
 
@@ -1854,13 +2089,13 @@ function renderWorkerStock() {
   document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
     var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : '<span class="badge badge-success">← повернуто</span>';
     return '<tr>'+
-      '<td>'+h.date+'</td>'+
-      '<td>'+esc(h.worker)+'</td>'+
-      '<td>'+(typeLabels[h.type]||h.type)+'</td>'+
-      '<td>'+esc(h.itemName)+'</td>'+
-      '<td>'+fmt(h.qty)+'</td>'+
-      '<td>'+actionBadge+'</td>'+
-      '<td>'+esc(h.note||'—')+'</td>'+
+      '<td data-label="Дата">'+h.date+'</td>'+
+      '<td data-label="Майстер">'+esc(h.worker)+'</td>'+
+      '<td data-label="Тип">'+(typeLabels[h.type]||h.type)+'</td>'+
+      '<td data-label="Назва">'+esc(h.itemName)+'</td>'+
+      '<td data-label="К-сть">'+fmt(h.qty)+'</td>'+
+      '<td data-label="Дія">'+actionBadge+'</td>'+
+      '<td data-label="Коментар">'+esc(h.note||'—')+'</td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Історія порожня</td></tr>';
 }
@@ -1901,8 +2136,8 @@ function renderSalary() {
     }
     var earned = rate * (b.completedQty||b.qty);
     totalSalary += earned;
-    return '<tr><td>'+(b.completedDate||b.date)+'</td><td>'+esc(b.worker)+'</td><td>'+(p?esc(p.name):'?')+'</td>'+
-      '<td>'+(b.completedQty||b.qty)+'</td><td>'+fmt(rate)+' грн ('+rateLabel+')</td><td><strong>'+fmt(earned)+' грн</strong></td></tr>';
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
+      '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
   });
 
   document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
@@ -1973,16 +2208,16 @@ function renderCosts() {
       detailHTML += '</tbody></table></div>';
     }
     return '<tr>'+
-      '<td><code>'+esc(p.sku||'—')+'</code></td>'+
-      '<td><strong>'+esc(p.name)+'</strong></td>'+
-      '<td>'+fmt(cost.materials)+' грн</td>'+
-      '<td>'+(cost.print>0?fmt(cost.print):'—')+'</td>'+
-      '<td>'+(cost.packaging>0?fmt(cost.packaging):'—')+'</td>'+
-      '<td>'+(cost.template>0?fmt(cost.template):'—')+'</td>'+
-      '<td>'+fmt(cost.work)+' <span class="text-muted" style="font-size:10px;">'+rateLabel+'</span></td>'+
-      '<td><strong>'+fmt(cost.total)+'</strong></td><td>'+fmt(p.sellPrice)+'</td>'+
-      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+'</td>'+
-      '<td class="'+(marginPct>30?'text-success':marginPct>15?'text-warning':'text-danger')+'">'+fmt(marginPct)+'%</td>'+
+      '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>'+
+      '<td data-label="Гра"><strong>'+esc(p.name)+'</strong></td>'+
+      '<td data-label="Матеріали">'+fmt(cost.materials)+' грн</td>'+
+      '<td data-label="Друк">'+(cost.print>0?fmt(cost.print):'—')+'</td>'+
+      '<td data-label="Пакування">'+(cost.packaging>0?fmt(cost.packaging):'—')+'</td>'+
+      '<td data-label="Шаблон">'+(cost.template>0?fmt(cost.template):'—')+'</td>'+
+      '<td data-label="Робота">'+fmt(cost.work)+' <span class="text-muted" style="font-size:10px;">'+rateLabel+'</span></td>'+
+      '<td data-label="Собівартість"><strong>'+fmt(cost.total)+'</strong></td><td data-label="Ціна продажу">'+fmt(p.sellPrice)+'</td>'+
+      '<td data-label="Маржа, грн" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+'</td>'+
+      '<td data-label="Маржа, %" class="'+(marginPct>30?'text-success':marginPct>15?'text-warning':'text-danger')+'">'+fmt(marginPct)+'%</td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри зі складом виробу</td></tr>';
   document.getElementById('costs-detail').innerHTML = detailHTML;
@@ -2021,13 +2256,13 @@ function renderDashboard() {
       var r = p.recipe.find(function(r){return r.materialId===m.id});
       return r ? esc(p.name)+': '+Math.floor(m.qty/r.qty)+' шт' : '';
     }).filter(Boolean).join(', ');
-    return '<tr><td>'+esc(m.name)+'</td><td>'+fmt(m.qty)+' '+esc(m.unit)+'</td><td>'+fmt(m.min)+' '+esc(m.unit)+'</td><td>'+status+'</td><td class="text-muted" style="font-size:12px;">'+(enough||'—')+'</td></tr>';
+    return '<tr><td data-label="Матеріал">'+esc(m.name)+'</td><td data-label="Залишок">'+fmt(m.qty)+' '+esc(m.unit)+'</td><td data-label="Мінімум">'+fmt(m.min)+' '+esc(m.unit)+'</td><td data-label="Статус">'+status+'</td><td data-label="Вистачить на" class="text-muted" style="font-size:12px;">'+(enough||'—')+'</td></tr>';
   }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px;">Все в нормі</td></tr>';
 
   var dashProds = db.products.filter(function(p){return (p.stock||0)>0 || (p.inProgress||0)>0});
   document.getElementById('dash-products').innerHTML = dashProds.map(function(p) {
     var can = calcCanProduce(p, db.materials);
-    return '<tr><td><code>'+esc(p.sku||'—')+'</code></td><td><strong>'+esc(p.name)+'</strong></td><td>'+esc(p.category||'—')+'</td><td>'+(p.stock||0)+'</td><td>'+(p.inProgress||0)+'</td><td>'+can+' шт</td></tr>';
+    return '<tr><td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td><td data-label="Гра"><strong>'+esc(p.name)+'</strong></td><td data-label="Категорія">'+esc(p.category||'—')+'</td><td data-label="На складі">'+(p.stock||0)+'</td><td data-label="В роботі">'+(p.inProgress||0)+'</td><td data-label="Можна зібрати">'+can+' шт</td></tr>';
   }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Склад порожній</td></tr>';
 }
 
@@ -2059,6 +2294,8 @@ function renderSettings() {
   renderConsumables(db);
   // Load linked workers
   if (!_currentUser || !_currentUser.isWorker) loadLinkedWorkers();
+  // Load notification preferences
+  loadNotifPrefs();
 }
 
 function addWorker() {
@@ -2812,16 +3049,16 @@ function renderEquipment() {
       }
     }
     return '<tr>'+
-      '<td><b>'+esc(eq.name)+'</b></td>'+
-      '<td>'+esc(eq.category||'')+'</td>'+
-      '<td>'+(eq.purchaseDate||'—')+'</td>'+
-      '<td>'+(eq.price ? fmt(eq.price) : '—')+'</td>'+
-      '<td>'+stats.count+'</td>'+
-      '<td>'+(stats.totalCost ? fmt(stats.totalCost)+' грн' : '—')+'</td>'+
-      '<td>'+(nextService||'—')+'</td>'+
-      '<td>'+statusBadge+'</td>'+
-      '<td style="max-width:200px;font-size:12px;color:var(--text-light);">'+esc(eq.note||'')+'</td>'+
-      '<td style="white-space:nowrap;">'+
+      '<td data-label="Назва"><b>'+esc(eq.name)+'</b></td>'+
+      '<td data-label="Категорія">'+esc(eq.category||'')+'</td>'+
+      '<td data-label="Дата покупки">'+(eq.purchaseDate||'—')+'</td>'+
+      '<td data-label="Вартість">'+(eq.price ? fmt(eq.price) : '—')+'</td>'+
+      '<td data-label="Обслуговувань">'+stats.count+'</td>'+
+      '<td data-label="Витрати">'+(stats.totalCost ? fmt(stats.totalCost)+' грн' : '—')+'</td>'+
+      '<td data-label="Наступне ТО">'+(nextService||'—')+'</td>'+
+      '<td data-label="Статус">'+statusBadge+'</td>'+
+      '<td data-label="Нотатки" style="max-width:200px;font-size:12px;color:var(--text-light);">'+esc(eq.note||'')+'</td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-success btn-sm" onclick="openServiceLog(\''+eq.id+'\')" title="Записати обслуговування">🔧</button> '+
         '<button class="btn btn-outline btn-sm" onclick="editEquipment(\''+eq.id+'\')" title="Редагувати">✏️</button> '+
         '<button class="btn btn-danger btn-sm" onclick="deleteEquipment(\''+eq.id+'\')" title="Видалити">✕</button>'+
@@ -2843,12 +3080,12 @@ function renderEquipment() {
   var sortedLogs = logs.slice().sort(function(a,b){ return b.date>a.date?1:(b.date<a.date?-1:0); });
   var historyRows = sortedLogs.map(function(l){
     return '<tr>'+
-      '<td>'+esc(l.date||'')+'</td>'+
-      '<td>'+esc(eqMap[l.equipmentId]||'Видалено')+'</td>'+
-      '<td>'+esc(l.type||'')+'</td>'+
-      '<td>'+(l.cost ? fmt(l.cost)+' грн' : '—')+'</td>'+
-      '<td>'+esc(l.comment||'')+'</td>'+
-      '<td><button class="btn btn-danger btn-sm" onclick="deleteServiceLog(\''+l.id+'\')">✕</button></td>'+
+      '<td data-label="Дата">'+esc(l.date||'')+'</td>'+
+      '<td data-label="Обладнання">'+esc(eqMap[l.equipmentId]||'Видалено')+'</td>'+
+      '<td data-label="Тип">'+esc(l.type||'')+'</td>'+
+      '<td data-label="Вартість">'+(l.cost ? fmt(l.cost)+' грн' : '—')+'</td>'+
+      '<td data-label="Коментар">'+esc(l.comment||'')+'</td>'+
+      '<td data-label="Дії"><button class="btn btn-danger btn-sm" onclick="deleteServiceLog(\''+l.id+'\')">✕</button></td>'+
     '</tr>';
   }).join('');
   document.getElementById('service-history-table').innerHTML = historyRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light);">Поки немає записів</td></tr>';
@@ -3036,6 +3273,8 @@ document.addEventListener('click', function(e) {
   }
 });
 
+var _readNotifIds = JSON.parse(localStorage.getItem('lipo_read_notifs') || '[]');
+
 function updateNotifications() {
   var db = getDB();
   var notifs = [];
@@ -3045,16 +3284,16 @@ function updateNotifications() {
   // Low stock materials
   (db.materials||[]).forEach(function(m) {
     if (m.qty <= 0) {
-      notifs.push({ type:'danger', icon:'📦', text:'<b>'+esc(m.name)+'</b> — закінчився (0 на складі)' });
+      notifs.push({ id:'mat_'+m.id+'_0', type:'danger', icon:'📦', text:'<b>'+esc(m.name)+'</b> — закінчився (0 на складі)' });
     } else if (m.min && m.qty <= m.min) {
-      notifs.push({ type:'warning', icon:'📦', text:'<b>'+esc(m.name)+'</b> — залишок '+fmt(m.qty)+' '+esc(m.unit)+' (мін. '+fmt(m.min)+')' });
+      notifs.push({ id:'mat_'+m.id+'_low', type:'warning', icon:'📦', text:'<b>'+esc(m.name)+'</b> — залишок '+fmt(m.qty)+' '+esc(m.unit)+' (мін. '+fmt(m.min)+')' });
     }
   });
 
   // Low stock products
   (db.products||[]).forEach(function(p) {
     if (p.active !== false && p.stock <= 0) {
-      notifs.push({ type:'warning', icon:'🎮', text:'<b>'+esc(p.name)+'</b> — немає на складі' });
+      notifs.push({ id:'prod_'+p.id+'_0', type:'warning', icon:'🎮', text:'<b>'+esc(p.name)+'</b> — немає на складі' });
     }
   });
 
@@ -3067,9 +3306,9 @@ function updateNotifications() {
         next.setDate(next.getDate() + eq.serviceInterval);
         var daysLeft = Math.ceil((next - today) / (1000*60*60*24));
         if (daysLeft < 0) {
-          notifs.push({ type:'danger', icon:'🔧', text:'<b>'+esc(eq.name)+'</b> — обслуговування прострочено на '+Math.abs(daysLeft)+' дн.' });
+          notifs.push({ id:'eq_'+eq.id+'_overdue', type:'danger', icon:'🔧', text:'<b>'+esc(eq.name)+'</b> — обслуговування прострочено на '+Math.abs(daysLeft)+' дн.' });
         } else if (daysLeft <= 14) {
-          notifs.push({ type:'warning', icon:'🔧', text:'<b>'+esc(eq.name)+'</b> — обслуговування через '+daysLeft+' дн.' });
+          notifs.push({ id:'eq_'+eq.id+'_soon', type:'warning', icon:'🔧', text:'<b>'+esc(eq.name)+'</b> — обслуговування через '+daysLeft+' дн.' });
         }
       }
     }
@@ -3079,23 +3318,70 @@ function updateNotifications() {
   if (_currentUser && _currentUser.trialEndsAt && !_currentUser.subscriptionEndsAt && _currentUser.role !== 'admin') {
     var trialDays = Math.ceil((new Date(_currentUser.trialEndsAt) - new Date()) / (1000*60*60*24));
     if (trialDays <= 7 && trialDays > 0) {
-      notifs.push({ type:'info', icon:'⏰', text:'Пробний період закінчується через <b>'+trialDays+' дн.</b> Оберіть тариф, щоб продовжити.' });
+      notifs.push({ id:'trial_'+trialDays, type:'info', icon:'⏰', text:'Пробний період закінчується через <b>'+trialDays+' дн.</b> <a href="#" onclick="openPaymentModal();return false;" style="color:var(--primary);">Оберіть тариф →</a>' });
     }
   }
+
+  // Count unread
+  var unreadCount = notifs.filter(function(n){ return _readNotifIds.indexOf(n.id) === -1; }).length;
 
   // Render
   var countEl = document.getElementById('notif-count');
   var listEl = document.getElementById('notif-list');
+  var readAllBtn = document.getElementById('notif-read-all');
+
   if (notifs.length) {
-    countEl.style.display = 'flex';
-    countEl.textContent = notifs.length > 99 ? '99+' : notifs.length;
+    if (unreadCount > 0) {
+      countEl.style.display = 'flex';
+      countEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
+    } else {
+      countEl.style.display = 'none';
+    }
+    if (readAllBtn) readAllBtn.style.display = unreadCount > 0 ? '' : 'none';
     listEl.innerHTML = notifs.map(function(n) {
-      return '<div class="notif-item '+n.type+'"><span>'+n.icon+'</span><span>'+n.text+'</span></div>';
+      var isRead = _readNotifIds.indexOf(n.id) !== -1;
+      return '<div class="notif-item '+n.type+(isRead?' read':'')+'" data-nid="'+n.id+'" onclick="markNotifRead(this)"><span>'+n.icon+'</span><span>'+n.text+'</span></div>';
     }).join('');
   } else {
     countEl.style.display = 'none';
-    listEl.innerHTML = '<div class="notif-empty">Все добре, немає сповіщень 🎉</div>';
+    if (readAllBtn) readAllBtn.style.display = 'none';
+    listEl.innerHTML = '<div class="notif-empty" style="padding:24px 16px;text-align:center;color:var(--text-light);font-size:14px;">Все добре, немає сповіщень 🎉</div>';
   }
+}
+
+function markNotifRead(el) {
+  var nid = el.getAttribute('data-nid');
+  if (nid && _readNotifIds.indexOf(nid) === -1) {
+    _readNotifIds.push(nid);
+    localStorage.setItem('lipo_read_notifs', JSON.stringify(_readNotifIds));
+    el.classList.add('read');
+    updateNotifBadge();
+  }
+}
+
+function markAllNotifsRead() {
+  document.querySelectorAll('.notif-item[data-nid]').forEach(function(el) {
+    var nid = el.getAttribute('data-nid');
+    if (nid && _readNotifIds.indexOf(nid) === -1) _readNotifIds.push(nid);
+    el.classList.add('read');
+  });
+  localStorage.setItem('lipo_read_notifs', JSON.stringify(_readNotifIds));
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  var all = document.querySelectorAll('.notif-item[data-nid]');
+  var unread = 0;
+  all.forEach(function(el){ if (!el.classList.contains('read')) unread++; });
+  var countEl = document.getElementById('notif-count');
+  var readAllBtn = document.getElementById('notif-read-all');
+  if (unread > 0) {
+    countEl.style.display = 'flex';
+    countEl.textContent = unread > 99 ? '99+' : unread;
+  } else {
+    countEl.style.display = 'none';
+  }
+  if (readAllBtn) readAllBtn.style.display = unread > 0 ? '' : 'none';
 }
 
 function deleteAccount() {
@@ -3117,16 +3403,64 @@ function deleteAccount() {
   }).catch(function(){ alert('Помилка з\'єднання з сервером'); });
 }
 
+// ==================== NOTIFICATION PREFERENCES ====================
+function loadNotifPrefs() {
+  fetch('/api/notifications/prefs').then(function(r){ return r.json(); }).then(function(p){
+    if (!p || p.error) return;
+    document.getElementById('pref-email-welcome').checked = p.email_welcome !== false;
+    document.getElementById('pref-email-trial-reminder').checked = p.email_trial_reminder !== false;
+    document.getElementById('pref-email-trial-expired').checked = p.email_trial_expired !== false;
+    document.getElementById('pref-email-sub-reminder').checked = p.email_subscription_reminder !== false;
+    document.getElementById('pref-email-payment').checked = p.email_payment_confirm !== false;
+    document.getElementById('pref-email-material').checked = p.email_material_alert === true;
+    document.getElementById('pref-email-stock').checked = p.email_stock_alert === true;
+    // Telegram
+    var tgStatus = document.getElementById('telegram-status');
+    if (p.telegram_enabled && p.telegram_chat_id) {
+      tgStatus.innerHTML = '<span style="color:var(--success);font-size:13px;">✅ Telegram підключено (chat: ' + p.telegram_chat_id + ')</span>';
+    } else {
+      tgStatus.innerHTML = '<span style="color:var(--text-light);font-size:13px;">Не підключено</span>';
+    }
+  }).catch(function(){});
+}
+
+var _notifSaveTimer = null;
+function saveNotifPrefs() {
+  clearTimeout(_notifSaveTimer);
+  _notifSaveTimer = setTimeout(function() {
+    var prefs = {
+      email_welcome: document.getElementById('pref-email-welcome').checked,
+      email_trial_reminder: document.getElementById('pref-email-trial-reminder').checked,
+      email_trial_expired: document.getElementById('pref-email-trial-expired').checked,
+      email_subscription_reminder: document.getElementById('pref-email-sub-reminder').checked,
+      email_payment_confirm: document.getElementById('pref-email-payment').checked,
+      email_material_alert: document.getElementById('pref-email-material').checked,
+      email_stock_alert: document.getElementById('pref-email-stock').checked
+    };
+    fetch('/api/notifications/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(prefs)
+    }).then(function(){
+      var el = document.getElementById('notif-save-status');
+      el.style.display = 'block';
+      setTimeout(function(){ el.style.display = 'none'; }, 2000);
+    }).catch(function(){});
+  }, 500);
+}
+
 // ==================== PAYMENT ====================
 var _selectedPlan = null;
 
 function openPaymentModal() {
   _selectedPlan = null;
   document.getElementById('pay-btn').disabled = true;
+  document.getElementById('pay-btn').textContent = 'Оплатити';
   document.getElementById('payment-error').style.display = 'none';
-  document.querySelectorAll('#payment-plans label').forEach(function(l) {
-    l.style.borderColor = 'var(--border)';
-    l.querySelector('input').checked = false;
+  document.querySelectorAll('.payment-plan-card').forEach(function(c) {
+    c.style.borderColor = c.querySelector('input[value="month6"]') ? 'var(--primary)' : 'var(--border)';
+    c.style.background = '#fff';
+    c.querySelector('input').checked = false;
   });
   document.getElementById('account-panel').classList.remove('show');
   openModal('payment');
@@ -3134,13 +3468,21 @@ function openPaymentModal() {
 
 function selectPlan(el, plan) {
   _selectedPlan = plan;
-  document.getElementById('pay-btn').disabled = false;
-  document.querySelectorAll('#payment-plans label').forEach(function(l) {
-    l.style.borderColor = 'var(--border)';
-    l.style.background = '';
+  var btn = document.getElementById('pay-btn');
+  btn.disabled = false;
+  var prices = { month1: '250 грн — Оплатити', month6: '1 250 грн — Оплатити', month12: '2 200 грн — Оплатити' };
+  btn.textContent = prices[plan] || 'Оплатити';
+  document.querySelectorAll('.payment-plan-card').forEach(function(c) {
+    var isPopular = !!c.querySelector('input[value="month6"]');
+    c.style.borderColor = 'var(--border)';
+    c.style.background = '#fff';
+    c.style.transform = isPopular ? 'scale(1.04)' : '';
+    c.style.boxShadow = isPopular ? '0 8px 30px rgba(123,31,162,0.15)' : '';
   });
   el.style.borderColor = 'var(--primary)';
-  el.style.background = '#F3E5F5';
+  el.style.background = '#FDFAFF';
+  el.style.transform = 'scale(1.04)';
+  el.style.boxShadow = '0 8px 30px rgba(123,31,162,0.2)';
 }
 
 function initPayment() {
@@ -3212,17 +3554,128 @@ function submitToWayForPay(paymentData) {
   var params = new URLSearchParams(window.location.search);
   if (params.get('payment') === 'success') {
     setTimeout(function() {
-      alert('Дякуємо за оплату! Ваша підписка активована.');
-      // Remove query param
+      alert('✅ Дякуємо за оплату!\n\nВаша підписка LipoLand PRO активована. Приємного користування!');
       window.history.replaceState({}, '', '/app');
       loadAccount();
     }, 500);
+  } else if (params.get('payment') === 'failed') {
+    setTimeout(function() {
+      alert('❌ Оплата не пройшла.\n\nСпробуйте ще раз або зверніться до підтримки.');
+      window.history.replaceState({}, '', '/app');
+    }, 500);
   }
 })();
+
+// ==================== ONBOARDING ====================
+var onbSteps = [
+  {
+    icon: '👋',
+    title: 'Ласкаво просимо до LipoLand!',
+    subtitle: 'Перша спеціалізована CRM для виробництва липучкових книжок в Україні',
+    body: '<div style="text-align:center;padding:16px 0;"><p style="font-size:16px;color:var(--text);line-height:1.6;">Ми допоможемо вам вести облік матеріалів, рахувати собівартість, управляти замовленнями та контролювати виробництво.</p><p style="margin-top:16px;font-size:14px;color:var(--text-light);">Давайте швидко пройдемось по основних можливостях! 🚀</p></div>'
+  },
+  {
+    icon: '📦',
+    title: 'Матеріали та продукція',
+    subtitle: 'Крок 1 з 4',
+    body: '<div class="onb-feature"><div class="onb-feature-icon">📦</div><div class="onb-feature-text"><h4>База матеріалів</h4><p>Додайте всі ваші матеріали: ліпучки, папір, плівку та інші витратники. Вказуйте ціни та постачальників — система слідкуватиме за залишками.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">🎮</div><div class="onb-feature-text"><h4>Каталог ігор</h4><p>Створіть свої ігри (продукцію). Для кожної гри можна скласти «Склад виробу» — технологічну карту з матеріалами.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">📥</div><div class="onb-feature-text"><h4>Імпорт з Excel</h4><p>Вже маєте базу? Завантажте CSV-файл у налаштуваннях — і всі матеріали або ігри будуть імпортовані за секунди.</p></div></div>'
+  },
+  {
+    icon: '📊',
+    title: 'Собівартість та фінанси',
+    subtitle: 'Крок 2 з 4',
+    body: '<div class="onb-feature"><div class="onb-feature-icon">🧮</div><div class="onb-feature-text"><h4>Автоматична калькуляція</h4><p>Собівартість розраховується автоматично: матеріали + друк + пакування + шаблон + робота майстра. Бачите маржу по кожній грі.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">🖨</div><div class="onb-feature-text"><h4>Облік друку та чорнил</h4><p>Налаштуйте принтер (4-8 кольорів), ведіть журнал заправок, відстежуйте витратники — вартість друку додається в собівартість.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">💰</div><div class="onb-feature-text"><h4>Зарплата майстра</h4><p>Встановіть ставку — відсоток від ціни або фіксована сума за кожну гру. Автоматичний розрахунок ЗП по виробництву.</p></div></div>'
+  },
+  {
+    icon: '📋',
+    title: 'Замовлення та виробництво',
+    subtitle: 'Крок 3 з 4',
+    body: '<div class="onb-feature"><div class="onb-feature-icon">📝</div><div class="onb-feature-text"><h4>Управління замовленнями</h4><p>Ведіть замовлення з автоматичною нумерацією, статусами та відстеженням дедлайнів. Бачите які матеріали потрібні.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">🔧</div><div class="onb-feature-text"><h4>Контроль виробництва</h4><p>Запускайте виробництво ігор, відмічайте готові — система автоматично списує матеріали та рахує склад.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">👷</div><div class="onb-feature-text"><h4>Видача майстрам</h4><p>Передавайте готову продукцію майстрам для продажу — бачите хто скільки має на руках.</p></div></div>'
+  },
+  {
+    icon: '🤝',
+    title: 'Команда та налаштування',
+    subtitle: 'Крок 4 з 4',
+    body: '<div class="onb-feature"><div class="onb-feature-icon">👥</div><div class="onb-feature-text"><h4>Підключення майстрів</h4><p>Запросіть майстрів за email — вони отримають свій доступ з обмеженими правами (що бачити, а що ні).</p></div></div><div class="onb-feature"><div class="onb-feature-icon">⚙️</div><div class="onb-feature-text"><h4>Гнучкі налаштування</h4><p>Налаштуйте принтер, ставку майстра, інтеграцію з SalesDrive CRM, імпорт даних з Excel.</p></div></div><div class="onb-feature"><div class="onb-feature-icon">🎬</div><div class="onb-feature-text"><h4>Відео-інструкції</h4><p>Незабаром на YouTube — детальний огляд всіх можливостей системи. Підпишіться, щоб не пропустити!</p></div></div>'
+  }
+];
+
+var _onbStep = 0;
+
+function showOnboarding() {
+  _onbStep = 0;
+  renderOnbStep();
+  document.getElementById('onboarding-overlay').classList.add('show');
+}
+
+function renderOnbStep() {
+  var step = onbSteps[_onbStep];
+  var total = onbSteps.length;
+  document.getElementById('onb-icon').textContent = step.icon;
+  document.getElementById('onb-title').textContent = step.title;
+  document.getElementById('onb-subtitle').textContent = step.subtitle;
+  document.getElementById('onb-body').innerHTML = step.body;
+
+  // Dots
+  var dotsHtml = '';
+  for (var i = 0; i < total; i++) {
+    dotsHtml += '<div class="onb-dot' + (i === _onbStep ? ' active' : '') + '"></div>';
+  }
+  document.getElementById('onb-dots').innerHTML = dotsHtml;
+
+  // Buttons
+  document.getElementById('onb-back').style.display = _onbStep === 0 ? 'none' : '';
+  var nextBtn = document.getElementById('onb-next');
+  if (_onbStep === total - 1) {
+    nextBtn.textContent = 'Почати роботу! 🚀';
+    nextBtn.onclick = closeOnboarding;
+  } else {
+    nextBtn.textContent = 'Далі →';
+    nextBtn.onclick = function() { _onbStep++; renderOnbStep(); };
+  }
+}
+
+function closeOnboarding() {
+  document.getElementById('onboarding-overlay').classList.remove('show');
+  localStorage.setItem('lipo_onboarding_done', '1');
+  // Clean URL
+  window.history.replaceState({}, '', '/app');
+}
+
+// Check if should show onboarding
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var isNewUser = params.get('welcome') === '1';
+  var onbDone = localStorage.getItem('lipo_onboarding_done');
+  if (isNewUser && !onbDone) {
+    setTimeout(showOnboarding, 800);
+  }
+})();
+
+// Also trigger onboarding from email registration response
+var _origRegistrationFetch = null;
 
 // ==================== INIT ====================
 loadAccount();
 renderDashboard();
 </script>
+
+<!-- Onboarding Overlay (outside script, before body close) -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-card">
+    <div class="onboarding-header">
+      <div id="onb-icon" style="font-size:48px;margin-bottom:8px;">👋</div>
+      <h2 id="onb-title" style="font-size:24px;font-weight:800;margin:0 0 6px;">Ласкаво просимо!</h2>
+      <p id="onb-subtitle" style="font-size:14px;opacity:0.85;margin:0;"></p>
+    </div>
+    <div class="onboarding-body" id="onb-body"></div>
+    <div class="onboarding-footer">
+      <button id="onb-back" class="btn btn-outline" style="display:none;" onclick="_onbStep--;renderOnbStep();">← Назад</button>
+      <div id="onb-dots" class="onb-dots"></div>
+      <button id="onb-next" class="btn btn-primary" style="min-width:160px;">Далі →</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
