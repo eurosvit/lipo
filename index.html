@@ -1091,22 +1091,27 @@ function saveDB(db) {
   if (typeof updateNotifications === 'function') updateNotifications();
 }
 
-// Load data from server on startup, then sync back
-fetch('/api/data').then(function(r){ return r.json(); }).then(function(serverData){
+// Load data from server on startup
+fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
+  var prevUser = localStorage.getItem('lipo_current_user');
+  var curUser = u && u.id ? u.id : '';
+  if (prevUser && prevUser !== curUser) {
+    // Different user — clear old data
+    localStorage.removeItem(DB_KEY);
+    _dbCache = null;
+  }
+  if (curUser) localStorage.setItem('lipo_current_user', curUser);
+  return fetch('/api/data');
+}).then(function(r){ return r.json(); }).then(function(serverData){
   if (serverData && (serverData.materials || serverData.products)) {
     _dbCache = serverData;
     localStorage.setItem(DB_KEY, JSON.stringify(serverData));
-  } else {
-    // No server data yet — push localStorage to server
-    var local = localStorage.getItem(DB_KEY);
-    if (local) {
-      _dbCache = JSON.parse(local);
-      fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: local }).catch(function(){});
-    }
   }
   renderPage('dashboard');
   updateNotifications();
-}).catch(function(){});
+}).catch(function(){
+  renderPage('dashboard');
+});
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 // ==================== MOBILE MENU ====================
