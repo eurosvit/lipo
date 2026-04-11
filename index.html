@@ -31,7 +31,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 .nav button.active { color:#fff; border-bottom-color:#fff; font-weight:600; }
 
 /* LAYOUT */
-.page { display:none; padding:20px; max-width:1400px; margin:0 auto; }
+.page { display:none; padding:20px; padding-bottom:200px; max-width:1400px; margin:0 auto; }
 .page.active { display:block; }
 .page h2 { margin-bottom:20px; font-size:22px; }
 
@@ -401,12 +401,24 @@ a.order-link:hover { text-decoration:underline; }
 <div id="settings" class="page">
   <h2>Налаштування</h2>
   <div class="card" style="max-width:600px;margin-bottom:16px;">
-    <div class="section-title" style="margin-top:0;">Майстри</div>
+    <div class="section-title" style="margin-top:0;">Майстри (локальні)</div>
     <div id="workers-list" class="mb-16"></div>
     <div class="form-row">
       <div class="form-group"><label>Ім'я майстра</label><input id="new-worker" placeholder="Наприклад: Оксана"></div>
       <button class="btn btn-primary" onclick="addWorker()">Додати</button>
     </div>
+  </div>
+  <div class="card" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
+    <div class="section-title" style="margin-top:0;">👩‍🔧 Підключені майстри <span class="badge badge-ok" style="font-size:10px;">+100 грн/місяць за місце</span></div>
+    <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите.</p>
+    <div id="linked-workers-list" class="mb-16"></div>
+    <div id="pending-invites-list" class="mb-16"></div>
+    <div class="form-row" style="border-top:1px solid var(--border);padding-top:12px;">
+      <div class="form-group"><label>Email майстра</label><input id="invite-worker-email" type="email" placeholder="oксана@gmail.com"></div>
+      <div class="form-group" style="max-width:180px;"><label>Ім'я</label><input id="invite-worker-name" placeholder="Оксана"></div>
+      <button class="btn btn-primary" onclick="inviteWorker()">📩 Запросити</button>
+    </div>
+    <div id="invite-result" style="margin-top:8px;"></div>
   </div>
   <div class="card" style="max-width:600px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Дані</div>
@@ -428,9 +440,17 @@ a.order-link:hover { text-decoration:underline; }
     <div id="crm-test-result" style="margin-top:8px;"></div>
   </div>
   <div class="card" style="max-width:600px;">
-    <div class="section-title" style="margin-top:0;">Дані LipoLand</div>
-    <p class="text-muted mb-16" style="font-size:14px;">Завантажити каталог матеріалів та всіх 180 товарів LipoLand</p>
-    <button class="btn btn-primary" onclick="if(confirm('Завантажити дані LipoLand? Поточні дані буде замінено.'))loadRealData()">Завантажити дані LipoLand</button>
+    <div class="section-title" style="margin-top:0;">📥 Імпорт з Excel</div>
+    <p class="text-muted mb-16" style="font-size:13px;">Швидко завантажте свої товари та матеріали з Excel-файлу. Завантажте шаблон, заповніть його та імпортуйте назад.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-outline" onclick="downloadExcelTemplate('products')">📋 Шаблон товарів</button>
+      <button class="btn btn-outline" onclick="downloadExcelTemplate('materials')">📦 Шаблон матеріалів</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="document.getElementById('excel-import-file').click()">📂 Імпортувати з Excel</button>
+      <input type="file" id="excel-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(event)">
+    </div>
+    <div id="excel-import-result" style="margin-top:8px;"></div>
   </div>
 </div>
 
@@ -1772,6 +1792,8 @@ function renderSettings() {
   var crm = getCrmSettings();
   document.getElementById('sd-domain').value = crm.domain || '';
   document.getElementById('sd-apikey').value = crm.apiKey || '';
+  // Load linked workers
+  if (!_currentUser || !_currentUser.isWorker) loadLinkedWorkers();
 }
 
 function addWorker() {
@@ -1789,6 +1811,282 @@ function removeWorker(i) {
   db.workers.splice(i,1);
   saveDB(db);
   renderSettings();
+}
+
+// ==================== LINKED WORKERS (ONLINE) ====================
+function loadLinkedWorkers() {
+  fetch('/api/workers').then(function(r){ return r.json(); }).then(function(data){
+    if (data.error) return;
+    renderLinkedWorkers(data.workers || [], data.pendingInvites || []);
+  }).catch(function(){});
+}
+
+function renderLinkedWorkers(workers, invites) {
+  var listEl = document.getElementById('linked-workers-list');
+  if (!listEl) return;
+
+  if (workers.length) {
+    var permLabels = {
+      dashboard:'📊 Дашборд', orders:'📋 Замовлення', production:'🔧 Виробництво',
+      workerStock:'📦 Склад майстрів', materials:'🧵 Матеріали (залишки)',
+      materialPrices:'💰 Ціни матеріалів', sellPrices:'🏷 Ціни продажу',
+      costs:'📈 Собівартість', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
+    };
+    listEl.innerHTML = workers.map(function(w) {
+      var perms = w.permissions || {};
+      var permHtml = Object.keys(permLabels).map(function(key) {
+        var checked = perms[key] ? 'checked' : '';
+        return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;min-width:170px;">'+
+          '<input type="checkbox" '+checked+' onchange="updateWorkerPerm(\''+w.id+'\',\''+key+'\',this.checked)"> '+permLabels[key]+'</label>';
+      }).join('');
+      return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+          '<div><strong>'+ esc(w.worker_name || w.user_name || '—') +'</strong> <span class="text-muted" style="font-size:12px;">'+esc(w.email)+'</span></div>'+
+          '<button class="btn btn-danger btn-sm" onclick="removeLinkedWorker(\''+w.id+'\')">✕ Відключити</button>'+
+        '</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;">'+permHtml+'</div>'+
+      '</div>';
+    }).join('');
+  } else {
+    listEl.innerHTML = '<p class="text-muted" style="font-size:13px;">Немає підключених майстрів</p>';
+  }
+
+  var invEl = document.getElementById('pending-invites-list');
+  if (invEl && invites.length) {
+    invEl.innerHTML = '<div class="section-title" style="font-size:13px;margin-top:8px;">⏳ Очікують реєстрацію:</div>' +
+      invites.map(function(inv) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;">'+
+          '<span>'+esc(inv.email)+'</span>'+
+          '<span class="badge badge-warning">очікує</span>'+
+          '<button class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:11px;" onclick="cancelInvite(\''+inv.id+'\')">✕</button>'+
+        '</div>';
+      }).join('');
+  } else if (invEl) {
+    invEl.innerHTML = '';
+  }
+}
+
+function inviteWorker() {
+  var email = v('invite-worker-email').trim();
+  var name = v('invite-worker-name').trim();
+  if (!email) return alert('Вкажіть email майстра');
+  var resultEl = document.getElementById('invite-result');
+  resultEl.innerHTML = '<span class="text-muted">Запрошуємо...</span>';
+
+  fetch('/api/workers/invite', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ email: email, name: name })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (data.error) { resultEl.innerHTML = '<span class="text-danger">'+esc(data.error)+'</span>'; return; }
+    if (data.linked) {
+      resultEl.innerHTML = '<span class="text-success">✅ Майстер підключений! Вона вже зареєстрована в системі.</span>';
+    } else {
+      resultEl.innerHTML = '<span class="text-success">✅ Запрошення створено! Коли <b>'+esc(email)+'</b> зареєструється на lipoland.top — вона автоматично підключиться до вашого акаунту.</span>';
+    }
+    document.getElementById('invite-worker-email').value = '';
+    document.getElementById('invite-worker-name').value = '';
+    loadLinkedWorkers();
+  }).catch(function(){ resultEl.innerHTML = '<span class="text-danger">Помилка з\'єднання</span>'; });
+}
+
+function updateWorkerPerm(linkId, key, value) {
+  // Read current perms from DOM and update
+  var card = event.target.closest('div[style*="border:1px"]');
+  var checkboxes = card.querySelectorAll('input[type="checkbox"]');
+  var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','salary','equipment','settings'];
+  var perms = {};
+  permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
+
+  fetch('/api/workers/permissions', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ linkId: linkId, permissions: perms })
+  }).catch(function(){});
+}
+
+function removeLinkedWorker(linkId) {
+  if (!confirm('Відключити цього майстра? Вона більше не зможе бачити ваші дані.')) return;
+  fetch('/api/workers/remove', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ linkId: linkId })
+  }).then(function(){ loadLinkedWorkers(); }).catch(function(){});
+}
+
+function cancelInvite(inviteId) {
+  fetch('/api/workers/cancel-invite', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ inviteId: inviteId })
+  }).then(function(){ loadLinkedWorkers(); }).catch(function(){});
+}
+
+// ==================== WORKER ROLE (PERMISSION FILTERING) ====================
+function applyWorkerPermissions() {
+  if (!_currentUser || !_currentUser.isWorker) return;
+  var p = _currentUser.workerPermissions || {};
+
+  // Hide nav buttons based on permissions
+  var navMap = {
+    'dashboard': p.dashboard !== false,
+    'materials': p.materials === true,
+    'products': false, // workers don't manage product catalog
+    'production': p.production === true,
+    'orders': p.orders === true,
+    'worker-stock': p.workerStock === true,
+    'salary': p.salary === true,
+    'costs': p.costs === true,
+    'equipment': p.equipment === true,
+    'settings': p.settings === true
+  };
+
+  document.querySelectorAll('.nav button[data-page]').forEach(function(btn) {
+    var page = btn.getAttribute('data-page');
+    if (navMap[page] === false) {
+      btn.style.display = 'none';
+    }
+  });
+
+  // Hide linked workers card (only for owners)
+  var lwCard = document.getElementById('linked-workers-card');
+  if (lwCard) lwCard.style.display = 'none';
+
+  // Show worker info banner
+  var banner = document.createElement('div');
+  banner.className = 'alert';
+  banner.style.cssText = 'background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;margin:0 20px;margin-top:8px;';
+  banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>';
+  document.querySelector('.nav').insertAdjacentElement('afterend', banner);
+
+  // If costs hidden, also hide cost columns in products table
+  if (!p.costs && !p.sellPrices) {
+    var style = document.createElement('style');
+    style.textContent = '.worker-hide-prices { display:none !important; }';
+    document.head.appendChild(style);
+  }
+}
+
+// ==================== EXCEL IMPORT/EXPORT ====================
+function downloadExcelTemplate(type) {
+  var rows = [];
+  var filename = '';
+
+  if (type === 'products') {
+    rows.push(['Артикул', 'Назва', 'Категорія', 'Розмір', 'На складі', 'Ціна продажу (грн)', 'Нотатки']);
+    rows.push(['LP-001', 'Книжка Ферма', 'Книжки', '20x20', '5', '850', 'Приклад - видаліть цей рядок']);
+    rows.push(['LP-002', 'Гра Алфавіт', 'Ігри', '30x30', '3', '1200', '']);
+    filename = 'lipoland-шаблон-товари.csv';
+  } else {
+    rows.push(['Назва', 'Одиниця', 'Залишок', 'Мінімум', 'Ціна за од. (грн)', 'Постачальник', 'Нотатки']);
+    rows.push(['Фетр жовтий 1мм', 'м', '5', '2', '120', 'Текстиль-опт', 'Приклад - видаліть цей рядок']);
+    rows.push(['Ліпучка 2см біла', 'м', '20', '5', '8', '', '']);
+    filename = 'lipoland-шаблон-матеріали.csv';
+  }
+
+  // BOM for Excel UTF-8 recognition
+  var csvContent = '\uFEFF' + rows.map(function(r) {
+    return r.map(function(cell) {
+      return '"' + String(cell).replace(/"/g, '""') + '"';
+    }).join(';');
+  }).join('\n');
+
+  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function importExcel(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var resultEl = document.getElementById('excel-import-result');
+  resultEl.innerHTML = '<span class="text-muted">Обробка файлу...</span>';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      // Detect separator (;  or ,)
+      var sep = text.indexOf(';') > -1 ? ';' : ',';
+      var lines = text.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+      if (lines.length < 2) { resultEl.innerHTML = '<span class="text-danger">Файл порожній або має лише заголовок</span>'; return; }
+
+      var header = parseCSVLine(lines[0], sep);
+      var h0 = header[0].replace(/^\uFEFF/, '').toLowerCase().trim();
+
+      var db = getDB();
+      var count = 0;
+
+      if (h0 === 'артикул' || h0 === 'sku') {
+        // Products import
+        for (var i = 1; i < lines.length; i++) {
+          var cols = parseCSVLine(lines[i], sep);
+          if (cols.length < 2 || !cols[1].trim()) continue;
+          db.products.push({
+            id: uid(),
+            sku: cols[0] ? cols[0].trim() : '',
+            name: cols[1].trim(),
+            category: cols[2] ? cols[2].trim() : '',
+            size: cols[3] ? cols[3].trim() : '',
+            stock: cols[4] ? parseInt(cols[4]) || 0 : 0,
+            inProgress: 0,
+            sellPrice: cols[5] ? parseFloat(cols[5]) || 0 : 0,
+            note: cols[6] ? cols[6].trim() : '',
+            recipe: [],
+            active: true
+          });
+          count++;
+        }
+        saveDB(db);
+        resultEl.innerHTML = '<span class="text-success">✅ Імпортовано <b>' + count + '</b> товарів!</span>';
+        renderPage('products');
+      } else if (h0 === 'назва' || h0 === 'name') {
+        // Materials import
+        for (var i = 1; i < lines.length; i++) {
+          var cols = parseCSVLine(lines[i], sep);
+          if (cols.length < 1 || !cols[0].trim()) continue;
+          db.materials.push({
+            id: uid(),
+            name: cols[0].trim(),
+            unit: cols[1] ? cols[1].trim() : 'шт',
+            qty: cols[2] ? parseFloat(cols[2]) || 0 : 0,
+            min: cols[3] ? parseFloat(cols[3]) || 0 : 0,
+            price: cols[4] ? parseFloat(cols[4]) || 0 : 0,
+            supplier: cols[5] ? cols[5].trim() : '',
+            note: cols[6] ? cols[6].trim() : ''
+          });
+          count++;
+        }
+        saveDB(db);
+        resultEl.innerHTML = '<span class="text-success">✅ Імпортовано <b>' + count + '</b> матеріалів!</span>';
+        renderPage('materials');
+      } else {
+        resultEl.innerHTML = '<span class="text-danger">Невідомий формат. Перший стовпець має бути "Артикул" (товари) або "Назва" (матеріали).</span>';
+      }
+    } catch(err) {
+      resultEl.innerHTML = '<span class="text-danger">Помилка: ' + esc(err.message) + '</span>';
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function parseCSVLine(line, sep) {
+  var result = [];
+  var current = '';
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i+1] === '"') { current += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { current += c; }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === sep) { result.push(current); current = ''; }
+      else { current += c; }
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 // ==================== EXPORT/IMPORT ====================
@@ -2304,6 +2602,12 @@ function loadAccount() {
       statusEl.textContent = 'Закінчився';
       statusEl.className = 'value expired';
       untilEl.textContent = '—';
+    }
+
+    // Worker role info
+    if (u.isWorker) {
+      document.getElementById('acc-role').textContent = 'Майстер у ' + (u.ownerName || '—');
+      applyWorkerPermissions();
     }
   }).catch(function(){});
 }

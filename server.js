@@ -79,6 +79,32 @@ async function initDB() {
     )
   `);
 
+  // Worker invitations
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS worker_invites (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      permissions JSONB NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  // Worker links (owner <-> worker)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS worker_links (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      worker_name TEXT NOT NULL DEFAULT '',
+      permissions JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(owner_id, worker_id)
+    )
+  `);
+
   console.log('PostgreSQL connected, tables ready');
 }
 
@@ -142,6 +168,19 @@ async function getSessionUser(req) {
   if (!res.rows.length) return null;
   const user = res.rows[0];
   user.hasAccess = checkAccess(user);
+
+  // Check if this user is a linked worker
+  const wl = await pool.query(
+    `SELECT wl.*, u.name as owner_name FROM worker_links wl JOIN users u ON wl.owner_id = u.id WHERE wl.worker_id = $1`,
+    [user.id]
+  );
+  if (wl.rows.length) {
+    user.isWorker = true;
+    user.ownerId = wl.rows[0].owner_id;
+    user.ownerName = wl.rows[0].owner_name;
+    user.workerPermissions = wl.rows[0].permissions || {};
+    user.hasAccess = true; // Workers always have access through owner
+  }
   return user;
 }
 
@@ -245,6 +284,23 @@ const server = http.createServer(async (req, res) => {
         [userId, email.toLowerCase(), name, hash, role, trialEnds, promo || null]
       );
 
+      // Check for pending worker invites for this email
+      if (pool) {
+        const invites = await pool.query(
+          "SELECT * FROM worker_invites WHERE email = $1 AND status = 'pending'",
+          [email.toLowerCase()]
+        );
+        for (const inv of invites.rows) {
+          const linkId = generateId();
+          await pool.query(
+            `INSERT INTO worker_links (id, owner_id, worker_id, worker_name, permissions) VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (owner_id, worker_id) DO NOTHING`,
+            [linkId, inv.owner_id, userId, name, JSON.stringify(inv.permissions)]
+          );
+          await pool.query("UPDATE worker_invites SET status = 'accepted' WHERE id = $1", [inv.id]);
+        }
+      }
+
       await createSession(res, userId);
       sendJSON(res, 200, { ok: true });
       return;
@@ -332,6 +388,20 @@ const server = http.createServer(async (req, res) => {
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [userId, googleUser.email.toLowerCase(), googleUser.name || '', googleUser.id, role, trialEnds]
         );
+        // Check for pending worker invites
+        const invites = await pool.query(
+          "SELECT * FROM worker_invites WHERE email = $1 AND status = 'pending'",
+          [googleUser.email.toLowerCase()]
+        );
+        for (const inv of invites.rows) {
+          const linkId = generateId();
+          await pool.query(
+            `INSERT INTO worker_links (id, owner_id, worker_id, worker_name, permissions) VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (owner_id, worker_id) DO NOTHING`,
+            [linkId, inv.owner_id, userId, googleUser.name || '', JSON.stringify(inv.permissions)]
+          );
+          await pool.query("UPDATE worker_invites SET status = 'accepted' WHERE id = $1", [inv.id]);
+        }
       }
 
       await createSession(res, userId);
@@ -343,12 +413,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url === '/api/auth/me') {
       const user = await getSessionUser(req);
       if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
-      sendJSON(res, 200, {
+      const response = {
         id: user.id, email: user.email, name: user.name, role: user.role,
         hasAccess: user.hasAccess,
         trialEndsAt: user.trial_ends_at,
         subscriptionEndsAt: user.subscription_ends_at
-      });
+      };
+      if (user.isWorker) {
+        response.isWorker = true;
+        response.ownerId = user.ownerId;
+        response.ownerName = user.ownerName;
+        response.workerPermissions = user.workerPermissions;
+      }
+      sendJSON(res, 200, response);
       return;
     }
 
@@ -398,11 +475,120 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- WORKERS: Invite worker ----
+    if (req.method === 'POST' && url === '/api/workers/invite') {
+      const user = await getSessionUser(req);
+      if (!user || user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { email, name, permissions } = body;
+      if (!email) { sendJSON(res, 400, { error: 'Вкажіть email майстра' }); return; }
+
+      // Check if already linked
+      const existingLink = await pool.query(
+        `SELECT wl.id FROM worker_links wl JOIN users u ON wl.worker_id = u.id WHERE wl.owner_id = $1 AND u.email = $2`,
+        [user.id, email.toLowerCase()]
+      );
+      if (existingLink.rows.length) { sendJSON(res, 400, { error: 'Цей майстер вже підключений' }); return; }
+
+      // Check if user exists
+      const existingUser = await pool.query("SELECT id FROM users WHERE email = $1", [email.toLowerCase()]);
+
+      const defaultPerms = {
+        orders: true, production: true, workerStock: true,
+        materials: false, materialPrices: false, sellPrices: false,
+        costs: false, salary: false, equipment: false, settings: false, dashboard: true
+      };
+      const perms = permissions || defaultPerms;
+
+      if (existingUser.rows.length) {
+        // User already registered — link directly
+        const workerId = existingUser.rows[0].id;
+        if (workerId === user.id) { sendJSON(res, 400, { error: 'Не можна додати себе як майстра' }); return; }
+        const linkId = generateId();
+        await pool.query(
+          `INSERT INTO worker_links (id, owner_id, worker_id, worker_name, permissions) VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (owner_id, worker_id) DO NOTHING`,
+          [linkId, user.id, workerId, name || '', JSON.stringify(perms)]
+        );
+        sendJSON(res, 200, { ok: true, linked: true });
+      } else {
+        // Create invitation token
+        const inviteId = generateId();
+        const token = generateToken();
+        await pool.query(
+          `INSERT INTO worker_invites (id, owner_id, email, token, permissions, status) VALUES ($1, $2, $3, $4, $5, 'pending')`,
+          [inviteId, user.id, email.toLowerCase(), token, JSON.stringify(perms)]
+        );
+        // For now, return the invite link (later could send via email)
+        const inviteUrl = `${BASE_URL}/register?invite=${token}`;
+        sendJSON(res, 200, { ok: true, linked: false, inviteUrl });
+      }
+      return;
+    }
+
+    // ---- WORKERS: List my workers ----
+    if (req.method === 'GET' && url === '/api/workers') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+
+      const links = await pool.query(
+        `SELECT wl.id, wl.worker_id, wl.worker_name, wl.permissions, wl.created_at, u.email, u.name as user_name
+         FROM worker_links wl JOIN users u ON wl.worker_id = u.id WHERE wl.owner_id = $1 ORDER BY wl.created_at`,
+        [user.id]
+      );
+      const invites = await pool.query(
+        `SELECT id, email, status, created_at FROM worker_invites WHERE owner_id = $1 AND status = 'pending' ORDER BY created_at`,
+        [user.id]
+      );
+      sendJSON(res, 200, { workers: links.rows, pendingInvites: invites.rows });
+      return;
+    }
+
+    // ---- WORKERS: Update permissions ----
+    if (req.method === 'POST' && url === '/api/workers/permissions') {
+      const user = await getSessionUser(req);
+      if (!user || user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { linkId, permissions } = body;
+      if (!linkId || !permissions) { sendJSON(res, 400, { error: 'Missing data' }); return; }
+      await pool.query(
+        `UPDATE worker_links SET permissions = $1 WHERE id = $2 AND owner_id = $3`,
+        [JSON.stringify(permissions), linkId, user.id]
+      );
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- WORKERS: Remove worker ----
+    if (req.method === 'POST' && url === '/api/workers/remove') {
+      const user = await getSessionUser(req);
+      if (!user || user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { linkId } = body;
+      await pool.query("DELETE FROM worker_links WHERE id = $1 AND owner_id = $2", [linkId, user.id]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- WORKERS: Cancel invite ----
+    if (req.method === 'POST' && url === '/api/workers/cancel-invite') {
+      const user = await getSessionUser(req);
+      if (!user || user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { inviteId } = body;
+      await pool.query("DELETE FROM worker_invites WHERE id = $1 AND owner_id = $2", [inviteId, user.id]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
     // ---- API: GET user data ----
     if (req.method === 'GET' && url === '/api/data') {
       const user = await getSessionUser(req);
       if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
-      const data = await readUserData(user.id);
+      // Workers read owner's data
+      const dataUserId = user.isWorker ? user.ownerId : user.id;
+      const data = await readUserData(dataUserId);
       sendJSON(res, 200, data);
       return;
     }
@@ -411,9 +597,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/api/data') {
       const user = await getSessionUser(req);
       if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      // Workers write to owner's data
+      const dataUserId = user.isWorker ? user.ownerId : user.id;
       const body = await readBody(req);
       const data = JSON.parse(body);
-      await writeUserData(user.id, data);
+      await writeUserData(dataUserId, data);
       sendJSON(res, 200, { ok: true });
       return;
     }
