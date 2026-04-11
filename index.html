@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipoLand -- Система управління виробництвом</title>
+<style>
+:root {
+  --primary: #7B1FA2;
+  --primary-light: #BA68C8;
+  --primary-dark: #4A148C;
+  --danger: #D32F2F;
+  --warning: #F9A825;
+  --success: #2E7D32;
+  --bg: #F8F5FF;
+  --card: #ffffff;
+  --text: #2d2d2d;
+  --text-light: #757575;
+  --border: #E0D8E8;
+  --shadow: 0 1px 8px rgba(123,31,162,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
+
+/* NAV */
+.nav { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); padding: 0 16px; display:flex; align-items:center; gap:4px; overflow-x:auto; position:sticky; top:0; z-index:100; box-shadow: 0 2px 8px rgba(123,31,162,0.25); }
+.nav-brand { color:#fff; font-weight:700; font-size:16px; padding:8px 12px 8px 0; white-space:nowrap; margin-right:4px; display:flex; align-items:center; gap:8px; }
+.nav-brand img { height:32px; width:32px; border-radius:50%; }
+.nav button { background:none; border:none; color:rgba(255,255,255,0.7); padding:10px 14px; cursor:pointer; font-size:13px; white-space:nowrap; border-bottom:2px solid transparent; transition:all .2s; }
+.nav button:hover { color:#fff; background:rgba(255,255,255,0.1); }
+.nav button.active { color:#fff; border-bottom-color:#fff; font-weight:600; }
+
+/* LAYOUT */
+.page { display:none; padding:20px; max-width:1400px; margin:0 auto; }
+.page.active { display:block; }
+.page h2 { margin-bottom:20px; font-size:22px; }
+
+/* CARDS */
+.cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:24px; }
+.card { background:var(--card); border-radius:4px; padding:20px; box-shadow:var(--shadow); border:1px solid var(--border); }
+.card-label { font-size:12px; color:var(--text-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.card-value { font-size:28px; font-weight:700; color:var(--primary-dark); }
+.card-sub { font-size:13px; color:var(--text-light); margin-top:4px; }
+.card.danger { border-left:3px solid var(--danger); }
+.card.warning { border-left:3px solid var(--warning); }
+.card.success { border-left:3px solid var(--success); }
+
+/* TABLE */
+.table-wrap { background:var(--card); border-radius:4px; box-shadow:var(--shadow); overflow-x:auto; margin-bottom:20px; border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { background:#f1f2f6; text-align:left; padding:12px 16px; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-light); position:sticky; top:0; }
+td { padding:10px 16px; border-top:1px solid var(--border); vertical-align:middle; }
+tr:hover td { background:#fafafa; }
+
+/* BADGES */
+.badge { display:inline-block; padding:3px 10px; border-radius:4px; font-size:12px; font-weight:600; }
+.badge-danger { background:#FFCDD2; color:#C62828; }
+.badge-warning { background:#FFF9C4; color:#E65100; }
+.badge-ok { background:#F3E5F5; color:var(--primary); }
+.badge-success { background:#C8E6C9; color:#1B5E20; }
+
+/* FORMS */
+.form-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end; }
+.form-group { display:flex; flex-direction:column; gap:4px; flex:1; min-width:150px; }
+.form-group label { font-size:12px; font-weight:600; color:var(--text-light); text-transform:uppercase; }
+input, select, textarea { padding:10px 12px; border:1px solid var(--border); border-radius:4px; font-size:14px; font-family:inherit; background:#fff; }
+input:focus, select:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(123,31,162,0.12); }
+textarea { resize:vertical; min-height:60px; }
+
+/* BUTTONS */
+.btn { padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-primary:hover { background:var(--primary-dark); }
+.btn-success { background:var(--success); color:#fff; }
+.btn-success:hover { background:#1B5E20; }
+.btn-danger { background:#E0C4C4; color:#8B5E5E; }
+.btn-danger:hover { background:#D4ABAB; color:#6B4444; }
+.btn-outline { background:none; border:2px solid var(--border); color:var(--text); }
+.btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+
+/* ALERTS */
+.alerts { margin-bottom:20px; }
+.alert { padding:12px 16px; border-radius:4px; margin-bottom:8px; font-size:14px; display:flex; align-items:center; gap:8px; }
+.alert-danger { background:#FCE4EC; border:1px solid #F48FB1; color:#C62828; }
+.alert-warning { background:#FFF8E1; border:1px solid #FFE082; color:#E65100; }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay.show { display:flex; }
+.modal { background:#fff; border-radius:4px; padding:24px; max-width:700px; width:100%; max-height:90vh; overflow-y:auto; }
+.modal h3 { margin-bottom:16px; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+
+/* FILTER BAR */
+.filter-bar { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; align-items:center; }
+.filter-bar input, .filter-bar select { padding:8px 12px; font-size:14px; }
+.filter-bar input { min-width:250px; }
+
+/* MISC */
+.section-title { font-size:16px; font-weight:600; margin:20px 0 12px; color:var(--text); }
+.text-danger { color:var(--danger); }
+.text-success { color:var(--success); }
+.text-warning { color:#e17055; }
+.text-muted { color:var(--text-light); }
+.mt-8 { margin-top:8px; }
+.mb-16 { margin-bottom:16px; }
+.flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+.progress-bar { height:8px; background:#dfe6e9; border-radius:4px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:4px; transition:width .3s; }
+.note-text { font-size:11px; color:var(--text-light); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-text:hover { white-space:normal; overflow:visible; }
+th { background:#EDE7F6; color:var(--primary-dark); }
+tr:hover td { background:#F3F0FF; }
+a.order-link { color:var(--primary); text-decoration:none; font-size:12px; }
+a.order-link:hover { text-decoration:underline; }
+
+@media(max-width:768px) {
+  .nav-brand { font-size:14px; }
+  .nav button { padding:10px 10px; font-size:12px; }
+  .page { padding:12px; }
+  .form-row { flex-direction:column; }
+  .form-group { min-width:100%; }
+  .cards { grid-template-columns:1fr 1fr; }
+  .filter-bar { flex-direction:column; }
+  .filter-bar input { min-width:100%; }
+}
+@media(max-width:480px) {
+  .cards { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-brand">&#x1F9F8; LipoLand</span>
+  <button onclick="showPage('dashboard')" class="active" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
+  <button onclick="showPage('materials')" data-page="materials">&#x1F4E6; &#x041C;&#x0430;&#x0442;&#x0435;&#x0440;&#x0456;&#x0430;&#x043B;&#x0438;</button>
+  <button onclick="showPage('products')" data-page="products">&#x1F3AE; &#x041F;&#x0440;&#x043E;&#x0434;&#x0443;&#x043A;&#x0446;&#x0456;&#x044F;</button>
+  <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
+  <button onclick="showPage('orders')" data-page="orders">&#x1F4CB; &#x0417;&#x0430;&#x043C;&#x043E;&#x0432;&#x043B;&#x0435;&#x043D;&#x043D;&#x044F;</button>
+  <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
+  <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
+  <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
+  <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
+  <button onclick="showPage('settings')" data-page="settings">&#x2699;&#xFE0F; &#x041D;&#x0430;&#x043B;&#x0430;&#x0448;&#x0442;&#x0443;&#x0432;&#x0430;&#x043D;&#x043D;&#x044F;</button>
+</nav>
+
+<!-- ========== DASHBOARD ========== -->
+<div id="dashboard" class="page active">
+  <h2>Дашборд</h2>
+  <div id="dash-alerts" class="alerts"></div>
+  <div id="dash-cards" class="cards"></div>
+  <div class="section-title">Критичні залишки матеріалів</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Матеріал</th><th>Залишок</th><th>Мінімум</th><th>Статус</th><th>Вистачить на</th></tr></thead>
+    <tbody id="dash-materials"></tbody></table>
+  </div>
+  <div class="section-title">Склад готової продукції</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Можна зібрати</th></tr></thead>
+    <tbody id="dash-products"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== MATERIALS ========== -->
+<div id="materials" class="page">
+  <div class="flex-between">
+    <h2>Склад матеріалів</h2>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="openModal('add-material')">+ Додати матеріал</button>
+      <button class="btn btn-success" onclick="openModal('receive-material')">Прихід</button>
+    </div>
+  </div>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table><thead><tr><th>Назва</th><th>Од.</th><th>Залишок</th><th>Мінімум</th><th>Ціна/од.</th><th>Постачальник</th><th>Коментар</th><th>Статус</th><th>Дії</th></tr></thead>
+    <tbody id="materials-table"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== PRODUCTS ========== -->
+<div id="products" class="page">
+  <div class="flex-between">
+    <h2>Готова продукція</h2>
+    <button class="btn btn-primary" onclick="openModal('add-product')">+ Додати гру</button>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="prod-search" placeholder="Пошук за назвою або артикулом..." oninput="renderProducts()">
+    <select id="prod-cat-filter" onchange="renderProducts()">
+      <option value="">Всі категорії</option>
+    </select>
+    <select id="prod-status-filter" onchange="renderProducts()" style="max-width:180px;">
+      <option value="active">Активні</option>
+      <option value="inactive">Деактивовані</option>
+      <option value="all">Всі</option>
+    </select>
+    <span id="prod-count" class="text-muted" style="font-size:13px;"></span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(false)" title="Деактивувати все що в фільтрі">⏸ Деактив. показані</button>
+      <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(true)" title="Активувати все що в фільтрі">▶ Актив. показані</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Артикул</th><th>Назва</th><th>Розмір</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Можна зібрати</th><th>Дії</th></tr></thead>
+    <tbody id="products-table"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== PRODUCTION ========== -->
+<div id="production" class="page">
+  <div class="flex-between">
+    <h2>Виробництво</h2>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="openModal('start-production')">Запустити в роботу</button>
+      <button class="btn btn-success" onclick="openModal('complete-production')">Здати на склад</button>
+    </div>
+  </div>
+  <div class="section-title">Зараз у виробництві</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <tbody id="production-active"></tbody></table>
+  </div>
+  <div class="section-title">Історія виробництва</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>К-сть</th><th>Майстер</th><th>Статус</th></tr></thead>
+    <tbody id="production-history"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== ORDERS ========== -->
+<div id="orders" class="page">
+  <div class="flex-between">
+    <h2>Замовлення</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-success" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
+      <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
+    </div>
+  </div>
+  <div id="sync-status" style="margin-top:8px;"></div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <select id="ord-status-filter" onchange="renderOrders()" style="padding:8px 12px;">
+      <option value="">Всі статуси</option>
+      <option value="new">🆕 Нові</option>
+      <option value="in_production">🔧 На виробництві</option>
+      <option value="completed">✔ Виконано</option>
+    </select>
+    <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
+    <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
+  </div>
+  <div class="table-wrap" style="margin-top:12px;">
+    <table><thead><tr><th>#</th><th>CRM</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <tbody id="orders-table"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== WORKER STOCK ========== -->
+<div id="worker-stock" class="page">
+  <div class="flex-between">
+    <h2>Склад майстрів</h2>
+    <button class="btn btn-primary" onclick="openModal('transfer-to-worker')">📦 Передати майстру</button>
+  </div>
+  <div class="filter-bar">
+    <select id="ws-worker-filter" onchange="renderWorkerStock()" style="padding:8px 12px;">
+      <option value="">Всі майстри</option>
+    </select>
+  </div>
+  <div id="ws-cards" class="cards" style="margin-top:12px;"></div>
+  <div class="section-title">Що знаходиться у майстрів</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Майстер</th><th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата передачі</th><th>Коментар</th><th>Дії</th></tr></thead>
+    <tbody id="ws-table"></tbody></table>
+  </div>
+  <div class="section-title">Історія передач</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Дата</th><th>Майстер</th><th>Тип</th><th>Назва</th><th>К-сть</th><th>Дія</th><th>Коментар</th></tr></thead>
+    <tbody id="ws-history"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== SALARY ========== -->
+<div id="salary" class="page">
+  <div class="flex-between">
+    <h2>Нарахування ЗП</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select id="salary-month" onchange="renderSalary()" style="padding:8px 12px;">
+        <option value="">Всі місяці</option>
+      </select>
+      <select id="salary-worker" onchange="renderSalary()" style="padding:8px 12px;">
+        <option value="">Всі майстри</option>
+      </select>
+    </div>
+  </div>
+  <div id="salary-cards" class="cards" style="margin-top:16px;"></div>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table><thead><tr><th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th></tr></thead>
+    <tbody id="salary-table"></tbody></table>
+  </div>
+</div>
+
+<!-- ========== COSTS ========== -->
+<div id="costs" class="page">
+  <h2>Собівартість ігор</h2>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Матеріали</th><th>Робота</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Маржа %</th></tr></thead>
+    <tbody id="costs-table"></tbody></table>
+  </div>
+  <div class="section-title">Деталізація матеріалів</div>
+  <div id="costs-detail"></div>
+</div>
+
+<!-- ========== EQUIPMENT ========== -->
+<div id="equipment" class="page">
+  <div class="flex-between">
+    <h2>Обладнання</h2>
+    <button class="btn btn-primary" onclick="openModal('add-equipment')">+ Додати обладнання</button>
+  </div>
+  <div class="cards" style="margin-top:16px;" id="equipment-cards"></div>
+  <div id="equipment-alerts" class="alerts"></div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Назва</th><th>Категорія</th><th>Дата покупки</th><th>Вартість, грн</th><th>Обслуговувань</th><th>Витрачено на обслуг.</th><th>Наступне обслуг.</th><th>Статус</th><th>Нотатки</th><th>Дії</th></tr></thead>
+    <tbody id="equipment-table"></tbody></table>
+  </div>
+  <div style="margin-top:24px;">
+    <div class="flex-between">
+      <h3>Історія обслуговування</h3>
+    </div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table><thead><tr><th>Дата</th><th>Обладнання</th><th>Тип</th><th>Вартість, грн</th><th>Коментар</th><th>Дії</th></tr></thead>
+      <tbody id="service-history-table"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SETTINGS ========== -->
+<div id="settings" class="page">
+  <h2>Налаштування</h2>
+  <div class="card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">Майстри</div>
+    <div id="workers-list" class="mb-16"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Ім'я майстра</label><input id="new-worker" placeholder="Наприклад: Оксана"></div>
+      <button class="btn btn-primary" onclick="addWorker()">Додати</button>
+    </div>
+  </div>
+  <div class="card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">Дані</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="exportData()">Експорт даних</button>
+      <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">Імпорт даних</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn btn-danger" onclick="if(confirm('Видалити ВСІ дані? Цю дію не можна скасувати!'))resetAllData()">Скинути все</button>
+    </div>
+  </div>
+  <div class="card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">SalesDrive CRM</div>
+    <div class="form-group mb-16"><label>Домен CRM</label><input id="sd-domain" placeholder="aleyana.salesdrive.me" value=""></div>
+    <div class="form-group mb-16"><label>API-ключ</label><input id="sd-apikey" type="password" placeholder="Вставте API-ключ" value=""></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="saveCrmSettings()">Зберегти</button>
+      <button class="btn btn-outline" onclick="testCrmConnection()">🔌 Перевірити з'єднання</button>
+    </div>
+    <div id="crm-test-result" style="margin-top:8px;"></div>
+  </div>
+  <div class="card" style="max-width:600px;">
+    <div class="section-title" style="margin-top:0;">Дані LipoLand</div>
+    <p class="text-muted mb-16" style="font-size:14px;">Завантажити каталог матеріалів та всіх 180 товарів LipoLand</p>
+    <button class="btn btn-primary" onclick="if(confirm('Завантажити дані LipoLand? Поточні дані буде замінено.'))loadRealData()">Завантажити дані LipoLand</button>
+  </div>
+</div>
+
+<!-- ========== MODALS ========== -->
+
+<!-- Add Material -->
+<div class="modal-overlay" id="modal-add-material">
+  <div class="modal">
+    <h3>Додати матеріал</h3>
+    <div class="form-group mb-16"><label>Назва</label><input id="mat-name" placeholder="Ліпучка біла 25мм"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Одиниця виміру</label>
+        <select id="mat-unit"><option>м.п.</option><option>шт</option><option>кг</option><option>упак</option><option>л</option><option>рулон</option><option>компл</option></select>
+      </div>
+      <div class="form-group"><label>Поточний залишок</label><input id="mat-qty" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Мінімальний запас</label><input id="mat-min" type="number" step="0.01" value="0"></div>
+      <div class="form-group"><label>Ціна за одиницю, грн</label><input id="mat-price" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="form-group mb-16"><label>Постачальник</label><input id="mat-supplier" placeholder="Назва або контакт"></div>
+    <div class="form-group mb-16"><label>Посилання на замовлення</label><input id="mat-orderUrl" placeholder="https://..."></div>
+    <div class="form-group"><label>Коментар</label><textarea id="mat-note" placeholder="Додаткова інформація..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('add-material')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveMaterial()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receive Material -->
+<div class="modal-overlay" id="modal-receive-material">
+  <div class="modal">
+    <h3>Прихід матеріалів</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Матеріал</label><select id="recv-mat"></select></div>
+      <div class="form-group"><label>Кількість</label><input id="recv-qty" type="number" step="0.01"></div>
+    </div>
+    <div class="form-group mb-16"><label>Ціна за одиницю (нова)</label><input id="recv-price" type="number" step="0.01" placeholder="Залиште порожнім якщо та сама"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('receive-material')">Скасувати</button>
+      <button class="btn btn-success" onclick="receiveMaterial()">Прийняти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Product -->
+<div class="modal-overlay" id="modal-add-product">
+  <div class="modal">
+    <h3>Додати гру</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Артикул (SKU)</label><input id="prod-sku" placeholder="LP1201SQ"></div>
+      <div class="form-group"><label>Назва гри</label><input id="prod-name" placeholder="Ферма на ліпучках"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Розмір</label><input id="prod-size" placeholder="А4, 21x21 см..."></div>
+      <div class="form-group"><label>Категорія</label><input id="prod-category" placeholder="Тематичні альбоми"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Кількість сторінок</label><input id="prod-pages" type="number" step="1" value="0"></div>
+      <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
+      <div class="form-group"><label>Ставка майстру, грн/шт</label><input id="prod-rate" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="section-title">Рецептура (матеріали на 1 шт)</div>
+    <div id="prod-recipe"></div>
+    <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('add-product')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Start Production -->
+<div class="modal-overlay" id="modal-start-production">
+  <div class="modal">
+    <h3>Запустити виробництво</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Гра</label><select id="sp-product" onchange="checkCanProduce()"></select></div>
+      <div class="form-group"><label>Кількість</label><input id="sp-qty" type="number" value="1" min="1" onchange="checkCanProduce()"></div>
+    </div>
+    <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
+    <div id="sp-info" class="text-muted" style="font-size:13px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('start-production')">Скасувати</button>
+      <button class="btn btn-primary" id="sp-btn" onclick="startProduction()">Запустити</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complete Production -->
+<div class="modal-overlay" id="modal-complete-production">
+  <div class="modal">
+    <h3>Здати на склад</h3>
+    <div class="form-group mb-16"><label>Виробництво</label><select id="cp-batch"></select></div>
+    <div class="form-group mb-16"><label>Фактично виконано, шт</label><input id="cp-qty" type="number" min="1"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('complete-production')">Скасувати</button>
+      <button class="btn btn-success" onclick="completeProduction()">Здати</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Order -->
+<div class="modal-overlay" id="modal-add-order">
+  <div class="modal">
+    <h3>Нове замовлення</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Клієнт</label><input id="ord-client" placeholder="Ім'я / телефон"></div>
+      <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
+    </div>
+    <div class="section-title">Товари</div>
+    <div id="ord-items"></div>
+    <button class="btn btn-outline btn-sm mt-8" onclick="addOrderLine()">+ Додати товар</button>
+    <div id="ord-total" style="margin-top:12px;font-weight:600;font-size:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('add-order')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveOrder()">Створити</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Material -->
+<div class="modal-overlay" id="modal-edit-material">
+  <div class="modal">
+    <h3>Редагувати матеріал</h3>
+    <input type="hidden" id="emat-id">
+    <div class="form-group mb-16"><label>Назва</label><input id="emat-name"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>м.п.</option><option>шт</option><option>кг</option><option>упак</option><option>л</option><option>рулон</option><option>компл</option></select></div>
+      <div class="form-group"><label>Залишок</label><input id="emat-qty" type="number" step="0.01"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Мінімальний запас</label><input id="emat-min" type="number" step="0.01"></div>
+      <div class="form-group"><label>Ціна/од.</label><input id="emat-price" type="number" step="0.01"></div>
+    </div>
+    <div class="form-group mb-16"><label>Постачальник</label><input id="emat-supplier"></div>
+    <div class="form-group mb-16"><label>Посилання на замовлення</label><input id="emat-orderUrl" placeholder="https://..."></div>
+    <div class="form-group"><label>Коментар</label><textarea id="emat-note"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('edit-material')">Скасувати</button>
+      <button class="btn btn-primary" onclick="updateMaterial()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Product -->
+<div class="modal-overlay" id="modal-edit-product">
+  <div class="modal">
+    <h3>Редагувати гру</h3>
+    <input type="hidden" id="eprod-id">
+    <div class="form-row">
+      <div class="form-group"><label>Артикул (SKU)</label><input id="eprod-sku"></div>
+      <div class="form-group"><label>Назва</label><input id="eprod-name"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Розмір</label><input id="eprod-size"></div>
+      <div class="form-group"><label>Категорія</label><input id="eprod-category"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Сторінок</label><input id="eprod-pages" type="number" step="1"></div>
+      <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
+      <div class="form-group"><label>Ставка майстру</label><input id="eprod-rate" type="number" step="0.01"></div>
+    </div>
+    <div class="section-title">Рецептура</div>
+    <div id="eprod-recipe"></div>
+    <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('edit-product')">Скасувати</button>
+      <button class="btn btn-primary" onclick="updateProduct()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer to Worker -->
+<div class="modal-overlay" id="modal-transfer-to-worker">
+  <div class="modal">
+    <h3>Передати майстру</h3>
+    <div class="form-group mb-16"><label>Майстер</label><select id="tw-worker"></select></div>
+    <div class="form-group mb-16"><label>Що передаємо</label>
+      <select id="tw-type" onchange="populateTransferItems()">
+        <option value="material">Матеріал</option>
+        <option value="product">Надруковане / напівфабрикат</option>
+      </select>
+    </div>
+    <div class="form-group mb-16"><label>Назва</label><select id="tw-item"></select></div>
+    <div class="form-group mb-16"><label>Кількість</label><input id="tw-qty" type="number" step="0.01" min="0.01" value="1"></div>
+    <div class="form-group"><label>Коментар</label><input id="tw-note" placeholder="Наприклад: надруковані сторінки для Азбуки"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('transfer-to-worker')">Скасувати</button>
+      <button class="btn btn-primary" onclick="transferToWorker()">Передати</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Equipment -->
+<div class="modal-overlay" id="modal-add-equipment">
+  <div class="modal">
+    <h3 id="eq-modal-title">Додати обладнання</h3>
+    <input type="hidden" id="eq-edit-id" value="">
+    <div class="form-group mb-16"><label>Назва</label><input id="eq-name" placeholder="Наприклад: Принтер Epson L3250"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Категорія</label>
+        <select id="eq-category">
+          <option value="Друк">Друк</option>
+          <option value="Ламінування">Ламінування</option>
+          <option value="Різка">Різка</option>
+          <option value="Інструменти">Інструменти</option>
+          <option value="Інше">Інше</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Дата покупки</label><input id="eq-purchase-date" type="date"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість, грн</label><input id="eq-price" type="number" step="0.01" value="0"></div>
+      <div class="form-group"><label>Інтервал обслуговування (днів)</label><input id="eq-service-interval" type="number" value="180" min="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Дата останнього обслуговування</label><input id="eq-last-service" type="date"></div>
+    </div>
+    <div class="form-group mb-16"><label>Нотатки</label><textarea id="eq-note" placeholder="Серійний номер, гарантія, деталі..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('add-equipment')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveEquipment()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Service -->
+<div class="modal-overlay" id="modal-log-service">
+  <div class="modal">
+    <h3>Записати обслуговування</h3>
+    <input type="hidden" id="svc-eq-id" value="">
+    <div class="form-group mb-16"><label>Обладнання</label><input id="svc-eq-name" readonly style="background:#f5f5f5;"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Дата</label><input id="svc-date" type="date"></div>
+      <div class="form-group"><label>Тип</label>
+        <select id="svc-type">
+          <option value="Планове обслуговування">Планове обслуговування</option>
+          <option value="Ремонт">Ремонт</option>
+          <option value="Заміна деталей">Заміна деталей</option>
+          <option value="Чистка">Чистка</option>
+          <option value="Інше">Інше</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="form-group mb-16"><label>Коментар</label><input id="svc-comment" placeholder="Що було зроблено..."></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('log-service')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveServiceLog()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA LAYER ====================
+const DB_KEY = 'toy_inventory_db';
+let _dbCache = null;
+
+function getDB() {
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[] };
+  if (_dbCache) return {...def, ..._dbCache};
+  try {
+    const d = JSON.parse(localStorage.getItem(DB_KEY));
+    return d ? {...def, ...d} : def;
+  } catch { return def; }
+}
+
+function saveDB(db) {
+  _dbCache = db;
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(db)
+  }).catch(function(){});
+}
+
+// Load data from server on startup, then sync back
+fetch('/api/data').then(function(r){ return r.json(); }).then(function(serverData){
+  if (serverData && (serverData.materials || serverData.products)) {
+    _dbCache = serverData;
+    localStorage.setItem(DB_KEY, JSON.stringify(serverData));
+  } else {
+    // No server data yet — push localStorage to server
+    var local = localStorage.getItem(DB_KEY);
+    if (local) {
+      _dbCache = JSON.parse(local);
+      fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: local }).catch(function(){});
+    }
+  }
+  renderPage('dashboard');
+}).catch(function(){});
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ==================== NAVIGATION ====================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelector('.nav button[data-page="'+id+'"]').classList.add('active');
+  renderPage(id);
+}
+
+function renderPage(id) {
+  const fn = { dashboard:renderDashboard, materials:renderMaterials, products:renderProducts,
+    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, equipment:renderEquipment, settings:renderSettings };
+  if(fn[id]) fn[id]();
+}
+
+// ==================== MODALS ====================
+function openModal(name) {
+  document.getElementById('modal-'+name).classList.add('show');
+  if(name==='receive-material') populateReceiveMat();
+  if(name==='add-product') { document.getElementById('prod-recipe').innerHTML=''; addRecipeLine(); }
+  if(name==='start-production') populateStartProd();
+  if(name==='complete-production') populateCompleteProd();
+  if(name==='add-order') { document.getElementById('ord-items').innerHTML=''; addOrderLine(); document.getElementById('ord-date').value=new Date().toISOString().slice(0,10); }
+  if(name==='transfer-to-worker') { populateTransferModal(); }
+}
+function closeModal(name) { document.getElementById('modal-'+name).classList.remove('show'); }
+
+// ==================== MATERIALS ====================
+function saveMaterial() {
+  const db = getDB();
+  const m = { id:uid(), name:v('mat-name'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), orderUrl:v('mat-orderUrl'), note:v('mat-note') };
+  if(!m.name) return alert('Введіть назву');
+  db.materials.push(m);
+  saveDB(db);
+  closeModal('add-material');
+  document.getElementById('mat-name').value='';
+  document.getElementById('mat-orderUrl').value='';
+  document.getElementById('mat-note').value='';
+  renderPage('materials');
+}
+
+function editMaterial(id) {
+  const db = getDB();
+  const m = db.materials.find(function(x){return x.id===id});
+  if(!m) return;
+  document.getElementById('emat-id').value = id;
+  document.getElementById('emat-name').value = m.name;
+  document.getElementById('emat-unit').value = m.unit;
+  document.getElementById('emat-qty').value = m.qty;
+  document.getElementById('emat-min').value = m.min;
+  document.getElementById('emat-price').value = m.price;
+  document.getElementById('emat-supplier').value = m.supplier||'';
+  document.getElementById('emat-orderUrl').value = m.orderUrl||'';
+  document.getElementById('emat-note').value = m.note||'';
+  openModal('edit-material');
+}
+
+function updateMaterial() {
+  const db = getDB();
+  const id = document.getElementById('emat-id').value;
+  const m = db.materials.find(function(x){return x.id===id});
+  if(!m) return;
+  m.name = v('emat-name'); m.unit = v('emat-unit'); m.qty = n('emat-qty');
+  m.min = n('emat-min'); m.price = n('emat-price'); m.supplier = v('emat-supplier');
+  m.orderUrl = v('emat-orderUrl'); m.note = v('emat-note');
+  saveDB(db);
+  closeModal('edit-material');
+  renderPage('materials');
+}
+
+function deleteMaterial(id) {
+  if(!confirm('Видалити цей матеріал?')) return;
+  const db = getDB();
+  db.materials = db.materials.filter(function(x){return x.id!==id});
+  saveDB(db);
+  renderPage('materials');
+}
+
+function populateReceiveMat() {
+  const db = getDB();
+  const sel = document.getElementById('recv-mat');
+  sel.innerHTML = db.materials.map(function(m){ return '<option value="'+m.id+'">'+m.name+' ('+m.qty+' '+m.unit+')</option>'; }).join('');
+}
+
+function receiveMaterial() {
+  const db = getDB();
+  const id = v('recv-mat');
+  const qty = n('recv-qty');
+  const price = document.getElementById('recv-price').value ? n('recv-price') : null;
+  const m = db.materials.find(function(x){return x.id===id});
+  if(!m || qty<=0) return alert('Оберіть матеріал та введіть кількість');
+  m.qty += qty;
+  if(price!==null) m.price = price;
+  saveDB(db);
+  closeModal('receive-material');
+  renderPage('materials');
+}
+
+function renderMaterials() {
+  const db = getDB();
+  const tb = document.getElementById('materials-table');
+  tb.innerHTML = db.materials.map(function(m) {
+    var status = m.qty <= 0 ? '<span class="badge badge-danger">Немає!</span>'
+      : m.qty <= m.min ? '<span class="badge badge-warning">Замовити!</span>'
+      : '<span class="badge badge-ok">Ок</span>';
+    var supplierHtml = m.supplier ? esc(m.supplier) : '—';
+    if(m.orderUrl) {
+      supplierHtml = '<a class="order-link" href="'+esc(m.orderUrl)+'" target="_blank" rel="noopener">'+supplierHtml+' &#x2197;</a>';
+    }
+    var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
+    return '<tr>'+
+      '<td><strong>'+esc(m.name)+'</strong></td>'+
+      '<td>'+esc(m.unit)+'</td>'+
+      '<td>'+fmt(m.qty)+'</td>'+
+      '<td>'+fmt(m.min)+'</td>'+
+      '<td>'+fmt(m.price)+' грн</td>'+
+      '<td>'+supplierHtml+'</td>'+
+      '<td>'+noteHtml+'</td>'+
+      '<td>'+status+'</td>'+
+      '<td><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+}
+
+// ==================== PRODUCTS ====================
+function addRecipeLine(containerId) {
+  var db = getDB();
+  var container = document.getElementById(containerId || 'prod-recipe');
+  var div = document.createElement('div');
+  div.className = 'form-row';
+  div.style.alignItems = 'center';
+  div.innerHTML =
+    '<div class="form-group"><label>Матеріал</label><select class="recipe-mat">'+db.materials.map(function(m){return '<option value="'+m.id+'">'+esc(m.name)+'</option>';}).join('')+'</select></div>'+
+    '<div class="form-group"><label>Кількість на 1 шт</label><input class="recipe-qty" type="number" step="0.01" value="1"></div>'+
+    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="margin-bottom:2px;">&#x2715;</button>';
+  container.appendChild(div);
+}
+
+function getRecipeFromContainer(containerId) {
+  var container = document.getElementById(containerId || 'prod-recipe');
+  var rows = container.querySelectorAll('.form-row');
+  var recipe = [];
+  rows.forEach(function(r) {
+    var matId = r.querySelector('.recipe-mat').value;
+    var qty = parseFloat(r.querySelector('.recipe-qty').value)||0;
+    if(matId && qty>0) recipe.push({materialId:matId, qty:qty});
+  });
+  return recipe;
+}
+
+function saveProduct() {
+  var db = getDB();
+  var p = { id:uid(), sku:v('prod-sku'), name:v('prod-name'), size:v('prod-size'), category:v('prod-category'),
+    pages:parseInt(v('prod-pages'))||0, sellPrice:n('prod-price'), workerRate:n('prod-rate'),
+    recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0 };
+  if(!p.name) return alert('Введіть назву');
+  db.products.push(p);
+  saveDB(db);
+  closeModal('add-product');
+  document.getElementById('prod-name').value='';
+  document.getElementById('prod-sku').value='';
+  renderPage('products');
+}
+
+function editProduct(id) {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===id});
+  if(!p) return;
+  document.getElementById('eprod-id').value = id;
+  document.getElementById('eprod-sku').value = p.sku||'';
+  document.getElementById('eprod-name').value = p.name;
+  document.getElementById('eprod-size').value = p.size||'';
+  document.getElementById('eprod-category').value = p.category||'';
+  document.getElementById('eprod-pages').value = p.pages||0;
+  document.getElementById('eprod-price').value = p.sellPrice;
+  document.getElementById('eprod-rate').value = p.workerRate;
+  var rc = document.getElementById('eprod-recipe');
+  rc.innerHTML = '';
+  (p.recipe||[]).forEach(function(r) {
+    addRecipeLine('eprod-recipe');
+    var last = rc.lastElementChild;
+    last.querySelector('.recipe-mat').value = r.materialId;
+    last.querySelector('.recipe-qty').value = r.qty;
+  });
+  openModal('edit-product');
+}
+
+function updateProduct() {
+  var db = getDB();
+  var id = document.getElementById('eprod-id').value;
+  var p = db.products.find(function(x){return x.id===id});
+  if(!p) return;
+  p.sku = v('eprod-sku'); p.name = v('eprod-name'); p.size = v('eprod-size');
+  p.category = v('eprod-category'); p.pages = parseInt(v('eprod-pages'))||0;
+  p.sellPrice = n('eprod-price'); p.workerRate = n('eprod-rate');
+  p.recipe = getRecipeFromContainer('eprod-recipe');
+  saveDB(db);
+  closeModal('edit-product');
+  renderPage('products');
+}
+
+function deleteProduct(id) {
+  if(!confirm('Видалити цю гру?')) return;
+  var db = getDB();
+  db.products = db.products.filter(function(x){return x.id!==id});
+  saveDB(db);
+  renderPage('products');
+}
+
+function toggleProduct(id, activate) {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===id});
+  if(!p) return;
+  p.active = activate;
+  saveDB(db);
+  renderProducts();
+}
+
+function bulkToggleProducts(activate) {
+  var db = getDB();
+  var catFilter = document.getElementById('prod-cat-filter').value;
+  var search = (document.getElementById('prod-search').value||'').toLowerCase().trim();
+  var count = 0;
+  db.products.forEach(function(p) {
+    var match = true;
+    if(catFilter && p.category!==catFilter) match = false;
+    if(search) {
+      var haystack = ((p.sku||'')+' '+p.name+' '+(p.category||'')).toLowerCase();
+      if(haystack.indexOf(search)===-1) match = false;
+    }
+    if(match) { p.active = activate; count++; }
+  });
+  saveDB(db);
+  renderProducts();
+  alert((activate?'Активовано: ':'Деактивовано: ')+count+' ігор');
+}
+
+function calcCanProduce(product, materials) {
+  if(!product.recipe || product.recipe.length===0) return 0;
+  var min = Infinity;
+  for(var i=0;i<product.recipe.length;i++) {
+    var r = product.recipe[i];
+    var mat = materials.find(function(m){return m.id===r.materialId});
+    if(!mat || r.qty<=0) return 0;
+    min = Math.min(min, Math.floor(mat.qty / r.qty));
+  }
+  return min===Infinity?0:min;
+}
+
+function calcCost(product, materials) {
+  var matCost = 0;
+  var recipe = product.recipe||[];
+  for(var i=0;i<recipe.length;i++) {
+    var r = recipe[i];
+    var mat = materials.find(function(m){return m.id===r.materialId});
+    if(mat) matCost += r.qty * mat.price;
+  }
+  var work = Math.round((product.sellPrice||0) * 0.25);
+  return { materials: matCost, work: work, total: matCost + work };
+}
+
+function getCategories(db) {
+  var cats = {};
+  db.products.forEach(function(p){ if(p.category) cats[p.category]=true; });
+  return Object.keys(cats).sort();
+}
+
+function renderProducts() {
+  var db = getDB();
+  var search = (document.getElementById('prod-search').value||'').toLowerCase().trim();
+  var catFilter = document.getElementById('prod-cat-filter').value;
+
+  // Populate category filter (preserve selection)
+  var cats = getCategories(db);
+  var catSel = document.getElementById('prod-cat-filter');
+  var opts = '<option value="">Всі категорії</option>';
+  cats.forEach(function(c){ opts += '<option value="'+esc(c)+'" '+(c===catFilter?'selected':'')+'>'+esc(c)+'</option>'; });
+  catSel.innerHTML = opts;
+
+  var statusFilter = document.getElementById('prod-status-filter').value;
+
+  var filtered = db.products.filter(function(p) {
+    if(statusFilter==='active' && p.active===false) return false;
+    if(statusFilter==='inactive' && p.active!==false) return false;
+    if(catFilter && p.category!==catFilter) return false;
+    if(search) {
+      var haystack = ((p.sku||'')+' '+p.name+' '+(p.category||'')).toLowerCase();
+      if(haystack.indexOf(search)===-1) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('prod-count').textContent = 'Показано: '+filtered.length+' з '+db.products.length;
+
+  var tb = document.getElementById('products-table');
+  tb.innerHTML = filtered.map(function(p) {
+    var can = calcCanProduce(p, db.materials);
+    var cost = calcCost(p, db.materials);
+    var margin = p.sellPrice - cost.total;
+    var inactive = p.active===false;
+    return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
+      '<td><code>'+esc(p.sku||'—')+'</code></td>'+
+      '<td><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
+      '<td>'+esc(p.size||'—')+'</td>'+
+      '<td><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>'+
+      '<td>'+(p.stock||0)+'</td>'+
+      '<td>'+(p.inProgress||0)+'</td>'+
+      '<td>'+fmt(cost.total)+' грн</td>'+
+      '<td>'+fmt(p.sellPrice)+' грн</td>'+
+      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
+      '<td>'+can+' шт</td>'+
+      '<td style="white-space:nowrap;">'+(p.active===false?
+        '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
+        '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
+        '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+}
+
+// ==================== PRODUCTION ====================
+function populateStartProd() {
+  var db = getDB();
+  var sp = document.getElementById('sp-product');
+  sp.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p){return '<option value="'+p.id+'">'+(p.sku?p.sku+' — ':'')+esc(p.name)+' (можна: '+calcCanProduce(p,db.materials)+')</option>';}).join('');
+  var sw = document.getElementById('sp-worker');
+  sw.innerHTML = db.workers.map(function(w){return '<option>'+esc(w)+'</option>';}).join('');
+  checkCanProduce();
+}
+
+function checkCanProduce() {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===v('sp-product')});
+  if(!p) return;
+  var qty = parseInt(document.getElementById('sp-qty').value)||1;
+  var can = calcCanProduce(p, db.materials);
+  var info = document.getElementById('sp-info');
+  if(qty > can) {
+    info.innerHTML = '<span class="text-danger">Не вистачає матеріалів! Максимум: '+can+' шт</span>';
+  } else {
+    var neededMats = (p.recipe||[]).map(function(r) {
+      var mat = db.materials.find(function(m){return m.id===r.materialId});
+      return mat ? esc(mat.name)+': '+fmt(r.qty*qty)+' '+esc(mat.unit) : '';
+    }).filter(Boolean).join(', ');
+    info.innerHTML = 'Матеріалів достатньо. Буде списано: '+neededMats;
+  }
+}
+
+function isPaperMaterial(mat) {
+  var name = (mat.name||'').toLowerCase();
+  return name.indexOf('бумаг') !== -1 || name.indexOf('папір') !== -1 || name.indexOf('папер') !== -1;
+}
+
+function startProduction() {
+  var db = getDB();
+  if (!db.workerStock) db.workerStock = [];
+  var productId = v('sp-product');
+  var qty = parseInt(document.getElementById('sp-qty').value)||1;
+  var worker = v('sp-worker');
+  var p = db.products.find(function(x){return x.id===productId});
+  if(!p) return;
+
+  // Check availability: paper from main stock, rest from worker stock
+  var shortage = [];
+  for(var i=0;i<(p.recipe||[]).length;i++) {
+    var r = p.recipe[i];
+    var mat = db.materials.find(function(m){return m.id===r.materialId});
+    if(!mat) continue;
+    var need = r.qty * qty;
+    if(isPaperMaterial(mat)) {
+      if(mat.qty < need) shortage.push(mat.name+': потрібно '+fmt(need)+', на складі '+fmt(mat.qty));
+    } else {
+      var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
+      var has = ws ? ws.qty : 0;
+      if(has < need) shortage.push(mat.name+': потрібно '+fmt(need)+', у майстра '+fmt(has));
+    }
+  }
+  if(shortage.length > 0) {
+    if(!confirm('Не вистачає:\\n'+shortage.join('\\n')+'\\n\\nЗапустити все одно?')) return;
+  }
+
+  // Deduct: paper from main stock, rest from worker stock
+  for(var i=0;i<(p.recipe||[]).length;i++) {
+    var r = p.recipe[i];
+    var mat = db.materials.find(function(m){return m.id===r.materialId});
+    if(!mat) continue;
+    var need = r.qty * qty;
+    if(isPaperMaterial(mat)) {
+      mat.qty = Math.max(0, mat.qty - need);
+    } else {
+      var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
+      if(ws) ws.qty = Math.max(0, ws.qty - need);
+    }
+  }
+
+  p.inProgress = (p.inProgress||0) + qty;
+  db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:new Date().toISOString().slice(0,10), status:'in_progress', completedQty:0 });
+  saveDB(db);
+  closeModal('start-production');
+  renderPage('production');
+}
+
+function populateCompleteProd() {
+  var db = getDB();
+  var active = db.production.filter(function(x){return x.status==='in_progress'});
+  var sel = document.getElementById('cp-batch');
+  sel.innerHTML = active.map(function(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    return '<option value="'+b.id+'">'+(p?esc(p.name):'?')+' x '+b.qty+' ('+esc(b.worker)+', '+b.date+')</option>';
+  }).join('');
+  if(active.length>0) {
+    document.getElementById('cp-qty').value = active[0].qty;
+  }
+  sel.onchange = function() {
+    var batch = active.find(function(x){return x.id===sel.value});
+    if(batch) document.getElementById('cp-qty').value = batch.qty;
+  };
+}
+
+function completeProduction() {
+  var db = getDB();
+  var batchId = v('cp-batch');
+  var qty = parseInt(document.getElementById('cp-qty').value)||0;
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch || qty<=0) return alert('Оберіть партію');
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  if(p) {
+    p.stock = (p.stock||0) + qty;
+    p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+  }
+  batch.status = 'completed';
+  batch.completedQty = qty;
+  batch.completedDate = new Date().toISOString().slice(0,10);
+  saveDB(db);
+  closeModal('complete-production');
+  renderPage('production');
+}
+
+function renderProduction() {
+  var db = getDB();
+  var active = db.production.filter(function(x){return x.status==='in_progress'});
+  var history = db.production.filter(function(x){return x.status==='completed'}).reverse().slice(0,50);
+  document.getElementById('production-active').innerHTML = active.map(function(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    return '<tr>'+
+      '<td>'+b.date+'</td><td><code>'+(p?esc(p.sku||''):'-')+'</code></td><td>'+(p?esc(p.name):'?')+'</td><td>'+b.qty+'</td><td>'+esc(b.worker)+'</td>'+
+      '<td><span class="badge badge-warning">В роботі</span></td>'+
+      '<td><button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')">Здати</button></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Немає активного виробництва</td></tr>';
+
+  document.getElementById('production-history').innerHTML = history.map(function(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    return '<tr><td>'+(b.completedDate||b.date)+'</td><td><code>'+(p?esc(p.sku||''):'-')+'</code></td><td>'+(p?esc(p.name):'?')+'</td><td>'+(b.completedQty||b.qty)+'</td><td>'+esc(b.worker)+'</td>'+
+      '<td><span class="badge badge-success">Готово</span></td></tr>';
+  }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
+}
+
+function quickComplete(batchId) {
+  var db = getDB();
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch) return;
+  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+batch.qty+' шт</option>';
+  document.getElementById('cp-qty').value = batch.qty;
+  openModal('complete-production');
+}
+
+// ==================== ORDERS ====================
+function addOrderLine() {
+  var db = getDB();
+  var container = document.getElementById('ord-items');
+  var div = document.createElement('div');
+  div.className = 'form-row';
+  div.innerHTML =
+    '<div class="form-group"><label>Гра</label><select class="ord-prod" onchange="calcOrderTotal()">'+db.products.filter(function(p){return p.active!==false}).map(function(p){return '<option value="'+p.id+'" data-price="'+p.sellPrice+'">'+(p.sku?p.sku+' — ':'')+esc(p.name)+' ('+(p.stock||0)+' шт) — '+fmt(p.sellPrice)+' грн</option>';}).join('')+'</select></div>'+
+    '<div class="form-group" style="max-width:100px"><label>К-сть</label><input class="ord-qty" type="number" value="1" min="1" onchange="calcOrderTotal()"></div>'+
+    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove();calcOrderTotal()">&#x2715;</button>';
+  container.appendChild(div);
+  calcOrderTotal();
+}
+
+function calcOrderTotal() {
+  var db = getDB();
+  var total = 0;
+  document.querySelectorAll('#ord-items .form-row').forEach(function(row) {
+    var prodId = row.querySelector('.ord-prod').value;
+    var qty = parseInt(row.querySelector('.ord-qty').value)||0;
+    var p = db.products.find(function(x){return x.id===prodId});
+    if(p) total += p.sellPrice * qty;
+  });
+  document.getElementById('ord-total').textContent = 'Сума: '+fmt(total)+' грн';
+}
+
+function saveOrder() {
+  var db = getDB();
+  var items = [];
+  var hasError = false;
+  document.querySelectorAll('#ord-items .form-row').forEach(function(row) {
+    var prodId = row.querySelector('.ord-prod').value;
+    var qty = parseInt(row.querySelector('.ord-qty').value)||0;
+    var p = db.products.find(function(x){return x.id===prodId});
+    if(p && qty>0) {
+      if(qty > (p.stock||0)) { alert('Недостатньо "'+p.name+'" на складі! Є: '+(p.stock||0)); hasError=true; return; }
+      items.push({productId:prodId, name:p.name, sku:p.sku||'', qty:qty, price:p.sellPrice});
+    }
+  });
+  if(hasError) return;
+  if(items.length===0) return alert('Додайте товари');
+  for(var i=0;i<items.length;i++) {
+    var item = items[i];
+    var p = db.products.find(function(x){return x.id===item.productId});
+    if(p) p.stock -= item.qty;
+  }
+  var total = items.reduce(function(s,i){return s+i.qty*i.price},0);
+  db.orders.push({ id:uid(), num:db.nextOrderNum++, date:v('ord-date')||new Date().toISOString().slice(0,10),
+    client:v('ord-client'), items:items, total:total, status:'new' });
+  saveDB(db);
+  closeModal('add-order');
+  renderPage('orders');
+}
+
+function setOrderStatus(id, status) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(ord) { ord.status=status; saveDB(db); renderPage('orders'); }
+}
+
+function setOrderWorker(id, worker) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(ord) { ord.worker=worker; saveDB(db); }
+}
+
+function renderOrders() {
+  var db = getDB();
+  var tb = document.getElementById('orders-table');
+  var statusFilter = document.getElementById('ord-status-filter').value;
+  var crmOnly = document.getElementById('ord-crm-only').checked;
+  var statusMap = { new:'🆕 Новий', in_production:'🔧 На виробництві', completed:'✔ Виконано' };
+  var statusColors = { new:'#ffeaa7', in_production:'#81ecec', completed:'#55efc4' };
+
+  var filtered = db.orders.slice().reverse().filter(function(o) {
+    if(statusFilter && o.status!==statusFilter) return false;
+    if(crmOnly && !o.crmId) return false;
+    return true;
+  });
+
+  document.getElementById('ord-count').textContent = 'Показано: '+filtered.length+' з '+db.orders.length;
+
+  tb.innerHTML = filtered.map(function(o) {
+    var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
+    var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
+    var crmBadge = o.crmId ? '<span class="badge badge-ok" style="font-size:10px;" title="SalesDrive #'+o.crmId+'">CRM #'+o.crmId+'</span>' : '<span class="text-muted" style="font-size:11px;">ручне</span>';
+    var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    return '<tr>'+
+      '<td>#'+o.num+'</td>'+
+      '<td>'+crmBadge+'</td>'+
+      '<td>'+o.date+'</td>'+
+      '<td>'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
+      '<td>'+itemsStr+'</td>'+
+      '<td>'+fmt(o.total)+' грн</td>'+
+      '<td><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;">'+workerOpts+'</select></td>'+
+      '<td><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+'">'+statusOpts+'</select></td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
+}
+
+function confirmOrder(id) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(!ord) return;
+  // Check stock
+  var shortage = [];
+  for(var i=0;i<ord.items.length;i++) {
+    var item = ord.items[i];
+    var p = db.products.find(function(x){return x.id===item.productId});
+    if(p && item.qty > (p.stock||0)) {
+      shortage.push(p.name + ': потрібно '+item.qty+', є '+(p.stock||0));
+    }
+  }
+  if(shortage.length > 0) {
+    if(!confirm('Не вистачає на складі:\\n'+shortage.join('\\n')+'\\n\\nПідтвердити без списання?')) return;
+  }
+  // Deduct stock
+  for(var i=0;i<ord.items.length;i++) {
+    var item = ord.items[i];
+    var p = db.products.find(function(x){return x.id===item.productId});
+    if(p && (p.stock||0) >= item.qty) {
+      p.stock -= item.qty;
+    }
+  }
+  ord.status = 'confirmed';
+  saveDB(db);
+  renderPage('orders');
+}
+
+function deleteOrder(id) {
+  if(!confirm('Видалити замовлення?')) return;
+  var db = getDB();
+  db.orders = db.orders.filter(function(x){return x.id!==id});
+  saveDB(db);
+  renderPage('orders');
+}
+
+// ==================== SALESDRIVE CRM ====================
+var SD_SETTINGS_KEY = 'lipoland_crm_settings';
+
+function getCrmSettings() {
+  try { return JSON.parse(localStorage.getItem(SD_SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+
+function saveCrmSettings() {
+  var settings = { domain: v('sd-domain').trim(), apiKey: v('sd-apikey').trim() };
+  if(!settings.domain || !settings.apiKey) return alert('Заповніть домен та API-ключ');
+  localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify(settings));
+  alert('Збережено!');
+}
+
+function testCrmConnection() {
+  var settings = getCrmSettings();
+  if(!settings.domain || !settings.apiKey) return alert('Спочатку збережіть налаштування CRM');
+  var el = document.getElementById('crm-test-result');
+  el.innerHTML = '<span class="text-muted">Перевірка...</span>';
+  fetch('https://'+settings.domain+'/api/statuses/', { headers: {'X-Api-Key': settings.apiKey} })
+    .then(function(r){return r.json()})
+    .then(function(data) {
+      if(data.success) {
+        var statuses = data.data.map(function(s){return s.name}).join(', ');
+        el.innerHTML = '<span class="text-success">✅ Підключено! Статуси: '+statuses+'</span>';
+      } else {
+        el.innerHTML = '<span class="text-danger">❌ Помилка: '+JSON.stringify(data)+'</span>';
+      }
+    })
+    .catch(function(err) {
+      el.innerHTML = '<span class="text-danger">❌ Помилка з\'єднання: '+err.message+'</span>';
+    });
+}
+
+function syncSalesDrive() {
+  var settings = getCrmSettings();
+  if(!settings.domain || !settings.apiKey) {
+    alert('Спочатку налаштуйте підключення до CRM у вкладці Налаштування');
+    return;
+  }
+  var btn = document.getElementById('sync-btn');
+  var statusEl = document.getElementById('sync-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Синхронізація...';
+  statusEl.innerHTML = '<span class="text-muted">Завантаження замовлень з SalesDrive...</span>';
+
+  var db = getDB();
+  // Get existing CRM order IDs to avoid duplicates
+  var existingCrmIds = {};
+  db.orders.forEach(function(o){ if(o.crmId) existingCrmIds[o.crmId] = true; });
+
+  // Fetch last 30 days of orders
+  var fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - 30);
+  var fromStr = fromDate.toISOString().slice(0,10) + ' 00:00:00';
+
+  var url = 'https://'+settings.domain+'/api/order/list/?page=1&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
+
+  fetch(url, { headers: {'X-Api-Key': settings.apiKey} })
+    .then(function(r){return r.json()})
+    .then(function(data) {
+      if(!data.data) throw new Error('Невірна відповідь API');
+      var orders = data.data;
+      var newCount = 0;
+      var updatedCount = 0;
+
+      orders.forEach(function(o) {
+        // Filter: only products with "lipoland" or "Lipoland" in name
+        var lipoProducts = (o.products||[]).filter(function(p) {
+          return (p.text||'').toLowerCase().indexOf('lipoland') !== -1;
+        });
+        if(lipoProducts.length === 0) return;
+
+        var contact = o.primaryContact || {};
+        var clientName = ((contact.fName||'') + ' ' + (contact.lName||'')).trim();
+        var phone = (contact.phone && contact.phone[0]) || '';
+
+        // Map SalesDrive status to our status
+        var sdStatusMap = {1:'new', 3:'confirmed', 4:'shipped', 5:'completed', 6:'completed', 10:'new'};
+        var ourStatus = sdStatusMap[o.statusId] || 'new';
+
+        // Match products to our catalog by SKU
+        var items = lipoProducts.map(function(sp) {
+          var sku = (sp.sku||'').replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'');
+          var matched = db.products.find(function(p){
+            return p.sku && (p.sku === sku || p.sku === sp.sku || sku.indexOf(p.sku)===0);
+          });
+          return {
+            productId: matched ? matched.id : null,
+            name: sp.text || 'Невідомий товар',
+            sku: sp.sku || sku || '',
+            qty: sp.amount || 1,
+            price: sp.price || 0
+          };
+        });
+
+        var total = items.reduce(function(s,i){return s + i.qty * i.price}, 0);
+
+        if(existingCrmIds[o.id]) {
+          // Update existing order status
+          var existing = db.orders.find(function(x){return x.crmId===o.id});
+          if(existing && existing.status==='new' && ourStatus!=='new') {
+            existing.crmStatus = o.statusId;
+            updatedCount++;
+          }
+        } else {
+          // Create new order
+          db.orders.push({
+            id: uid(),
+            num: db.nextOrderNum++,
+            crmId: o.id,
+            crmStatus: o.statusId,
+            date: (o.orderTime||'').slice(0,10),
+            client: clientName,
+            phone: phone,
+            items: items,
+            total: total,
+            status: 'new', // Always start as "new" in our system — user confirms manually
+            source: 'salesdrive'
+          });
+          newCount++;
+        }
+      });
+
+      saveDB(db);
+      btn.disabled = false;
+      btn.textContent = '🔄 Синхронізувати з CRM';
+
+      var totalPages = data.pagination ? data.pagination.pageCount : 1;
+      statusEl.innerHTML = '<span class="text-success">✅ Синхронізовано! Нових замовлень: <strong>'+newCount+'</strong>, оновлено: '+updatedCount+'</span>' +
+        '<br><span class="text-muted" style="font-size:12px;">Останнє оновлення: '+new Date().toLocaleString('uk')+'</span>';
+      renderOrders();
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Синхронізувати з CRM';
+      statusEl.innerHTML = '<span class="text-danger">❌ Помилка: '+err.message+'</span>';
+    });
+}
+
+// ==================== WORKER STOCK ====================
+function populateTransferModal() {
+  var db = getDB();
+  var sel = document.getElementById('tw-worker');
+  sel.innerHTML = db.workers.map(function(w){ return '<option value="'+esc(w)+'">'+esc(w)+'</option>'; }).join('');
+  document.getElementById('tw-note').value = '';
+  document.getElementById('tw-qty').value = 1;
+  populateTransferItems();
+}
+
+function populateTransferItems() {
+  var db = getDB();
+  var type = document.getElementById('tw-type').value;
+  var sel = document.getElementById('tw-item');
+  if (type === 'material') {
+    sel.innerHTML = db.materials.map(function(m){ return '<option value="'+m.id+'">'+esc(m.name)+' ('+fmt(m.qty)+' '+esc(m.unit)+')</option>'; }).join('');
+  } else {
+    sel.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p){ return '<option value="'+p.id+'">'+esc(p.sku)+' — '+esc(p.name)+'</option>'; }).join('');
+  }
+}
+
+function transferToWorker() {
+  var db = getDB();
+  if (!db.workerStock) db.workerStock = [];
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  var worker = document.getElementById('tw-worker').value;
+  var type = document.getElementById('tw-type').value;
+  var itemId = document.getElementById('tw-item').value;
+  var qty = parseFloat(document.getElementById('tw-qty').value) || 0;
+  var note = document.getElementById('tw-note').value;
+  if (!worker || !itemId || qty <= 0) return alert('Заповніть всі поля');
+
+  var itemName = '';
+  if (type === 'material') {
+    var mat = db.materials.find(function(m){return m.id===itemId});
+    if (!mat) return;
+    if (mat.qty < qty) { if(!confirm('На складі лише '+fmt(mat.qty)+' '+mat.unit+'. Все одно передати?')) return; }
+    mat.qty = Math.max(0, mat.qty - qty);
+    itemName = mat.name;
+  } else {
+    var prod = db.products.find(function(p){return p.id===itemId});
+    if (!prod) return;
+    itemName = prod.sku + ' — ' + prod.name;
+  }
+
+  // Check if same item already at worker — merge
+  var existing = db.workerStock.find(function(s){ return s.worker===worker && s.itemId===itemId && s.type===type; });
+  if (existing) {
+    existing.qty += qty;
+    existing.note = note || existing.note;
+  } else {
+    db.workerStock.push({ id:uid(), worker:worker, type:type, itemId:itemId, itemName:itemName, qty:qty, date:new Date().toISOString().slice(0,10), note:note });
+  }
+
+  db.workerStockHistory.push({ id:uid(), worker:worker, type:type, itemId:itemId, itemName:itemName, qty:qty, action:'передано', date:new Date().toISOString().slice(0,10), note:note });
+
+  saveDB(db);
+  closeModal('transfer-to-worker');
+  renderPage('worker-stock');
+}
+
+function returnFromWorker(stockId) {
+  var db = getDB();
+  if (!db.workerStock) return;
+  var item = db.workerStock.find(function(s){return s.id===stockId});
+  if (!item) return;
+  var qtyStr = prompt('Скільки повернути? (є '+fmt(item.qty)+')', item.qty);
+  if (qtyStr === null) return;
+  var qty = parseFloat(qtyStr) || 0;
+  if (qty <= 0 || qty > item.qty) return alert('Невірна кількість');
+
+  // Return material to main stock
+  if (item.type === 'material') {
+    var mat = db.materials.find(function(m){return m.id===item.itemId});
+    if (mat) mat.qty += qty;
+  }
+
+  item.qty -= qty;
+  if (item.qty <= 0) {
+    db.workerStock = db.workerStock.filter(function(s){return s.id!==stockId});
+  }
+
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  db.workerStockHistory.push({ id:uid(), worker:item.worker, type:item.type, itemId:item.itemId, itemName:item.itemName, qty:qty, action:'повернуто', date:new Date().toISOString().slice(0,10), note:'' });
+
+  saveDB(db);
+  renderPage('worker-stock');
+}
+
+function renderWorkerStock() {
+  var db = getDB();
+  var stock = db.workerStock || [];
+  var history = db.workerStockHistory || [];
+  var filterWorker = document.getElementById('ws-worker-filter').value;
+
+  // Populate filter
+  var sel = document.getElementById('ws-worker-filter');
+  var curVal = sel.value;
+  var workerSet = {};
+  stock.forEach(function(s){ workerSet[s.worker]=true; });
+  sel.innerHTML = '<option value="">Всі майстри</option>' + Object.keys(workerSet).map(function(w){ return '<option value="'+esc(w)+'" '+(w===curVal?'selected':'')+'>'+esc(w)+'</option>'; }).join('');
+
+  var filtered = stock;
+  if (filterWorker) filtered = filtered.filter(function(s){ return s.worker===filterWorker; });
+
+  // Summary cards per worker
+  var byWorker = {};
+  filtered.forEach(function(s){
+    if (!byWorker[s.worker]) byWorker[s.worker] = { materials:0, products:0, items:[] };
+    if (s.type==='material') byWorker[s.worker].materials += s.qty;
+    else byWorker[s.worker].products += s.qty;
+    byWorker[s.worker].items.push(s);
+  });
+
+  var cardsHtml = '';
+  Object.keys(byWorker).forEach(function(w){
+    var d = byWorker[w];
+    cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+d.items.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">Матеріалів: '+fmt(d.materials)+' | Напівфабрикатів: '+fmt(d.products)+'</div></div>';
+  });
+  document.getElementById('ws-cards').innerHTML = cardsHtml || '<div class="text-muted">Нічого не передано майстрам</div>';
+
+  // Table
+  var typeLabels = { material:'📦 Матеріал', product:'🎮 Напівфабрикат' };
+  document.getElementById('ws-table').innerHTML = filtered.map(function(s){
+    return '<tr>'+
+      '<td><strong>'+esc(s.worker)+'</strong></td>'+
+      '<td>'+(typeLabels[s.type]||s.type)+'</td>'+
+      '<td>'+esc(s.itemName)+'</td>'+
+      '<td>'+fmt(s.qty)+'</td>'+
+      '<td>'+s.date+'</td>'+
+      '<td><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
+      '<td><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Нічого не передано</td></tr>';
+
+  // History
+  var filteredHistory = history.slice().reverse();
+  if (filterWorker) filteredHistory = filteredHistory.filter(function(h){ return h.worker===filterWorker; });
+  document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
+    var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : '<span class="badge badge-success">← повернуто</span>';
+    return '<tr>'+
+      '<td>'+h.date+'</td>'+
+      '<td>'+esc(h.worker)+'</td>'+
+      '<td>'+(typeLabels[h.type]||h.type)+'</td>'+
+      '<td>'+esc(h.itemName)+'</td>'+
+      '<td>'+fmt(h.qty)+'</td>'+
+      '<td>'+actionBadge+'</td>'+
+      '<td>'+esc(h.note||'—')+'</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Історія порожня</td></tr>';
+}
+
+// ==================== SALARY ====================
+function renderSalary() {
+  var db = getDB();
+  var completed = db.production.filter(function(x){return x.status==='completed'});
+  var months = [];
+  var monthSet = {};
+  completed.forEach(function(b){ var m=(b.completedDate||b.date).slice(0,7); if(!monthSet[m]){monthSet[m]=true;months.push(m);} });
+  months.sort().reverse();
+  var workers = [];
+  var wSet = {};
+  completed.forEach(function(b){ if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);} });
+
+  var selM = document.getElementById('salary-month');
+  var selW = document.getElementById('salary-worker');
+  var curM = selM.value;
+  var curW = selW.value;
+  selM.innerHTML = '<option value="">Всі місяці</option>' + months.map(function(m){return '<option value="'+m+'" '+(m===curM?'selected':'')+'>'+m+'</option>';}).join('');
+  selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+
+  var filtered = completed;
+  if(curM) filtered = filtered.filter(function(b){return (b.completedDate||b.date).indexOf(curM)===0});
+  if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
+
+  var totalSalary = 0;
+  var rows = filtered.map(function(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    var rate = p ? Math.round(p.sellPrice * 0.25) : 0;
+    var earned = rate * (b.completedQty||b.qty);
+    totalSalary += earned;
+    return '<tr><td>'+(b.completedDate||b.date)+'</td><td>'+esc(b.worker)+'</td><td>'+(p?esc(p.name):'?')+'</td>'+
+      '<td>'+(b.completedQty||b.qty)+'</td><td>'+fmt(rate)+' грн (25%)</td><td><strong>'+fmt(earned)+' грн</strong></td></tr>';
+  });
+
+  document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
+
+  var byWorker = {};
+  filtered.forEach(function(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    var earned = (p?Math.round(p.sellPrice*0.25):0) * (b.completedQty||b.qty);
+    var pcs = b.completedQty||b.qty;
+    if(!byWorker[b.worker]) byWorker[b.worker] = {earned:0, pcs:0};
+    byWorker[b.worker].earned += earned;
+    byWorker[b.worker].pcs += pcs;
+  });
+
+  var cardsHtml = '';
+  Object.keys(byWorker).forEach(function(w){
+    var d = byWorker[w];
+    cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+fmt(d.earned)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">'+d.pcs+' виробів</div></div>';
+  });
+  if(totalSalary>0) cardsHtml += '<div class="card success"><div class="card-label">Всього</div><div class="card-value">'+fmt(totalSalary)+' <span style="font-size:16px;">грн</span></div></div>';
+  document.getElementById('salary-cards').innerHTML = cardsHtml;
+}
+
+// ==================== COSTS ====================
+function renderCosts() {
+  var db = getDB();
+  var tb = document.getElementById('costs-table');
+  var detailHTML = '';
+  tb.innerHTML = db.products.map(function(p) {
+    var cost = calcCost(p, db.materials);
+    var margin = p.sellPrice - cost.total;
+    var marginPct = p.sellPrice>0 ? (margin/p.sellPrice*100) : 0;
+    var matDetails = (p.recipe||[]).map(function(r) {
+      var mat = db.materials.find(function(m){return m.id===r.materialId});
+      if(!mat) return '';
+      return '<tr><td style="padding-left:30px;">'+esc(mat.name)+'</td><td>'+fmt(r.qty)+' '+esc(mat.unit)+'</td><td>'+fmt(mat.price)+' грн/'+esc(mat.unit)+'</td><td>'+fmt(r.qty*mat.price)+' грн</td></tr>';
+    }).join('');
+    if(matDetails) {
+      detailHTML += '<div class="table-wrap" style="margin-bottom:12px;">'+
+        '<table><thead><tr><th colspan="4">'+(p.sku?p.sku+' — ':'')+esc(p.name)+'</th></tr><tr><th>Матеріал</th><th>Витрата</th><th>Ціна</th><th>Вартість</th></tr></thead>'+
+        '<tbody>'+matDetails+
+        '<tr style="font-weight:600;background:#f1f2f6;"><td>Матеріали разом</td><td></td><td></td><td>'+fmt(cost.materials)+' грн</td></tr>'+
+        '<tr style="background:#f1f2f6;"><td>Робота майстра</td><td></td><td></td><td>'+fmt(cost.work)+' грн</td></tr>'+
+        '<tr style="font-weight:700;background:#dfe6e9;"><td>СОБІВАРТІСТЬ</td><td></td><td></td><td>'+fmt(cost.total)+' грн</td></tr>'+
+        '</tbody></table></div>';
+    }
+    return '<tr>'+
+      '<td><code>'+esc(p.sku||'—')+'</code></td>'+
+      '<td><strong>'+esc(p.name)+'</strong></td>'+
+      '<td>'+fmt(cost.materials)+' грн</td><td>'+fmt(cost.work)+' грн</td>'+
+      '<td><strong>'+fmt(cost.total)+' грн</strong></td><td>'+fmt(p.sellPrice)+' грн</td>'+
+      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
+      '<td class="'+(marginPct>30?'text-success':marginPct>15?'text-warning':'text-danger')+'">'+fmt(marginPct)+'%</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри з рецептурою</td></tr>';
+  document.getElementById('costs-detail').innerHTML = detailHTML;
+}
+
+// ==================== DASHBOARD ====================
+function renderDashboard() {
+  var db = getDB();
+  var alerts = [];
+  db.materials.forEach(function(m) {
+    if(m.qty<=0) alerts.push({type:'danger', text:'<strong>'+esc(m.name)+'</strong> — закінчився! '+(m.supplier?'Постачальник: '+esc(m.supplier):'')});
+    else if(m.qty <= m.min) alerts.push({type:'warning', text:'<strong>'+esc(m.name)+'</strong> — залишок '+fmt(m.qty)+' '+esc(m.unit)+' (мін: '+m.min+'). Пора замовити!'});
+  });
+  document.getElementById('dash-alerts').innerHTML = alerts.map(function(a){return '<div class="alert alert-'+a.type+'">'+a.text+'</div>';}).join('');
+
+  var totalStock = db.products.reduce(function(s,p){return s+(p.stock||0)},0);
+  var totalInProgress = db.products.reduce(function(s,p){return s+(p.inProgress||0)},0);
+  var lowMats = db.materials.filter(function(m){return m.qty<=m.min}).length;
+  var totalStockValue = db.products.reduce(function(s,p){return s+(p.stock||0)*p.sellPrice},0);
+  var thisMonth = new Date().toISOString().slice(0,7);
+  var monthOrders = db.orders.filter(function(o){return o.date.indexOf(thisMonth)===0});
+  var monthRevenue = monthOrders.reduce(function(s,o){return s+o.total},0);
+
+  document.getElementById('dash-cards').innerHTML =
+    '<div class="card success"><div class="card-label">На складі готового</div><div class="card-value">'+totalStock+' шт</div><div class="card-sub">'+fmt(totalStockValue)+' грн</div></div>'+
+    '<div class="card"><div class="card-label">В виробництві</div><div class="card-value">'+totalInProgress+' шт</div></div>'+
+    '<div class="card '+(lowMats>0?'danger':'success')+'"><div class="card-label">Матеріали</div><div class="card-value">'+lowMats+'</div><div class="card-sub">'+(lowMats>0?'потребують замовлення':'все в нормі')+'</div></div>'+
+    '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div><div class="card-sub">'+fmt(monthRevenue)+' грн</div></div>'+
+    '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
+
+  var critMats = db.materials.filter(function(m){return m.qty<=m.min*1.5}).sort(function(a,b){return a.qty/Math.max(a.min,0.01) - b.qty/Math.max(b.min,0.01)});
+  document.getElementById('dash-materials').innerHTML = critMats.map(function(m) {
+    var status = m.qty<=0 ? '<span class="badge badge-danger">Немає!</span>' : m.qty<=m.min ? '<span class="badge badge-warning">Замовити!</span>' : '<span class="badge badge-ok">Мало</span>';
+    var usedIn = db.products.filter(function(p){return (p.recipe||[]).some(function(r){return r.materialId===m.id})});
+    var enough = usedIn.map(function(p){
+      var r = p.recipe.find(function(r){return r.materialId===m.id});
+      return r ? esc(p.name)+': '+Math.floor(m.qty/r.qty)+' шт' : '';
+    }).filter(Boolean).join(', ');
+    return '<tr><td>'+esc(m.name)+'</td><td>'+fmt(m.qty)+' '+esc(m.unit)+'</td><td>'+fmt(m.min)+' '+esc(m.unit)+'</td><td>'+status+'</td><td class="text-muted" style="font-size:12px;">'+(enough||'—')+'</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px;">Все в нормі</td></tr>';
+
+  var dashProds = db.products.filter(function(p){return (p.stock||0)>0 || (p.inProgress||0)>0});
+  document.getElementById('dash-products').innerHTML = dashProds.map(function(p) {
+    var can = calcCanProduce(p, db.materials);
+    return '<tr><td><code>'+esc(p.sku||'—')+'</code></td><td><strong>'+esc(p.name)+'</strong></td><td>'+esc(p.category||'—')+'</td><td>'+(p.stock||0)+'</td><td>'+(p.inProgress||0)+'</td><td>'+can+' шт</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Склад порожній</td></tr>';
+}
+
+// ==================== SETTINGS ====================
+function renderSettings() {
+  var db = getDB();
+  document.getElementById('workers-list').innerHTML = db.workers.map(function(w,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;">'+esc(w)+'</span>'+
+      '<button class="btn btn-danger btn-sm" onclick="removeWorker('+i+')">&#x2715;</button></div>';
+  }).join('') || '<p class="text-muted">Додайте майстрів</p>';
+  // Load CRM settings
+  var crm = getCrmSettings();
+  document.getElementById('sd-domain').value = crm.domain || '';
+  document.getElementById('sd-apikey').value = crm.apiKey || '';
+}
+
+function addWorker() {
+  var name = v('new-worker').trim();
+  if(!name) return;
+  var db = getDB();
+  db.workers.push(name);
+  saveDB(db);
+  document.getElementById('new-worker').value='';
+  renderSettings();
+}
+
+function removeWorker(i) {
+  var db = getDB();
+  db.workers.splice(i,1);
+  saveDB(db);
+  renderSettings();
+}
+
+// ==================== EXPORT/IMPORT ====================
+function exportData() {
+  var db = getDB();
+  var blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lipoland-inventory-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+
+function importData(event) {
+  var file = event.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      saveDB(data);
+      alert('Дані імпортовано!');
+      location.reload();
+    } catch(err) { alert('Помилка читання файлу'); }
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+function resetAllData() {
+  localStorage.removeItem(DB_KEY);
+  location.reload();
+}
+
+// ==================== LOAD REAL DATA ====================
+function loadRealData() {
+  var pid = 0;
+  function mkp(sku, name, size, category, pages, sellPrice) {
+    pid++;
+    return { id:'p'+pid, sku:sku, name:name, size:size||'', category:category, pages:pages||0, sellPrice:sellPrice||0, workerRate:0, recipe:[], stock:0, inProgress:0 };
+  }
+
+  var products = [
+    // АЛЬБОМИ ДЛЯ ІГОР З ПЛАСТИЛІНОМ (5)
+    mkp('LP1501A4','Пластилін для самих маленьких','А4','Альбоми для ігор з пластиліном',10,340),
+    mkp('LP1502A5','Пластилін для самих маленьких','А5','Альбоми для ігор з пластиліном',10,240),
+    mkp('LP1503A4','Пластилін для самих маленьких ','А4','Альбоми для ігор з пластиліном',10,340),
+    mkp('LP1504A5','Пластилін для самих маленьких','А5','Альбоми для ігор з пластиліном',10,240),
+    mkp('LP1505RF','Фігури "Розминаємо пальчики"','15x15 см','Альбоми для ігор з пластиліном',16,340),
+
+    // ЗОШИТИ ПИШИ-СТИРАЙ (9)
+    mkp('LP1901A6','Блокнот для подорожей','А6','Зошити Пиши-стирай',26,190),
+    mkp('LP1903A5','Універсальний зошит','А5','Зошити Пиши-стирай',25,400),
+    mkp('LP1905A5','Пишу цифри та рахую','A5','Зошити Пиши-стирай',20,250),
+    mkp('LP1906A5','Багаторазові прописи для дошкільнят','А5','Зошити Пиши-стирай',0,500),
+    mkp('LP1907SQ','Візерунки','21х21 см','Зошити Пиши-стирай',0,550),
+    mkp('LP1908A4','Математична навчалочка','A4','Зошити Пиши-стирай',0,480),
+    mkp('LP1909A4','Ігри Пиши-стирай','A4','Зошити Пиши-стирай',0,400),
+    mkp('LP1910A5','Багаторазові прописи з конвертом','А5','Зошити Пиши-стирай',0,360),
+    mkp('LP1913A4','Прописи англійська мова','А4','Зошити Пиши-стирай',0,500),
+
+    // МІНІ ІГРИ НА КІЛЬЦЯХ (13)
+    mkp('LP1401RF','Фігури в житті','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1402RF','Чия мордочка?','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1403RF','Веселі рюкзачки','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1404RF','Смачний рахунок','10х15 см','Міні ігри на кільцях',0,200),
+    mkp('LP1405RF','Якого кольору?','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1406RF','Чия шкурка?','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1407RF','Дітям про звірят','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1408RF','Професії на кільцях','21х21 см','Міні ігри на кільцях',0,400),
+    mkp('LP1409RF','Кольорові банки 6 шт','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1410RF','Кольорові банки 12 шт','10x15 cм','Міні ігри на кільцях',0,500),
+    mkp('LP1411RF','Транспорт','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1412RF','Чий малиш?','10х15 см','Міні ігри на кільцях',0,250),
+    mkp('LP1413RF','Фрукти Овочі Ягоди','10х15 см','Міні ігри на кільцях',0,280),
+
+    // АПЛІКАЦІЇ (3)
+    mkp('LP1601SQ','Мої улюблені аплікації','21x21 см','Аплікації',0,450),
+    mkp('LP1602A5','Аплікації транспорт','А5','Аплікації',0,700),
+    mkp('LP1603SQ','Створи монстрика','21x21 см','Аплікації',0,400),
+
+    // НАСТІЛЬНІ ІГРИ (6)
+    mkp('LP1702SQ','Судоку','21x21 см','Настільні ігри',0,300),
+    mkp('LP1703SQ','Шахи','А4','Настільні ігри',0,220),
+    mkp('LP1704A4','Валізка пожежника','А4','Настільні ігри',0,400),
+    mkp('LP1705A4','Валізка поліцейського','А4','Настільні ігри',0,400),
+    mkp('LP1706A4','Валізка лікаря','А4','Настільні ігри',0,400),
+    mkp('LP1707A4','Валізка будівельника','А4','Настільні ігри',0,400),
+
+    // ТЕМАТИЧНІ АЛЬБОМИ (24)
+    mkp('LP1201SQ','Альбом для хлопчиків','21x21 см','Тематичні альбоми',0,650),
+    mkp('LP1202SQ','Альбом для дівчаток','21x21 см','Тематичні альбоми',0,650),
+    mkp('LP1203SQ','Тварини світу','А4','Тематичні альбоми',0,650),
+    mkp('LP1204SQ','Що навколо?','21x21 см','Тематичні альбоми',0,550),
+    mkp('LP1205SQ','Що дарує нам природа?','21x21 см','Тематичні альбоми',0,800),
+    mkp('LP1206SQ','Орієнтація у просторі','А4','Тематичні альбоми',0,600),
+    mkp('LP1207SQ','Моя перша книжка про колір','А4','Тематичні альбоми',0,700),
+    mkp('LP1209SQ','Барбі','17х28 см','Тематичні альбоми',0,650),
+    mkp('LP1211SQ','Альбом для ейнштейнів','21x21 см','Тематичні альбоми',0,550),
+    mkp('LP1213SQ','Мій перший англійський альбом','А4','Тематичні альбоми',0,650),
+    mkp('LP1215SQ','Магазинчик-Вітамінчик','А4','Тематичні альбоми',0,650),
+    mkp('LP1216SQ','Граємо з динозаврами','21x21 см','Тематичні альбоми',0,550),
+    mkp('LP1217RF','Будинок ведмедиків','10х15 см','Тематичні альбоми',0,450),
+    mkp('LP1218А5','Дитяче здоров\'я','A5','Тематичні альбоми',0,850),
+    mkp('LP1219SQ','Азбука фінансиста','21x21 см','Тематичні альбоми',0,550),
+    mkp('LP1220A4','Юний кухар','А4','Тематичні альбоми',0,900),
+    mkp('LP1221SQ','Хочу все знати','21x21 см','Тематичні альбоми',0,800),
+    mkp('LP1222А5','Альбом професії','А5','Тематичні альбоми',0,400),
+    mkp('LP1223SQ','Космічні пригоди','21x21 см','Тематичні альбоми',0,650),
+    mkp('LP1224SQ','Мої перші 100 слів англійською','21x21 см','Тематичні альбоми',0,800),
+    mkp('LP1225SQ','Англійська Next Level','21x21 см','Тематичні альбоми',0,800),
+    mkp('LP1226SQ','Альбом нейротренажер','21x21 см','Тематичні альбоми',0,650),
+    mkp('LP12267Q','Знайди все','21x21 см','Тематичні альбоми',0,350),
+    mkp('LP12268A5','Моя перша ліпуча книжечка','А5','Тематичні альбоми',0,600),
+
+    // ТОКА БОКА + AVATAR (9)
+    mkp('LP1210SQ','Тока Бока Life Твоя Рожева Мрія','21x21 см','Тока Бока',0,550),
+    mkp('LP1261SQ','Тока Бока Домашні Улюбленці','21x21 см','Тока Бока',0,550),
+    mkp('LP1262A6','Тока Бока Готель','А6','Тока Бока',0,400),
+    mkp('LP1263SQ','Тока Бока Вихідні','21x21 см','Тока Бока',0,800),
+    mkp('LP1264SQ','Тока Бока Wednesday','21x21 см','Тока Бока',0,650),
+    mkp('LP1265A4','Тока Бока Містечко Професій','А4','Тока Бока',0,750),
+    mkp('LP1266SQ','Тока Бока Салон Краси','21x21 см','Тока Бока',0,400),
+    mkp('LP1267SQ','Тока Бока Гардероб','21x21 см','Тока Бока',0,250),
+    mkp('LP1269A4','Avatar World Будиночок Мрії','А4','Avatar World',0,750),
+
+    // ІНКЛЮЗИВНІ ТОВАРИ (10)
+    mkp('LP1212SQ','Система комунікації PECS','А4','Інклюзивні товари',0,1800),
+    mkp('LP1240VR','Візуальний розклад','-','Інклюзивні товари',0,50),
+    mkp('LP1241BR','Брелок з картками','3х15 см','Інклюзивні товари',0,150),
+    mkp('LP1242KK','Індивідуальна картка 4х4 см','4х4 см','Інклюзивні товари',0,4),
+    mkp('LP1243ZH','Жетони PECS','-','Інклюзивні товари',0,75),
+    mkp('LP1244BR','Браслет на 6 карток','-','Інклюзивні товари',0,250),
+    mkp('LP1245A4','Візуальний розклад А4 Boy/Girl','A4','Інклюзивні товари',0,150),
+    mkp('LP1246A5','Візуальний розклад А5 Boy/Girl','A5','Інклюзивні товари',0,450),
+    mkp('LP1247A5','Фразовий конструктор','','Інклюзивні товари',0,750),
+    mkp('LP1248A5','Мотиваційні картки набір жетонів','A5','Інклюзивні товари',0,500),
+
+    // ПАЗЛИ (5)
+    mkp('LP1801A5','Заплатки кружочки','15х20 см','Пазли',0,300),
+    mkp('LP1802A5','Мої перші половинки','15х25 см','Пазли',0,350),
+    mkp('LP1803A4','Пазли А4','А4','Пазли',0,100),
+    mkp('LP1804A4','Пазли 11 ігр на кільцях','15х25 см','Пазли',0,350),
+    mkp('LP1805A5','Мої перші пазли','А5','Пазли',0,550),
+
+    // ТРЕКЕРИ ТА КАЛЕНДАРІ (9)
+    mkp('LP2101A4','Мій календар','А4','Трекери та календарі',0,380),
+    mkp('LP2102A4','Календар для хлопчика','А4','Трекери та календарі',0,400),
+    mkp('LP2103A4','Календар для дівчинки','А4','Трекери та календарі',0,400),
+    mkp('LP2104A4','Англомовний календар','А4','Трекери та календарі',0,400),
+    mkp('LP2105A5','Я молодець','A4','Трекери та календарі',0,350),
+    mkp('LP2106RF','Трекер води міні','10х30 см','Трекери та календарі',0,90),
+    mkp('LP2107A3','Трекер води максі','А3','Трекери та календарі',0,250),
+    mkp('LP2108A4','Трекер вагітності','А4','Трекери та календарі',0,300),
+    mkp('LP2109A5','Конструктор меню','А5','Трекери та календарі',0,400),
+
+    // КАЗКИ (9)
+    mkp('LP2201A4','Ріпка','A4','Казки',0,100),
+    mkp('LP2202A4','Ай-болит','A4','Казки',0,100),
+    mkp('LP2203A4','Три порося','A4','Казки',0,100),
+    mkp('LP2204A4','Колобок','A4','Казки',0,100),
+    mkp('LP2205A4','Лискунчик','A4','Казки',0,100),
+    mkp('LP2206A4','Ліса та вовк','A4','Казки',0,100),
+    mkp('LP2207A4','Теремок','A4','Казки',0,100),
+    mkp('LP2208A4','Курочка ряба','A4','Казки',0,100),
+    mkp('LP2210SQ','Усі казки без тексту','21x21 см','Казки',0,650),
+
+    // МІНІ ІГРИ А4 (47)
+    mkp('LP2302A4','Де мишонок?','A4','Міні ігри А4',0,100),
+    mkp('LP2303A4','Іграшки','A4','Міні ігри А4',0,100),
+    mkp('LP2304A4','Шукаємо пару лисички','A4','Міні ігри А4',0,100),
+    mkp('LP2305A4','Хто живе у теплих країнах?','A4','Міні ігри А4',0,100),
+    mkp('LP2306A4','Хто живе у лісі?','A4','Міні ігри А4',0,100),
+    mkp('LP2307A4','Хто живе на північному полюсі?','A4','Міні ігри А4',0,75),
+    mkp('LP2308A4','Хто живе на фермі?','A4','Міні ігри А4',0,100),
+    mkp('LP2309A4','Хто живе під водою?','A4','Міні ігри А4',0,100),
+    mkp('LP2310A4','Логічна таблиця','A4','Міні ігри А4',0,150),
+    mkp('LP2311A4','Милі мордочки','A4','Міні ігри А4',0,100),
+    mkp('LP2312A4','Модниця','A4','Міні ігри А4',0,100),
+    mkp('LP2313A4','Нагодуй дівчинку','A4','Міні ігри А4',0,150),
+    mkp('LP2314A4','Нагодуй хлопчика','A4','Міні ігри А4',0,150),
+    mkp('LP2315A4','Овочі','A4','Міні ігри А4',0,100),
+    mkp('LP2316A4','Палітра кольорів','A4','Міні ігри А4',0,75),
+    mkp('LP2317A4','Половинки','A4','Міні ігри А4',0,100),
+    mkp('LP2318A4','Пончики','A4','Міні ігри А4',0,100),
+    mkp('LP2319A4','Порахуємо до 10?','A4','Міні ігри А4',0,250),
+    mkp('LP2320A4','Приготуємо піцу?','A4','Міні ігри А4',0,250),
+    mkp('LP2321A4','Члени родини','A4','Міні ігри А4',0,100),
+    mkp('LP2322A4','Їстівне неїстівне','A4','Міні ігри А4',0,150),
+    mkp('LP2323A4','Транспорт','A4','Міні ігри А4',0,100),
+    mkp('LP2324A4','Фігури','A4','Міні ігри А4',0,100),
+    mkp('LP2325A4','Фігури та предмети','A4','Міні ігри А4',0,100),
+    mkp('LP2326A4','Фрукти','A4','Міні ігри А4',0,100),
+    mkp('LP2327A4','Годинник','A4','Міні ігри А4',0,150),
+    mkp('LP2328A4','Частини тіла хлопчик','A4','Міні ігри А4',0,75),
+    mkp('LP2329A4','Чий малиш?','A4','Міні ігри А4',0,100),
+    mkp('LP2330A4','Що полюбляють наші зубки?','A4','Міні ігри А4',0,100),
+    mkp('LP2331A4','Шарики по зразку','A4','Міні ігри А4',0,150),
+    mkp('LP2333A4','Ягоди','A4','Міні ігри А4',0,100),
+    mkp('LP2334A4','Гараж та машинки','A4','Міні ігри А4',0,65),
+    mkp('LP2335A4','Colors EN','A4','Міні ігри А4',0,100),
+    mkp('LP2339A4','Якого кольору?','A4','Міні ігри А4',0,100),
+    mkp('LP2340A4','Хто як говорить','A4','Міні ігри А4',0,80),
+    mkp('LP2347A4','Половинки тварин','A4','Міні ігри А4',0,100),
+    mkp('LP2348A4','Половинки фруктів','A4','Міні ігри А4',0,100),
+    mkp('LP2350A4','Протилежності','A4','Міні ігри А4',0,100),
+    mkp('LP2351A4','Я знаю букви - Алфавіт','A4','Міні ігри А4',0,300),
+    mkp('LP2352A4','Англійська абетка','A4','Міні ігри А4',0,150),
+    mkp('LP2354A4','Частини тіла дівчинка','A4','Міні ігри А4',0,75),
+    mkp('LP2355A4','Хто що їсть?','A4','Міні ігри А4',0,100),
+    mkp('LP2356A4','Хто де живе?','A4','Міні ігри А4',0,100),
+    mkp('LP2357A4','Професії','A4','Міні ігри А4',0,100),
+    mkp('LP2358A4','Побутова техніка','A4','Міні ігри А4',0,100),
+    mkp('LP2359A4','Сонячна система','A4','Міні ігри А4',0,75),
+    mkp('LP2360A4','Чиї п\'ятнишки?','A4','Міні ігри А4',0,90),
+
+    // КРУГЛЯШІ (27)
+    mkp('LP2401RF','Ліво чи право','21x21 см','Кругляші',0,65),
+    mkp('LP2402RF','Асоціації','21x21 см','Кругляші',0,65),
+    mkp('LP2403RF','Протилежності','21x21 см','Кругляші',0,65),
+    mkp('LP2404RF','Солодкі половинки','21x21 см','Кругляші',0,65),
+    mkp('LP2405RF','Заплатки','21x21 см','Кругляші',0,65),
+    mkp('LP2406RF','На кого схожі малюки?','21x21 см','Кругляші',0,65),
+    mkp('LP2407RF','Хто як говорить','21x21 см','Кругляші',0,65),
+    mkp('LP2408RF','Із чого зроблено?','21x21 см','Кругляші',0,65),
+    mkp('LP2409RF','Чия спинка?','21x21 см','Кругляші',0,65),
+    mkp('LP2410RF','Підбери тінь','21x21 см','Кругляші',0,65),
+    mkp('LP2411RF','Кавунчик','21x21 см','Кругляші',0,65),
+    mkp('LP2412RF','Летить, пливе, їде','21x21 см','Кругляші',0,65),
+    mkp('LP2413RF','Професії','21x21 см','Кругляші',0,65),
+    mkp('LP2414RF','Фігури у житті','21x21 см','Кругляші',0,65),
+    mkp('LP2415RF','Чий малюк?','21x21 см','Кругляші',0,65),
+    mkp('LP2416RF','Чия мордочка?','21x21 см','Кругляші',0,65),
+    mkp('LP2417RF','Хто що їсть?','21x21 см','Кругляші',0,65),
+    mkp('LP2418RF','Хто де живе?','21x21 см','Кругляші',0,65),
+    mkp('LP2419RF','Хто це?','21x21 см','Кругляші',0,65),
+    mkp('LP2420RF','Який колір?','21x21 см','Кругляші',0,65),
+    mkp('LP2421RF','Знайди пару','21x21 см','Кругляші',0,65),
+    mkp('LP2422RF','Чия долька?','21x21 см','Кругляші',0,65),
+    mkp('LP2423RF','День та ніч','21x21 см','Кругляші',0,65),
+    mkp('LP2424RF','Горяче чи холодне?','21x21 см','Кругляші',0,65),
+    mkp('LP2425RF','Пори року','21x21 см','Кругляші',0,65),
+    mkp('LP2426RF','Альбом Кругляші 1','21x21 см','Кругляші',0,800),
+    mkp('LP2427RF','Альбом Кругляші 2','21x21 см','Кругляші',0,800),
+
+    // НОВОРІЧНІ (4)
+    mkp('LP1910A4','Зимові ігри на ліпучках','A4','Новорічні',0,600),
+    mkp('LP1911A5','Новорічний зошит Пиши-стирай','A5','Новорічні',0,300),
+    mkp('LP1912SQ','Новорічна історія з Тока Бока','21x21 см','Новорічні',0,650),
+    mkp('LP1913SQ','Зимові розваги 3+','21x21 см','Новорічні',0,650)
+  ];
+
+  var db = {
+    materials: [
+      {id:'m1',name:'Бумага 180 мг глянець',unit:'упак',qty:0,min:1,price:0,supplier:'mak.trade',orderUrl:'',note:'Упаковка 100 листів. Замовляємо від 3600 до 4000 грн для безкоштовної доставки'},
+      {id:'m2',name:'Плівка для ламінації 125 мг',unit:'упак',qty:0,min:1,price:0,supplier:'mak.trade',orderUrl:'',note:'Упаковка 100 листів'},
+      {id:'m3',name:'Краска для принтера',unit:'шт',qty:0,min:1,price:0,supplier:'mak.trade',orderUrl:'',note:'Можна замовляти окремо, чорний витрачається менше. Вказати без пакету'},
+      {id:'m4',name:'Кільця 20 мм',unit:'шт',qty:0,min:10,price:0,supplier:'hm-furnitura.com',orderUrl:'',note:''},
+      {id:'m5',name:'Кільця 35 мм',unit:'шт',qty:0,min:10,price:0,supplier:'hm-furnitura.com',orderUrl:'',note:''},
+      {id:'m6',name:'Кільця 40 мм',unit:'шт',qty:0,min:19,price:0,supplier:'hm-furnitura.com',orderUrl:'',note:''},
+      {id:'m7',name:'Папки для ПЕКС',unit:'шт',qty:0,min:5,price:0,supplier:'',orderUrl:'',note:'Папка А5'},
+      {id:'m8',name:'Ліпучки',unit:'компл',qty:0,min:2,price:0,supplier:'AliExpress',orderUrl:'',note:'1000 шт/комплект'},
+      {id:'m9',name:'Маркери Пиши-Стирай',unit:'шт',qty:0,min:10,price:0,supplier:'AliExpress',orderUrl:'',note:''},
+      {id:'m10',name:'Зіп-пакети',unit:'шт',qty:0,min:10,price:0,supplier:'Варшавський ринок',orderUrl:'',note:''},
+      {id:'m11',name:'Памперс для чорнил',unit:'шт',qty:0,min:1,price:0,supplier:'',orderUrl:'',note:''},
+      {id:'m12',name:'Ніж Cameo',unit:'шт',qty:0,min:0,price:0,supplier:'AliExpress',orderUrl:'',note:''}
+    ],
+    products: products,
+    production: [],
+    orders: [],
+    workers: ['Майстер 1'],
+    nextOrderNum: 1
+  };
+  saveDB(db);
+  location.reload();
+}
+
+// ==================== EQUIPMENT ====================
+function getServiceLogs(db) { return db.serviceLog || []; }
+
+function eqServiceStats(eqId, logs) {
+  var eqLogs = logs.filter(function(l){ return l.equipmentId===eqId; });
+  var total = eqLogs.reduce(function(s,l){ return s+(l.cost||0); },0);
+  return { count: eqLogs.length, totalCost: total };
+}
+
+function renderEquipment() {
+  var db = getDB();
+  var items = db.equipment || [];
+  var logs = getServiceLogs(db);
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var alerts = [];
+
+  // Summary cards
+  var totalValue = items.reduce(function(s,eq){ return s+(eq.price||0); },0);
+  var totalServiceCost = logs.reduce(function(s,l){ return s+(l.cost||0); },0);
+  var needService = 0;
+
+  var rows = items.map(function(eq) {
+    var stats = eqServiceStats(eq.id, logs);
+    var nextService = '';
+    var statusBadge = '<span class="badge badge-ok">OK</span>';
+    if (eq.serviceInterval && eq.serviceInterval > 0) {
+      var lastDate = eq.lastService ? new Date(eq.lastService) : (eq.purchaseDate ? new Date(eq.purchaseDate) : null);
+      if (lastDate) {
+        var next = new Date(lastDate);
+        next.setDate(next.getDate() + eq.serviceInterval);
+        nextService = next.toISOString().slice(0,10);
+        var daysLeft = Math.ceil((next - today) / (1000*60*60*24));
+        if (daysLeft < 0) {
+          statusBadge = '<span class="badge badge-danger">Прострочено</span>';
+          alerts.push('⚠️ <b>'+esc(eq.name)+'</b> — обслуговування прострочено на '+Math.abs(daysLeft)+' дн.');
+          needService++;
+        } else if (daysLeft <= 14) {
+          statusBadge = '<span class="badge badge-warning">Скоро</span>';
+          alerts.push('🔔 <b>'+esc(eq.name)+'</b> — обслуговування через '+daysLeft+' дн.');
+          needService++;
+        }
+      }
+    }
+    return '<tr>'+
+      '<td><b>'+esc(eq.name)+'</b></td>'+
+      '<td>'+esc(eq.category||'')+'</td>'+
+      '<td>'+(eq.purchaseDate||'—')+'</td>'+
+      '<td>'+(eq.price ? fmt(eq.price) : '—')+'</td>'+
+      '<td>'+stats.count+'</td>'+
+      '<td>'+(stats.totalCost ? fmt(stats.totalCost)+' грн' : '—')+'</td>'+
+      '<td>'+(nextService||'—')+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td style="max-width:200px;font-size:12px;color:var(--text-light);">'+esc(eq.note||'')+'</td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-success btn-sm" onclick="openServiceLog(\''+eq.id+'\')" title="Записати обслуговування">🔧</button> '+
+        '<button class="btn btn-outline btn-sm" onclick="editEquipment(\''+eq.id+'\')" title="Редагувати">✏️</button> '+
+        '<button class="btn btn-danger btn-sm" onclick="deleteEquipment(\''+eq.id+'\')" title="Видалити">✕</button>'+
+      '</td></tr>';
+  }).join('');
+
+  document.getElementById('equipment-cards').innerHTML =
+    '<div class="card"><div class="card-label">Всього обладнання</div><div class="card-value">'+items.length+'</div></div>'+
+    '<div class="card"><div class="card-label">Загальна вартість</div><div class="card-value">'+fmt(totalValue)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card'+(totalServiceCost>0?' warning':'')+'"><div class="card-label">Витрати на обслуговування</div><div class="card-value">'+fmt(totalServiceCost)+'</div><div class="card-sub">грн за весь час</div></div>'+
+    '<div class="card'+(needService>0?' danger':'success')+'"><div class="card-label">Потребують обслуговування</div><div class="card-value">'+needService+'</div></div>';
+
+  document.getElementById('equipment-table').innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-light);">Додайте своє перше обладнання</td></tr>';
+  document.getElementById('equipment-alerts').innerHTML = alerts.map(function(a){ return '<div class="alert alert-warning">'+a+'</div>'; }).join('');
+
+  // Service history table
+  var eqMap = {};
+  items.forEach(function(eq){ eqMap[eq.id] = eq.name; });
+  var sortedLogs = logs.slice().sort(function(a,b){ return b.date>a.date?1:(b.date<a.date?-1:0); });
+  var historyRows = sortedLogs.map(function(l){
+    return '<tr>'+
+      '<td>'+esc(l.date||'')+'</td>'+
+      '<td>'+esc(eqMap[l.equipmentId]||'Видалено')+'</td>'+
+      '<td>'+esc(l.type||'')+'</td>'+
+      '<td>'+(l.cost ? fmt(l.cost)+' грн' : '—')+'</td>'+
+      '<td>'+esc(l.comment||'')+'</td>'+
+      '<td><button class="btn btn-danger btn-sm" onclick="deleteServiceLog(\''+l.id+'\')">✕</button></td>'+
+    '</tr>';
+  }).join('');
+  document.getElementById('service-history-table').innerHTML = historyRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light);">Поки немає записів</td></tr>';
+}
+
+function openServiceLog(eqId) {
+  var db = getDB();
+  var eq = (db.equipment||[]).find(function(x){ return x.id===eqId; });
+  if (!eq) return;
+  document.getElementById('svc-eq-id').value = eqId;
+  document.getElementById('svc-eq-name').value = eq.name;
+  document.getElementById('svc-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('svc-cost').value = '0';
+  document.getElementById('svc-comment').value = '';
+  document.getElementById('svc-type').value = 'Планове обслуговування';
+  openModal('log-service');
+}
+
+function saveServiceLog() {
+  var db = getDB();
+  if (!db.serviceLog) db.serviceLog = [];
+  var eqId = document.getElementById('svc-eq-id').value;
+  var entry = {
+    id: uid(),
+    equipmentId: eqId,
+    date: v('svc-date'),
+    type: v('svc-type'),
+    cost: n('svc-cost'),
+    comment: v('svc-comment')
+  };
+  if (!entry.date) return alert('Вкажіть дату');
+  db.serviceLog.push(entry);
+  // Also update lastService on the equipment
+  var eq = (db.equipment||[]).find(function(x){ return x.id===eqId; });
+  if (eq) eq.lastService = entry.date;
+  saveDB(db);
+  closeModal('log-service');
+  renderPage('equipment');
+}
+
+function deleteServiceLog(id) {
+  if (!confirm('Видалити запис обслуговування?')) return;
+  var db = getDB();
+  db.serviceLog = (db.serviceLog||[]).filter(function(x){ return x.id!==id; });
+  saveDB(db);
+  renderPage('equipment');
+}
+
+function saveEquipment() {
+  var db = getDB();
+  if (!db.equipment) db.equipment = [];
+  var editId = document.getElementById('eq-edit-id').value;
+  var eq = {
+    id: editId || uid(),
+    name: v('eq-name'),
+    category: v('eq-category'),
+    purchaseDate: v('eq-purchase-date'),
+    price: n('eq-price'),
+    serviceInterval: parseInt(document.getElementById('eq-service-interval').value)||0,
+    lastService: v('eq-last-service'),
+    note: v('eq-note')
+  };
+  if (!eq.name) return alert('Введіть назву обладнання');
+  if (editId) {
+    var existing = db.equipment.find(function(x){ return x.id===editId; });
+    if (existing) eq.lastService = eq.lastService || existing.lastService;
+    var idx = db.equipment.findIndex(function(x){ return x.id===editId; });
+    if (idx>=0) db.equipment[idx] = eq;
+  } else {
+    db.equipment.push(eq);
+  }
+  saveDB(db);
+  closeModal('add-equipment');
+  clearEquipmentForm();
+  renderPage('equipment');
+}
+
+function editEquipment(id) {
+  var db = getDB();
+  var eq = (db.equipment||[]).find(function(x){ return x.id===id; });
+  if (!eq) return;
+  document.getElementById('eq-modal-title').textContent = 'Редагувати обладнання';
+  document.getElementById('eq-edit-id').value = eq.id;
+  document.getElementById('eq-name').value = eq.name||'';
+  document.getElementById('eq-category').value = eq.category||'Інше';
+  document.getElementById('eq-purchase-date').value = eq.purchaseDate||'';
+  document.getElementById('eq-price').value = eq.price||0;
+  document.getElementById('eq-service-interval').value = eq.serviceInterval||180;
+  document.getElementById('eq-last-service').value = eq.lastService||'';
+  document.getElementById('eq-note').value = eq.note||'';
+  openModal('add-equipment');
+}
+
+function deleteEquipment(id) {
+  if (!confirm('Видалити це обладнання?')) return;
+  var db = getDB();
+  db.equipment = (db.equipment||[]).filter(function(x){ return x.id!==id; });
+  saveDB(db);
+  renderPage('equipment');
+}
+
+function clearEquipmentForm() {
+  document.getElementById('eq-modal-title').textContent = 'Додати обладнання';
+  document.getElementById('eq-edit-id').value = '';
+  document.getElementById('eq-name').value = '';
+  document.getElementById('eq-category').value = 'Друк';
+  document.getElementById('eq-purchase-date').value = '';
+  document.getElementById('eq-price').value = '0';
+  document.getElementById('eq-service-interval').value = '180';
+  document.getElementById('eq-last-service').value = '';
+  document.getElementById('eq-note').value = '';
+}
+
+// ==================== HELPERS ====================
+function v(id) { return document.getElementById(id).value; }
+function n(id) { return parseFloat(document.getElementById(id).value)||0; }
+function fmt(n) { return Number(n).toFixed(2).replace(/\.00$/,'').replace(/(\.\d)0$/,'$1'); }
+function esc(s) {
+  if(!s) return '';
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+// ==================== INIT ====================
+renderDashboard();
+</script>
+</body>
+</html>
