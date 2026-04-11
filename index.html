@@ -367,7 +367,7 @@ a.order-link:hover { text-decoration:underline; }
 <div id="costs" class="page">
   <h2>Собівартість ігор</h2>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Матеріали</th><th>Друк</th><th>Пакування</th><th>Робота</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Маржа %</th></tr></thead>
+    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Матеріали</th><th>Друк</th><th>Пакув.</th><th>Шаблон</th><th>Робота</th><th>Собівартість</th><th>Ціна</th><th>Маржа</th><th>%</th></tr></thead>
     <tbody id="costs-table"></tbody></table>
   </div>
   <div class="section-title">Деталізація матеріалів</div>
@@ -479,6 +479,23 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group"><label>Вартість, грн</label><input id="ink-cost" type="number" step="0.01" value="150"></div>
       <button class="btn btn-primary" onclick="addInkRefill()">+ Додати</button>
     </div>
+    <div class="section-title" style="margin-top:16px;">Витратні матеріали обладнання</div>
+    <p class="text-muted" style="font-size:12px;margin-bottom:8px;">Памперс принтера, ніж для плотера Камео, тощо — для обліку витрат.</p>
+    <div id="consumables-list" class="mb-16"></div>
+    <div class="form-row" style="border-top:1px solid var(--border);padding-top:8px;">
+      <div class="form-group"><label>Дата</label><input id="cons-date" type="date"></div>
+      <div class="form-group"><label>Що замінено</label>
+        <select id="cons-type">
+          <option>Памперс принтера</option>
+          <option>Ніж Камео</option>
+          <option>Килимок Камео</option>
+          <option>Лезо різака</option>
+          <option>Інше</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Вартість, грн</label><input id="cons-cost" type="number" step="0.01" value="0"></div>
+      <button class="btn btn-primary" onclick="addConsumable()">+ Додати</button>
+    </div>
   </div>
   <div class="card" style="max-width:700px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">💰 Ставка майстра (за замовчуванням)</div>
@@ -518,7 +535,7 @@ a.order-link:hover { text-decoration:underline; }
     <div class="form-group mb-16"><label>Назва</label><input id="mat-name" placeholder="Ліпучка біла 25мм"></div>
     <div class="form-row">
       <div class="form-group"><label>Одиниця виміру</label>
-        <select id="mat-unit"><option>м.п.</option><option>шт</option><option>кг</option><option>упак</option><option>л</option><option>рулон</option><option>компл</option></select>
+        <select id="mat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select>
       </div>
       <div class="form-group"><label>Поточний залишок</label><input id="mat-qty" type="number" step="0.01" value="0"></div>
     </div>
@@ -587,7 +604,13 @@ a.order-link:hover { text-decoration:underline; }
     <div class="form-row">
       <div class="form-group"><label>Вартість пакування, грн</label><input id="prod-packaging" type="number" step="0.01" value="0"></div>
     </div>
-    <div class="section-title">Рецептура (матеріали на 1 шт)</div>
+    <div class="section-title">Шаблон (одноразова інвестиція)</div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість шаблону, грн</label><input id="prod-template-cost" type="number" step="0.01" value="0" placeholder="0"></div>
+      <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="prod-template-qty" type="number" step="1" value="0" placeholder="Наприклад: 100"></div>
+      <div class="form-group"><label>= На 1 виріб</label><input id="prod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Склад виробу (на 1 шт)</div>
     <div id="prod-recipe"></div>
     <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
     <div class="modal-actions">
@@ -653,7 +676,7 @@ a.order-link:hover { text-decoration:underline; }
     <input type="hidden" id="emat-id">
     <div class="form-group mb-16"><label>Назва</label><input id="emat-name"></div>
     <div class="form-row">
-      <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>м.п.</option><option>шт</option><option>кг</option><option>упак</option><option>л</option><option>рулон</option><option>компл</option></select></div>
+      <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select></div>
       <div class="form-group"><label>Залишок</label><input id="emat-qty" type="number" step="0.01"></div>
     </div>
     <div class="form-row">
@@ -706,7 +729,13 @@ a.order-link:hover { text-decoration:underline; }
     <div class="form-row">
       <div class="form-group"><label>Вартість пакування, грн</label><input id="eprod-packaging" type="number" step="0.01"></div>
     </div>
-    <div class="section-title">Рецептура</div>
+    <div class="section-title">Шаблон (одноразова інвестиція)</div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість шаблону, грн</label><input id="eprod-template-cost" type="number" step="0.01" value="0"></div>
+      <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="eprod-template-qty" type="number" step="1" value="0"></div>
+      <div class="form-group"><label>= На 1 виріб</label><input id="eprod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Склад виробу</div>
     <div id="eprod-recipe"></div>
     <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
     <div class="modal-actions">
@@ -805,7 +834,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], workerRateDefault:{ type:'percent', value:25 } };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 } };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -997,6 +1026,7 @@ function saveProduct() {
   var p = { id:uid(), sku:v('prod-sku'), name:v('prod-name'), size:v('prod-size'), category:v('prod-category'),
     pages:parseInt(v('prod-pages'))||0, sellPrice:n('prod-price'), workerRate:n('prod-rate'),
     workerRateType: v('prod-rate-type'), packagingCost: n('prod-packaging'),
+    templateCost: n('prod-template-cost'), templateQty: parseInt(v('prod-template-qty'))||0,
     recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0, active:true };
   if(!p.name) return alert('Введіть назву');
   db.products.push(p);
@@ -1021,6 +1051,8 @@ function editProduct(id) {
   document.getElementById('eprod-rate-type').value = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
   document.getElementById('eprod-rate').value = p.workerRate || (db.workerRateDefault||{}).value || 25;
   document.getElementById('eprod-packaging').value = p.packagingCost || 0;
+  document.getElementById('eprod-template-cost').value = p.templateCost || 0;
+  document.getElementById('eprod-template-qty').value = p.templateQty || 0;
   var rc = document.getElementById('eprod-recipe');
   rc.innerHTML = '';
   (p.recipe||[]).forEach(function(r) {
@@ -1043,6 +1075,7 @@ function updateProduct() {
   p.category = v('eprod-category'); p.pages = parseInt(v('eprod-pages'))||0;
   p.sellPrice = n('eprod-price'); p.workerRate = n('eprod-rate');
   p.workerRateType = v('eprod-rate-type'); p.packagingCost = n('eprod-packaging');
+  p.templateCost = n('eprod-template-cost'); p.templateQty = parseInt(v('eprod-template-qty'))||0;
   p.recipe = getRecipeFromContainer('eprod-recipe');
   saveDB(db);
   closeModal('edit-product');
@@ -1144,6 +1177,11 @@ function calcCost(product, materials, db) {
   }
   // Packaging
   var packagingCost = product.packagingCost || 0;
+  // Template amortization
+  var templateCost = 0;
+  if ((product.templateCost||0) > 0 && (product.templateQty||0) > 0) {
+    templateCost = Math.round(product.templateCost / product.templateQty * 100) / 100;
+  }
   // Worker rate
   var work = 0;
   var rateType = product.workerRateType || (db.workerRateDefault || {}).type || 'percent';
@@ -1154,8 +1192,8 @@ function calcCost(product, materials, db) {
   } else {
     work = rateValue;
   }
-  var total = matCost + printCost + packagingCost + work;
-  return { materials: matCost, print: printCost, packaging: packagingCost, work: work, total: total, rateType: rateType, rateValue: rateValue };
+  var total = matCost + printCost + packagingCost + templateCost + work;
+  return { materials: matCost, print: printCost, packaging: packagingCost, template: templateCost, work: work, total: total, rateType: rateType, rateValue: rateValue };
 }
 
 function getCategories(db) {
@@ -1892,6 +1930,9 @@ function renderCosts() {
       if (cost.packaging > 0) {
         detailHTML += '<tr><td style="padding-left:30px;">📎 Пакування</td><td></td><td></td><td>'+fmt(cost.packaging)+' грн</td></tr>';
       }
+      if (cost.template > 0) {
+        detailHTML += '<tr><td style="padding-left:30px;">📐 Шаблон</td><td>'+fmt(p.templateCost||0)+' грн ÷ '+(p.templateQty||0)+' шт</td><td></td><td>'+fmt(cost.template)+' грн</td></tr>';
+      }
       detailHTML += '<tr style="background:#EDE7F6;"><td>👩‍🔧 Робота майстра '+rateLabel+'</td><td></td><td></td><td>'+fmt(cost.work)+' грн</td></tr>';
       detailHTML += '<tr style="font-weight:700;background:#D1C4E9;"><td>СОБІВАРТІСТЬ</td><td></td><td></td><td>'+fmt(cost.total)+' грн</td></tr>';
       detailHTML += '<tr><td>Ціна продажу</td><td></td><td></td><td>'+fmt(p.sellPrice)+' грн</td></tr>';
@@ -1902,14 +1943,15 @@ function renderCosts() {
       '<td><code>'+esc(p.sku||'—')+'</code></td>'+
       '<td><strong>'+esc(p.name)+'</strong></td>'+
       '<td>'+fmt(cost.materials)+' грн</td>'+
-      '<td>'+(cost.print>0?fmt(cost.print)+' грн':'—')+'</td>'+
-      '<td>'+(cost.packaging>0?fmt(cost.packaging)+' грн':'—')+'</td>'+
-      '<td>'+fmt(cost.work)+' грн <span class="text-muted" style="font-size:11px;">'+rateLabel+'</span></td>'+
-      '<td><strong>'+fmt(cost.total)+' грн</strong></td><td>'+fmt(p.sellPrice)+' грн</td>'+
-      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
+      '<td>'+(cost.print>0?fmt(cost.print):'—')+'</td>'+
+      '<td>'+(cost.packaging>0?fmt(cost.packaging):'—')+'</td>'+
+      '<td>'+(cost.template>0?fmt(cost.template):'—')+'</td>'+
+      '<td>'+fmt(cost.work)+' <span class="text-muted" style="font-size:10px;">'+rateLabel+'</span></td>'+
+      '<td><strong>'+fmt(cost.total)+'</strong></td><td>'+fmt(p.sellPrice)+'</td>'+
+      '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+'</td>'+
       '<td class="'+(marginPct>30?'text-success':marginPct>15?'text-warning':'text-danger')+'">'+fmt(marginPct)+'%</td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри з рецептурою</td></tr>';
+  }).join('') || '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри зі складом виробу</td></tr>';
   document.getElementById('costs-detail').innerHTML = detailHTML;
 }
 
@@ -1978,8 +2020,10 @@ function renderSettings() {
   document.getElementById('default-rate-value').value = dr.value || 25;
   // Set ink refill date default
   document.getElementById('ink-date').value = new Date().toISOString().slice(0,10);
-  // Render ink refills
+  document.getElementById('cons-date').value = new Date().toISOString().slice(0,10);
+  // Render ink refills & consumables
   renderInkRefills(db);
+  renderConsumables(db);
   // Load linked workers
   if (!_currentUser || !_currentUser.isWorker) loadLinkedWorkers();
 }
@@ -2079,6 +2123,54 @@ function renderInkRefills(db) {
       '</div>';
     }).join('') +
     (refills.length > 20 ? '<div class="text-muted" style="padding:4px;font-size:11px;">...та ще ' + (refills.length-20) + ' записів</div>' : '') +
+    '</div>';
+}
+
+// ==================== CONSUMABLES ====================
+function addConsumable() {
+  var db = getDB();
+  if (!db.consumables) db.consumables = [];
+  var item = {
+    id: uid(),
+    date: v('cons-date') || new Date().toISOString().slice(0,10),
+    type: v('cons-type'),
+    cost: n('cons-cost')
+  };
+  if (item.cost <= 0) return alert('Вкажіть вартість');
+  db.consumables.push(item);
+  saveDB(db);
+  renderConsumables(db);
+}
+
+function deleteConsumable(id) {
+  var db = getDB();
+  db.consumables = (db.consumables||[]).filter(function(c){ return c.id !== id; });
+  saveDB(db);
+  renderConsumables(db);
+}
+
+function renderConsumables(db) {
+  var list = document.getElementById('consumables-list');
+  if (!list) return;
+  var items = (db.consumables||[]).slice().reverse();
+  var totalCost = items.reduce(function(s,c){ return s + (c.cost||0); }, 0);
+
+  if (items.length === 0) {
+    list.innerHTML = '<p class="text-muted" style="font-size:13px;">Немає записів</p>';
+    return;
+  }
+
+  var typeEmoji = { 'Памперс принтера':'🧽', 'Ніж Камео':'🔪', 'Килимок Камео':'📋', 'Лезо різака':'✂️', 'Інше':'🔧' };
+  list.innerHTML = '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Витрачено на розходники: <span class="text-danger">' + fmt(totalCost) + ' грн</span></div>' +
+    '<div style="max-height:150px;overflow-y:auto;">' +
+    items.slice(0,15).map(function(c) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(0,0,0,0.04);">' +
+        '<span style="min-width:80px;">' + c.date + '</span>' +
+        '<span>' + (typeEmoji[c.type]||'🔧') + ' ' + esc(c.type) + '</span>' +
+        '<span style="margin-left:auto;font-weight:600;">' + fmt(c.cost) + ' грн</span>' +
+        '<button class="btn btn-danger btn-sm" style="padding:1px 6px;font-size:10px;" onclick="deleteConsumable(\'' + c.id + '\')">✕</button>' +
+      '</div>';
+    }).join('') +
     '</div>';
 }
 
