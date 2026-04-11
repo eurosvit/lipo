@@ -383,6 +383,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- AUTH: Delete account ----
+    if (req.method === 'POST' && url === '/api/auth/delete-account') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const body = JSON.parse(await readBody(req));
+      if (body.confirmEmail !== user.email) { sendJSON(res, 400, { error: 'Email не співпадає' }); return; }
+      // Delete user data, sessions, then user
+      await pool.query("DELETE FROM app_data WHERE id = $1", [user.id]);
+      await pool.query("DELETE FROM sessions WHERE user_id = $1", [user.id]);
+      await pool.query("DELETE FROM users WHERE id = $1", [user.id]);
+      clearSessionCookie(res);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
     // ---- API: GET user data ----
     if (req.method === 'GET' && url === '/api/data') {
       const user = await getSessionUser(req);
