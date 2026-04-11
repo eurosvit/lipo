@@ -1896,14 +1896,18 @@ function loadCrmSettings() {
 }
 
 function testCrmConnection() {
-  var settings = getCrmSettings();
-  if(!settings.domain || !settings.apiKey) return alert('Спочатку збережіть налаштування CRM');
+  var domain = v('sd-domain').trim();
+  var apiKey = v('sd-apikey').trim();
+  if(!domain || !apiKey) return alert('Спочатку заповніть та збережіть домен і API-ключ');
   var el = document.getElementById('crm-test-result');
   el.innerHTML = '<span class="text-muted">Перевірка...</span>';
-  fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path:'/api/statuses/' }) })
+  // Save first, then test
+  fetch('/api/crm-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ domain: domain, apiKey: apiKey }) })
+    .then(function(){ return fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path:'/api/statuses/' }) }); })
     .then(function(r){return r.json()})
     .then(function(data) {
       if(data.success) {
+        localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify({ domain: domain, apiKey: apiKey }));
         var statuses = data.data.map(function(s){return s.name}).join(', ');
         el.innerHTML = '<span class="text-success">✅ Підключено! Статуси: '+statuses+'</span>';
       } else {
@@ -1916,11 +1920,6 @@ function testCrmConnection() {
 }
 
 function syncSalesDrive() {
-  var settings = getCrmSettings();
-  if(!settings.domain || !settings.apiKey) {
-    alert('Спочатку налаштуйте підключення до CRM у вкладці Налаштування');
-    return;
-  }
   var btn = document.getElementById('sync-btn');
   var statusEl = document.getElementById('sync-status');
   btn.disabled = true;
@@ -1942,6 +1941,7 @@ function syncSalesDrive() {
   fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: sdPath }) })
     .then(function(r){return r.json()})
     .then(function(data) {
+      if(data.error) throw new Error(data.error);
       if(!data.data) throw new Error('Невірна відповідь API');
       var orders = data.data;
       var newCount = 0;
