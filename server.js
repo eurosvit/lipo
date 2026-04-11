@@ -142,9 +142,12 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       user_id TEXT NOT NULL,
       email_type TEXT NOT NULL,
-      sent_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(user_id, email_type, (sent_at::date))
+      sent_at TIMESTAMPTZ DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS email_log_daily_unique
+    ON email_log (user_id, email_type, (sent_at::date))
   `);
 
   console.log('PostgreSQL connected, tables ready');
