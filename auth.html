@@ -226,8 +226,8 @@ function googleLogin() {
   window.location.href = '/api/auth/google';
 }
 
-// Auto-switch to register if URL has ?register
-if (window.location.search.includes('register')) switchTab('register');
+// Auto-switch to register if URL has ?register or path is /register
+if (window.location.search.includes('register') || window.location.pathname === '/register') switchTab('register');
 </script>
 
 </body>
