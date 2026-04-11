@@ -31,7 +31,7 @@ a { text-decoration:none; color:inherit; }
 .btn { padding:12px 28px; border-radius:50px; font-weight:700; font-size:15px; border:none; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:8px; }
 .btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 20px rgba(201,27,110,0.3); }
 .btn-primary:hover { background:#A8155B; transform:translateY(-1px); box-shadow:0 6px 24px rgba(201,27,110,0.4); }
-.btn-outline { background:none; border:2px solid var(--pink); color:var(--pink); }
+.btn-outline { background:#fff; border:2px solid var(--pink); color:var(--pink); }
 .btn-outline:hover { background:var(--pink); color:#fff; }
 .btn-teal { background:var(--teal); color:#fff; box-shadow:0 4px 20px rgba(76,188,190,0.3); }
 .btn-teal:hover { background:#3AA3A5; }
@@ -63,6 +63,9 @@ a { text-decoration:none; color:inherit; }
 .feature-card:nth-child(4) .feature-icon { background:rgba(232,146,64,0.12); }
 .feature-card:nth-child(5) .feature-icon { background:rgba(201,27,110,0.1); }
 .feature-card:nth-child(6) .feature-icon { background:rgba(76,188,190,0.1); }
+.feature-card:nth-child(7) .feature-icon { background:rgba(242,192,49,0.15); }
+.feature-card:nth-child(8) .feature-icon { background:rgba(232,146,64,0.12); }
+.feature-card:nth-child(9) .feature-icon { background:rgba(201,27,110,0.1); }
 .feature-card h3 { font-size:18px; font-weight:800; margin-bottom:8px; }
 .feature-card p { font-size:14px; color:var(--gray); line-height:1.6; }
 
@@ -127,7 +130,7 @@ a { text-decoration:none; color:inherit; }
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">Перша в Україні для майстрів ліпучок</div>
+  <div class="hero-badge">Перша в Україні CRM для майстрів ліпучок</div>
   <h1>Все виробництво — <span>в одній системі</span></h1>
   <p>Спеціалізована CRM для майстринь ліпучок: склад, обладнання, собівартість, замовлення та продажі</p>
   <div class="hero-buttons">
@@ -172,6 +175,21 @@ a { text-decoration:none; color:inherit; }
       <div class="feature-icon">👷</div>
       <h3>Управління майстрами</h3>
       <p>Передача матеріалів майстрам, облік виконаної роботи та автоматичний розрахунок зарплати</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <h3>Сповіщення</h3>
+      <p>Автоматичні нагадування коли матеріали закінчуються, обладнання потребує обслуговування або товар на складі на нулі</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📮</div>
+      <h3>ТТН Нова Пошта</h3>
+      <p>Формування та друк ТТН прямо з системи. Без переключення між вкладками — все в одному місці</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧾</div>
+      <h3>Чеки та фіскалізація</h3>
+      <p>Видача чеків клієнтам відповідно до вимог законодавства. Інтеграція з Checkbox або pRRO</p>
     </div>
   </div>
 </section>
