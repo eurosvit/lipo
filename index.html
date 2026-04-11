@@ -247,6 +247,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
     <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
     <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
+    <button onclick="showPage('analytics')" data-page="analytics">📉 Аналітика</button>
     <button onclick="showPage('settings')" data-page="settings">&#x2699;&#xFE0F; &#x041D;&#x0430;&#x043B;&#x0430;&#x0448;&#x0442;&#x0443;&#x0432;&#x0430;&#x043D;&#x043D;&#x044F;</button>
   </div>
   <div class="nav-right">
@@ -301,6 +302,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="mobileNav('salary')">💰 Зарплата</button>
     <button onclick="mobileNav('costs')">📈 Собівартість</button>
     <button onclick="mobileNav('equipment')">🖨 Обладнання</button>
+    <button onclick="mobileNav('analytics')">📉 Аналітика</button>
     <button onclick="mobileNav('settings')">⚙️ Налаштування</button>
     <div class="menu-footer">
       <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank">💬 Спільнота в Telegram</a>
@@ -489,6 +491,48 @@ a.order-link:hover { text-decoration:underline; }
     <div class="table-wrap" style="margin-top:8px;">
       <table><thead><tr><th>Дата</th><th>Обладнання</th><th>Тип</th><th>Вартість, грн</th><th>Коментар</th><th>Дії</th></tr></thead>
       <tbody id="service-history-table"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ANALYTICS ========== -->
+<div id="analytics" class="page">
+  <h2>Аналітика продажів</h2>
+  <div class="filter-bar" style="margin-bottom:16px;">
+    <div class="form-group" style="min-width:auto;margin:0;">
+      <label>Від</label>
+      <input type="month" id="an-from" onchange="renderAnalytics()">
+    </div>
+    <div class="form-group" style="min-width:auto;margin:0;">
+      <label>До</label>
+      <input type="month" id="an-to" onchange="renderAnalytics()">
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="setAnalyticsPeriod('3m')">3 міс</button>
+    <button class="btn btn-outline btn-sm" onclick="setAnalyticsPeriod('6m')">6 міс</button>
+    <button class="btn btn-outline btn-sm" onclick="setAnalyticsPeriod('12m')">12 міс</button>
+    <button class="btn btn-outline btn-sm" onclick="setAnalyticsPeriod('all')">Весь час</button>
+  </div>
+  <div class="cards" id="analytics-summary"></div>
+  <div style="margin-top:24px;">
+    <h3>Продажі по місяцях</h3>
+    <div id="analytics-chart" style="margin-top:12px;"></div>
+  </div>
+  <div style="margin-top:24px;">
+    <h3>Деталізація по місяцях</h3>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>Місяць</th><th>Замовлень</th><th>Продано шт</th><th>Виручка</th><th>Собівартість</th><th>Зарплата</th><th>Чистий прибуток</th><th>Маржа %</th></tr></thead>
+        <tbody id="analytics-table"></tbody>
+      </table>
+    </div>
+  </div>
+  <div style="margin-top:24px;">
+    <h3>Топ товарів за період</h3>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>Гра</th><th>Продано шт</th><th>Виручка</th><th>Собівартість</th><th>Прибуток</th><th>Маржа %</th></tr></thead>
+        <tbody id="analytics-top"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1161,7 +1205,8 @@ function showPage(id) {
 
 function renderPage(id) {
   const fn = { dashboard:renderDashboard, materials:renderMaterials, products:renderProducts,
-    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, equipment:renderEquipment, settings:renderSettings };
+    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, equipment:renderEquipment, analytics:renderAnalytics, settings:renderSettings };
+  if (id === 'analytics' && !document.getElementById('an-from').value) setAnalyticsPeriod('6m');
   if(fn[id]) fn[id]();
 }
 
@@ -2777,6 +2822,148 @@ function resetAllData() {
   fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(empty) }).then(function(){
     location.reload();
   }).catch(function(){ location.reload(); });
+}
+
+// ==================== ANALYTICS ====================
+function setAnalyticsPeriod(period) {
+  var now = new Date();
+  var to = now.toISOString().slice(0,7);
+  var from;
+  if (period === '3m') { now.setMonth(now.getMonth()-2); from = now.toISOString().slice(0,7); }
+  else if (period === '6m') { now.setMonth(now.getMonth()-5); from = now.toISOString().slice(0,7); }
+  else if (period === '12m') { now.setMonth(now.getMonth()-11); from = now.toISOString().slice(0,7); }
+  else { from = ''; }
+  document.getElementById('an-from').value = from;
+  document.getElementById('an-to').value = to;
+  renderAnalytics();
+}
+
+function renderAnalytics() {
+  var db = getDB();
+  var fromMonth = document.getElementById('an-from').value;
+  var toMonth = document.getElementById('an-to').value;
+
+  // Filter orders by period
+  var orders = db.orders.filter(function(o) {
+    var m = (o.date||'').slice(0,7);
+    if (fromMonth && m < fromMonth) return false;
+    if (toMonth && m > toMonth) return false;
+    return true;
+  });
+
+  // Group by month
+  var months = {};
+  orders.forEach(function(o) {
+    var m = (o.date||'').slice(0,7);
+    if (!m) return;
+    if (!months[m]) months[m] = { orders:0, items:0, revenue:0, cost:0, salary:0 };
+    months[m].orders++;
+    (o.items||[]).forEach(function(item) {
+      months[m].items += item.qty||0;
+      months[m].revenue += (item.qty||0) * (item.price||0);
+      // Calculate cost per item
+      var p = db.products.find(function(x){return x.id===item.productId});
+      if (p) {
+        var c = calcCost(p, db.materials, db);
+        months[m].cost += c.total * (item.qty||0);
+        months[m].salary += c.work * (item.qty||0);
+      }
+    });
+  });
+
+  // Sort months
+  var sortedMonths = Object.keys(months).sort();
+  var totalRevenue = 0, totalCost = 0, totalSalary = 0, totalOrders = 0, totalItems = 0;
+  sortedMonths.forEach(function(m) {
+    totalRevenue += months[m].revenue;
+    totalCost += months[m].cost;
+    totalSalary += months[m].salary;
+    totalOrders += months[m].orders;
+    totalItems += months[m].items;
+  });
+  var totalProfit = totalRevenue - totalCost;
+  var avgMargin = totalRevenue > 0 ? (totalProfit/totalRevenue*100) : 0;
+
+  // Summary cards
+  document.getElementById('analytics-summary').innerHTML =
+    '<div class="card"><div class="card-label">Виручка</div><div class="card-value">'+fmt(totalRevenue)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card"><div class="card-label">Собівартість</div><div class="card-value">'+fmt(totalCost - totalSalary)+'</div><div class="card-sub">грн (матеріали + друк)</div></div>'+
+    '<div class="card"><div class="card-label">Зарплата</div><div class="card-value">'+fmt(totalSalary)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card '+(totalProfit>0?'success':'danger')+'"><div class="card-label">Чистий прибуток</div><div class="card-value">'+fmt(totalProfit)+'</div><div class="card-sub">грн ('+fmt(avgMargin)+'%)</div></div>'+
+    '<div class="card"><div class="card-label">Замовлень</div><div class="card-value">'+totalOrders+'</div></div>'+
+    '<div class="card"><div class="card-label">Продано штук</div><div class="card-value">'+totalItems+'</div></div>';
+
+  // Bar chart
+  var maxRev = 0;
+  sortedMonths.forEach(function(m){ if(months[m].revenue>maxRev) maxRev=months[m].revenue; });
+  var monthNames = ['','Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  var chartHtml = '<div style="display:flex;align-items:flex-end;gap:6px;height:200px;padding:10px 0;border-bottom:2px solid var(--border);">';
+  sortedMonths.forEach(function(m) {
+    var d = months[m];
+    var profit = d.revenue - d.cost;
+    var revH = maxRev > 0 ? Math.max(d.revenue/maxRev*180, 4) : 4;
+    var profH = maxRev > 0 ? Math.max(Math.abs(profit)/maxRev*180, 2) : 2;
+    var mn = parseInt(m.slice(5,7));
+    var label = monthNames[mn] + ' ' + m.slice(2,4);
+    chartHtml += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:40px;">'+
+      '<span style="font-size:10px;font-weight:600;color:var(--text-light);">'+fmt(d.revenue)+'</span>'+
+      '<div style="width:100%;display:flex;gap:2px;align-items:flex-end;justify-content:center;">'+
+        '<div style="width:45%;height:'+revH+'px;background:linear-gradient(180deg,var(--primary),var(--primary-light));border-radius:3px 3px 0 0;" title="Виручка: '+fmt(d.revenue)+' грн"></div>'+
+        '<div style="width:45%;height:'+profH+'px;background:'+(profit>=0?'var(--success)':'var(--danger)')+';border-radius:3px 3px 0 0;" title="Прибуток: '+fmt(profit)+' грн"></div>'+
+      '</div>'+
+      '<span style="font-size:10px;color:var(--text-light);margin-top:4px;">'+label+'</span>'+
+    '</div>';
+  });
+  chartHtml += '</div>';
+  chartHtml += '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--text-light);">'+
+    '<span>🟣 Виручка</span><span>🟢 Прибуток</span></div>';
+  document.getElementById('analytics-chart').innerHTML = sortedMonths.length ? chartHtml : '<p class="text-muted" style="text-align:center;padding:40px;">Немає даних за обраний період</p>';
+
+  // Monthly table
+  document.getElementById('analytics-table').innerHTML = sortedMonths.map(function(m) {
+    var d = months[m];
+    var profit = d.revenue - d.cost;
+    var margin = d.revenue > 0 ? (profit/d.revenue*100) : 0;
+    var mn = parseInt(m.slice(5,7));
+    return '<tr>'+
+      '<td data-label="Місяць"><strong>'+monthNames[mn]+' '+m.slice(0,4)+'</strong></td>'+
+      '<td data-label="Замовлень">'+d.orders+'</td>'+
+      '<td data-label="Продано шт">'+d.items+'</td>'+
+      '<td data-label="Виручка">'+fmt(d.revenue)+' грн</td>'+
+      '<td data-label="Собівартість">'+fmt(d.cost - d.salary)+' грн</td>'+
+      '<td data-label="Зарплата">'+fmt(d.salary)+' грн</td>'+
+      '<td data-label="Прибуток" class="'+(profit>0?'text-success':'text-danger')+'"><strong>'+fmt(profit)+' грн</strong></td>'+
+      '<td data-label="Маржа" class="'+(margin>30?'text-success':margin>15?'text-warning':'text-danger')+'">'+fmt(margin)+'%</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
+
+  // Top products
+  var prodStats = {};
+  orders.forEach(function(o) {
+    (o.items||[]).forEach(function(item) {
+      if (!prodStats[item.productId]) prodStats[item.productId] = { name:item.name||'?', sku:item.sku||'', qty:0, revenue:0, cost:0 };
+      prodStats[item.productId].qty += item.qty||0;
+      prodStats[item.productId].revenue += (item.qty||0)*(item.price||0);
+      var p = db.products.find(function(x){return x.id===item.productId});
+      if (p) {
+        var c = calcCost(p, db.materials, db);
+        prodStats[item.productId].cost += c.total*(item.qty||0);
+      }
+    });
+  });
+  var topProds = Object.values(prodStats).sort(function(a,b){return b.revenue-a.revenue});
+  document.getElementById('analytics-top').innerHTML = topProds.map(function(p) {
+    var profit = p.revenue - p.cost;
+    var margin = p.revenue > 0 ? (profit/p.revenue*100) : 0;
+    return '<tr>'+
+      '<td data-label="Гра"><strong>'+(p.sku?'<code>'+esc(p.sku)+'</code> — ':'')+esc(p.name)+'</strong></td>'+
+      '<td data-label="Продано">'+p.qty+' шт</td>'+
+      '<td data-label="Виручка">'+fmt(p.revenue)+' грн</td>'+
+      '<td data-label="Собівартість">'+fmt(p.cost)+' грн</td>'+
+      '<td data-label="Прибуток" class="'+(profit>0?'text-success':'text-danger')+'">'+fmt(profit)+' грн</td>'+
+      '<td data-label="Маржа" class="'+(margin>30?'text-success':margin>15?'text-warning':'text-danger')+'">'+fmt(margin)+'%</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
 }
 
 // ==================== LOAD REAL DATA ====================
