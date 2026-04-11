@@ -13,6 +13,15 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'aleyana.vdy@gmail.com';
 const COOKIE_NAME = 'lipo_session';
 const TRIAL_DAYS = 30;
+const WAYFORPAY_MERCHANT = process.env.WAYFORPAY_MERCHANT || 'lipoland_top';
+const WAYFORPAY_SECRET = process.env.WAYFORPAY_SECRET || '';
+
+// Subscription plans
+const PLANS = {
+  month1:  { name: 'Місяць',    months: 1,  price: 250,  label: '250 грн/міс' },
+  month6:  { name: '6 місяців', months: 6,  price: 1250, label: '1250 грн (≈208 грн/міс)' },
+  month12: { name: '12 місяців', months: 12, price: 2200, label: '2200 грн (≈183 грн/міс)' }
+};
 
 // ==================== FILES ====================
 const FILES = {
@@ -579,6 +588,138 @@ const server = http.createServer(async (req, res) => {
       const { inviteId } = body;
       await pool.query("DELETE FROM worker_invites WHERE id = $1 AND owner_id = $2", [inviteId, user.id]);
       sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- PAYMENT: Create WayForPay payment ----
+    if (req.method === 'POST' && url === '/api/payment/create') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!WAYFORPAY_SECRET) { sendJSON(res, 400, { error: 'Оплата тимчасово недоступна' }); return; }
+
+      const body = JSON.parse(await readBody(req));
+      const plan = PLANS[body.plan];
+      if (!plan) { sendJSON(res, 400, { error: 'Невірний тариф' }); return; }
+
+      const orderId = `LIPO_${user.id}_${Date.now()}`;
+      const orderDate = Math.floor(Date.now() / 1000);
+      const productName = `LipoLand підписка: ${plan.name}`;
+      const productPrice = plan.price;
+
+      // WayForPay signature: merchantAccount;merchantDomainName;orderReference;orderDate;amount;currency;productName;productCount;productPrice
+      const signString = [
+        WAYFORPAY_MERCHANT, 'lipoland.top', orderId, orderDate,
+        productPrice, 'UAH', productName, 1, productPrice
+      ].join(';');
+      const signature = crypto.createHmac('md5', WAYFORPAY_SECRET).update(signString).digest('hex');
+
+      // Save pending payment
+      if (pool) {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS payments (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            order_id TEXT UNIQUE NOT NULL,
+            plan TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            months INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            paid_at TIMESTAMPTZ
+          )
+        `);
+        await pool.query(
+          "INSERT INTO payments (id, user_id, order_id, plan, amount, months, status) VALUES ($1, $2, $3, $4, $5, $6, 'pending')",
+          [generateId(), user.id, orderId, body.plan, productPrice, plan.months]
+        );
+      }
+
+      sendJSON(res, 200, {
+        merchantAccount: WAYFORPAY_MERCHANT,
+        merchantDomainName: 'lipoland.top',
+        merchantSignature: signature,
+        orderReference: orderId,
+        orderDate: orderDate,
+        amount: productPrice,
+        currency: 'UAH',
+        productName: [productName],
+        productCount: [1],
+        productPrice: [productPrice],
+        returnUrl: `${BASE_URL}/app?payment=success`,
+        serviceUrl: `${BASE_URL}/api/payment/callback`
+      });
+      return;
+    }
+
+    // ---- PAYMENT: WayForPay callback (server-to-server) ----
+    if (req.method === 'POST' && url === '/api/payment/callback') {
+      try {
+        const body = JSON.parse(await readBody(req));
+        const { merchantSignature, orderReference, transactionStatus, reasonCode } = body;
+
+        if (transactionStatus === 'Approved' && pool) {
+          // Verify signature
+          const checkString = [
+            body.merchantAccount, orderReference, body.amount, body.currency,
+            body.authCode, body.cardPan, transactionStatus, reasonCode
+          ].join(';');
+          const expectedSign = crypto.createHmac('md5', WAYFORPAY_SECRET).update(checkString).digest('hex');
+
+          if (expectedSign === merchantSignature) {
+            // Find payment and activate subscription
+            const paymentRes = await pool.query("SELECT * FROM payments WHERE order_id = $1 AND status = 'pending'", [orderReference]);
+            if (paymentRes.rows.length) {
+              const payment = paymentRes.rows[0];
+              const now = new Date();
+              // Extend subscription from current end or from now
+              const userRes = await pool.query("SELECT subscription_ends_at FROM users WHERE id = $1", [payment.user_id]);
+              let startDate = now;
+              if (userRes.rows.length && userRes.rows[0].subscription_ends_at) {
+                const currentEnd = new Date(userRes.rows[0].subscription_ends_at);
+                if (currentEnd > now) startDate = currentEnd;
+              }
+              const newEnd = new Date(startDate);
+              newEnd.setMonth(newEnd.getMonth() + payment.months);
+
+              await pool.query("UPDATE users SET subscription_ends_at = $1 WHERE id = $2", [newEnd, payment.user_id]);
+              await pool.query("UPDATE payments SET status = 'paid', paid_at = NOW() WHERE id = $1", [payment.id]);
+              console.log(`Payment confirmed: ${orderReference}, user ${payment.user_id}, until ${newEnd.toISOString()}`);
+            }
+          }
+        }
+
+        // WayForPay expects this response
+        const responseTime = Math.floor(Date.now() / 1000);
+        const responseSign = crypto.createHmac('md5', WAYFORPAY_SECRET)
+          .update([orderReference, 'accept', responseTime].join(';'))
+          .digest('hex');
+
+        sendJSON(res, 200, {
+          orderReference: orderReference,
+          status: 'accept',
+          time: responseTime,
+          signature: responseSign
+        });
+      } catch (e) {
+        console.error('Payment callback error:', e.message);
+        sendJSON(res, 200, { status: 'accept' });
+      }
+      return;
+    }
+
+    // ---- PAYMENT: Check payment status ----
+    if (req.method === 'GET' && url === '/api/payment/status') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (pool) {
+        const payments = await pool.query(
+          "SELECT plan, amount, status, created_at, paid_at FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10",
+          [user.id]
+        );
+        sendJSON(res, 200, { payments: payments.rows });
+      } else {
+        sendJSON(res, 200, { payments: [] });
+      }
       return;
     }
 

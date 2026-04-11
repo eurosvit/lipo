@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LipoLand -- Система управління виробництвом</title>
+<link rel="icon" href="/favicon.png" type="image/png">
 <style>
 :root {
   --primary: #7B1FA2;
@@ -204,6 +205,7 @@ a.order-link:hover { text-decoration:underline; }
           <div class="account-info-row"><span class="label">Роль</span><span class="value" id="acc-role">—</span></div>
         </div>
         <div class="account-actions">
+          <button onclick="openPaymentModal()" style="color:var(--primary);font-weight:600;">💳 Оплатити підписку</button>
           <button onclick="window.location.href='/api/auth/logout'" class="logout">🚪 Вийти</button>
           <button onclick="deleteAccount()" class="logout" style="font-size:12px;color:var(--text-light);">🗑 Видалити акаунт</button>
         </div>
@@ -825,6 +827,37 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-outline" onclick="closeModal('log-service')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveServiceLog()">Зберегти</button>
     </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="modal-payment">
+  <div class="modal" style="max-width:550px;">
+    <h3>💳 Оплата підписки LipoLand</h3>
+    <p class="text-muted mb-16" style="font-size:14px;">Оберіть тарифний план. Оплата через WayForPay (Visa, Mastercard, Google Pay, Apple Pay).</p>
+    <div id="payment-plans" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month1')">
+        <input type="radio" name="plan" value="month1" style="accent-color:var(--primary);">
+        <div style="flex:1;"><strong>1 місяць</strong><br><span class="text-muted" style="font-size:13px;">Щомісячна оплата</span></div>
+        <div style="font-size:18px;font-weight:700;color:var(--primary);">250 грн</div>
+      </label>
+      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month6')">
+        <input type="radio" name="plan" value="month6" style="accent-color:var(--primary);">
+        <div style="flex:1;"><strong>6 місяців</strong> <span class="badge badge-ok">-17%</span><br><span class="text-muted" style="font-size:13px;">≈ 208 грн/міс</span></div>
+        <div style="font-size:18px;font-weight:700;color:var(--primary);">1 250 грн</div>
+      </label>
+      <label class="payment-plan" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" onclick="selectPlan(this,'month12')">
+        <input type="radio" name="plan" value="month12" style="accent-color:var(--primary);">
+        <div style="flex:1;"><strong>12 місяців</strong> <span class="badge badge-success">-27%</span><br><span class="text-muted" style="font-size:13px;">≈ 183 грн/міс</span></div>
+        <div style="font-size:18px;font-weight:700;color:var(--primary);">2 200 грн</div>
+      </label>
+    </div>
+    <div id="payment-error" style="display:none;" class="alert alert-danger mb-16"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('payment')">Скасувати</button>
+      <button class="btn btn-primary" id="pay-btn" onclick="initPayment()" disabled style="min-width:180px;">Оплатити</button>
+    </div>
+    <p class="text-muted" style="font-size:11px;margin-top:12px;text-align:center;">Безпечна оплата через WayForPay. Visa, Mastercard, Google Pay, Apple Pay.</p>
   </div>
 </div>
 
@@ -3083,6 +3116,109 @@ function deleteAccount() {
     }
   }).catch(function(){ alert('Помилка з\'єднання з сервером'); });
 }
+
+// ==================== PAYMENT ====================
+var _selectedPlan = null;
+
+function openPaymentModal() {
+  _selectedPlan = null;
+  document.getElementById('pay-btn').disabled = true;
+  document.getElementById('payment-error').style.display = 'none';
+  document.querySelectorAll('#payment-plans label').forEach(function(l) {
+    l.style.borderColor = 'var(--border)';
+    l.querySelector('input').checked = false;
+  });
+  document.getElementById('account-panel').classList.remove('show');
+  openModal('payment');
+}
+
+function selectPlan(el, plan) {
+  _selectedPlan = plan;
+  document.getElementById('pay-btn').disabled = false;
+  document.querySelectorAll('#payment-plans label').forEach(function(l) {
+    l.style.borderColor = 'var(--border)';
+    l.style.background = '';
+  });
+  el.style.borderColor = 'var(--primary)';
+  el.style.background = '#F3E5F5';
+}
+
+function initPayment() {
+  if (!_selectedPlan) return;
+  var btn = document.getElementById('pay-btn');
+  btn.disabled = true;
+  btn.textContent = 'Створюємо оплату...';
+  var errEl = document.getElementById('payment-error');
+  errEl.style.display = 'none';
+
+  fetch('/api/payment/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan: _selectedPlan })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Оплатити';
+      return;
+    }
+    // Submit to WayForPay
+    submitToWayForPay(data);
+  }).catch(function(e) {
+    errEl.textContent = 'Помилка з\'єднання з сервером';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Оплатити';
+  });
+}
+
+function submitToWayForPay(paymentData) {
+  // Create hidden form and submit to WayForPay
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://secure.wayforpay.com/pay';
+  form.acceptCharset = 'utf-8';
+
+  var fields = {
+    merchantAccount: paymentData.merchantAccount,
+    merchantDomainName: paymentData.merchantDomainName,
+    merchantSignature: paymentData.merchantSignature,
+    orderReference: paymentData.orderReference,
+    orderDate: paymentData.orderDate,
+    amount: paymentData.amount,
+    currency: paymentData.currency,
+    'productName[]': paymentData.productName[0],
+    'productCount[]': paymentData.productCount[0],
+    'productPrice[]': paymentData.productPrice[0],
+    returnUrl: paymentData.returnUrl,
+    serviceUrl: paymentData.serviceUrl
+  };
+
+  Object.keys(fields).forEach(function(key) {
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = key;
+    input.value = fields[key];
+    form.appendChild(input);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+// Check if returned from payment
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('payment') === 'success') {
+    setTimeout(function() {
+      alert('Дякуємо за оплату! Ваша підписка активована.');
+      // Remove query param
+      window.history.replaceState({}, '', '/app');
+      loadAccount();
+    }, 500);
+  }
+})();
 
 // ==================== INIT ====================
 loadAccount();
