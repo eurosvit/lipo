@@ -367,7 +367,7 @@ a.order-link:hover { text-decoration:underline; }
 <div id="costs" class="page">
   <h2>Собівартість ігор</h2>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Матеріали</th><th>Робота</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Маржа %</th></tr></thead>
+    <table><thead><tr><th>Артикул</th><th>Гра</th><th>Матеріали</th><th>Друк</th><th>Пакування</th><th>Робота</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Маржа %</th></tr></thead>
     <tbody id="costs-table"></tbody></table>
   </div>
   <div class="section-title">Деталізація матеріалів</div>
@@ -438,6 +438,61 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-outline" onclick="testCrmConnection()">🔌 Перевірити з'єднання</button>
     </div>
     <div id="crm-test-result" style="margin-top:8px;"></div>
+  </div>
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">🖨 Принтер та друк</div>
+    <p class="text-muted mb-16" style="font-size:13px;">Налаштуйте вартість друку для автоматичного розрахунку собівартості ігор.</p>
+    <div class="form-row">
+      <div class="form-group"><label>Кількість кольорів</label>
+        <select id="printer-colors" onchange="recalcPrintCost()">
+          <option value="4">4 кольори</option>
+          <option value="6" selected>6 кольорів</option>
+          <option value="8">8 кольорів</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Вартість друку 1 стор. А4, грн</label><input id="printer-cost-per-page" type="number" step="0.01" value="0" placeholder="Наприклад: 3.00"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="savePrinterSettings()">Зберегти</button>
+      <button class="btn btn-outline" onclick="calcPrintCostHelper()">🧮 Допомога з розрахунком</button>
+    </div>
+    <div id="print-cost-helper" style="display:none;margin-top:8px;padding:12px;background:#F3E5F5;border-radius:8px;">
+      <p style="font-size:13px;font-weight:600;margin-bottom:8px;">Розрахунок вартості друку 1 сторінки:</p>
+      <div class="form-row">
+        <div class="form-group"><label>Ціна заправки 1 кольору, грн</label><input id="calc-refill-cost" type="number" step="0.01" value="150"></div>
+        <div class="form-group"><label>Сторінок з 1 заправки (приблизно)</label><input id="calc-pages-per-refill" type="number" step="1" value="300" placeholder="300"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="doCalcPrintCost()">Розрахувати</button>
+      <div id="calc-result" style="margin-top:8px;font-size:13px;"></div>
+    </div>
+    <div class="section-title" style="margin-top:16px;">Журнал заправок чорнил</div>
+    <div id="ink-refills-list" class="mb-16"></div>
+    <div class="form-row" style="border-top:1px solid var(--border);padding-top:8px;">
+      <div class="form-group"><label>Дата</label><input id="ink-date" type="date"></div>
+      <div class="form-group"><label>Колір</label>
+        <select id="ink-color">
+          <option>Чорний</option><option>Голубий</option><option>Пурпурний</option>
+          <option>Жовтий</option><option>Світло-голубий</option><option>Світло-пурпурний</option>
+          <option>Червоний</option><option>Сірий</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Вартість, грн</label><input id="ink-cost" type="number" step="0.01" value="150"></div>
+      <button class="btn btn-primary" onclick="addInkRefill()">+ Додати</button>
+    </div>
+  </div>
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">💰 Ставка майстра (за замовчуванням)</div>
+    <p class="text-muted mb-16" style="font-size:13px;">Це значення буде використовуватись для нових ігор. Для кожної гри можна задати індивідуальну ставку.</p>
+    <div class="form-row">
+      <div class="form-group"><label>Тип ставки</label>
+        <select id="default-rate-type">
+          <option value="percent">% від ціни продажу</option>
+          <option value="fixed">Фіксована сума (грн/шт)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Значення</label><input id="default-rate-value" type="number" step="0.01" value="25"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveDefaultRate()">Зберегти</button>
   </div>
   <div class="card" style="max-width:600px;">
     <div class="section-title" style="margin-top:0;">📥 Імпорт з Excel</div>
@@ -510,9 +565,27 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group"><label>Категорія</label><input id="prod-category" placeholder="Тематичні альбоми"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Кількість сторінок</label><input id="prod-pages" type="number" step="1" value="0"></div>
       <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label>Ставка майстру, грн/шт</label><input id="prod-rate" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="section-title">Друк</div>
+    <div class="form-row">
+      <div class="form-group"><label>Сторінок друку А4</label><input id="prod-pages" type="number" step="1" value="0" placeholder="0"></div>
+      <div class="form-group"><label>Вартість друку (авто)</label><input id="prod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Робота майстра</div>
+    <div class="form-row">
+      <div class="form-group"><label>Тип ставки</label>
+        <select id="prod-rate-type" onchange="updateRatePreview('prod')">
+          <option value="percent">% від ціни продажу</option>
+          <option value="fixed">Фіксована сума (грн/шт)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Значення</label><input id="prod-rate" type="number" step="0.01" value="25" onchange="updateRatePreview('prod')"></div>
+      <div class="form-group"><label>= Робота, грн</label><input id="prod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Пакування</div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість пакування, грн</label><input id="prod-packaging" type="number" step="0.01" value="0"></div>
     </div>
     <div class="section-title">Рецептура (матеріали на 1 шт)</div>
     <div id="prod-recipe"></div>
@@ -611,9 +684,27 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group"><label>Категорія</label><input id="eprod-category"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Сторінок</label><input id="eprod-pages" type="number" step="1"></div>
       <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
-      <div class="form-group"><label>Ставка майстру</label><input id="eprod-rate" type="number" step="0.01"></div>
+    </div>
+    <div class="section-title">Друк</div>
+    <div class="form-row">
+      <div class="form-group"><label>Сторінок друку А4</label><input id="eprod-pages" type="number" step="1"></div>
+      <div class="form-group"><label>Вартість друку (авто)</label><input id="eprod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Робота майстра</div>
+    <div class="form-row">
+      <div class="form-group"><label>Тип ставки</label>
+        <select id="eprod-rate-type" onchange="updateRatePreview('eprod')">
+          <option value="percent">% від ціни продажу</option>
+          <option value="fixed">Фіксована сума (грн/шт)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Значення</label><input id="eprod-rate" type="number" step="0.01" onchange="updateRatePreview('eprod')"></div>
+      <div class="form-group"><label>= Робота, грн</label><input id="eprod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+    </div>
+    <div class="section-title">Пакування</div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість пакування, грн</label><input id="eprod-packaging" type="number" step="0.01"></div>
     </div>
     <div class="section-title">Рецептура</div>
     <div id="eprod-recipe"></div>
@@ -714,7 +805,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], workerRateDefault:{ type:'percent', value:25 } };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -905,7 +996,8 @@ function saveProduct() {
   var db = getDB();
   var p = { id:uid(), sku:v('prod-sku'), name:v('prod-name'), size:v('prod-size'), category:v('prod-category'),
     pages:parseInt(v('prod-pages'))||0, sellPrice:n('prod-price'), workerRate:n('prod-rate'),
-    recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0 };
+    workerRateType: v('prod-rate-type'), packagingCost: n('prod-packaging'),
+    recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0, active:true };
   if(!p.name) return alert('Введіть назву');
   db.products.push(p);
   saveDB(db);
@@ -926,7 +1018,9 @@ function editProduct(id) {
   document.getElementById('eprod-category').value = p.category||'';
   document.getElementById('eprod-pages').value = p.pages||0;
   document.getElementById('eprod-price').value = p.sellPrice;
-  document.getElementById('eprod-rate').value = p.workerRate;
+  document.getElementById('eprod-rate-type').value = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+  document.getElementById('eprod-rate').value = p.workerRate || (db.workerRateDefault||{}).value || 25;
+  document.getElementById('eprod-packaging').value = p.packagingCost || 0;
   var rc = document.getElementById('eprod-recipe');
   rc.innerHTML = '';
   (p.recipe||[]).forEach(function(r) {
@@ -936,6 +1030,8 @@ function editProduct(id) {
     last.querySelector('.recipe-qty').value = r.qty;
   });
   openModal('edit-product');
+  updateRatePreview('eprod');
+  updatePrintPreview('eprod');
 }
 
 function updateProduct() {
@@ -946,10 +1042,41 @@ function updateProduct() {
   p.sku = v('eprod-sku'); p.name = v('eprod-name'); p.size = v('eprod-size');
   p.category = v('eprod-category'); p.pages = parseInt(v('eprod-pages'))||0;
   p.sellPrice = n('eprod-price'); p.workerRate = n('eprod-rate');
+  p.workerRateType = v('eprod-rate-type'); p.packagingCost = n('eprod-packaging');
   p.recipe = getRecipeFromContainer('eprod-recipe');
   saveDB(db);
   closeModal('edit-product');
   renderPage('products');
+}
+
+function updateRatePreview(prefix) {
+  var type = v(prefix+'-rate-type');
+  var val = n(prefix+'-rate');
+  var price = n(prefix+'-price');
+  var result = 0;
+  if (type === 'percent') {
+    result = Math.round(price * val / 100);
+  } else {
+    result = val;
+  }
+  var el = document.getElementById(prefix+'-rate-preview');
+  if (el) el.value = fmt(result) + ' грн';
+}
+
+function updatePrintPreview(prefix) {
+  var pages = parseInt(v(prefix+'-pages'))||0;
+  var db = getDB();
+  var costPerPage = (db.printerSettings||{}).costPerPageA4 || 0;
+  var el = document.getElementById(prefix+'-print-cost-preview');
+  if (el) {
+    if (pages > 0 && costPerPage > 0) {
+      el.value = fmt(pages * costPerPage) + ' грн (' + pages + ' стор. × ' + fmt(costPerPage) + ')';
+    } else if (pages > 0) {
+      el.value = 'Вкажіть вартість друку в Налаштуваннях';
+    } else {
+      el.value = 'Без друку';
+    }
+  }
 }
 
 function deleteProduct(id) {
@@ -1000,7 +1127,8 @@ function calcCanProduce(product, materials) {
   return min===Infinity?0:min;
 }
 
-function calcCost(product, materials) {
+function calcCost(product, materials, db) {
+  if (!db) db = getDB();
   var matCost = 0;
   var recipe = product.recipe||[];
   for(var i=0;i<recipe.length;i++) {
@@ -1008,8 +1136,26 @@ function calcCost(product, materials) {
     var mat = materials.find(function(m){return m.id===r.materialId});
     if(mat) matCost += r.qty * mat.price;
   }
-  var work = Math.round((product.sellPrice||0) * 0.25);
-  return { materials: matCost, work: work, total: matCost + work };
+  // Print cost
+  var printCost = 0;
+  var ps = db.printerSettings || {};
+  if ((product.pages||0) > 0 && (ps.costPerPageA4||0) > 0) {
+    printCost = (product.pages||0) * ps.costPerPageA4;
+  }
+  // Packaging
+  var packagingCost = product.packagingCost || 0;
+  // Worker rate
+  var work = 0;
+  var rateType = product.workerRateType || (db.workerRateDefault || {}).type || 'percent';
+  var rateValue = product.workerRate || 0;
+  if (rateValue === 0 && db.workerRateDefault) rateValue = db.workerRateDefault.value || 25;
+  if (rateType === 'percent') {
+    work = Math.round((product.sellPrice||0) * rateValue / 100);
+  } else {
+    work = rateValue;
+  }
+  var total = matCost + printCost + packagingCost + work;
+  return { materials: matCost, print: printCost, packaging: packagingCost, work: work, total: total, rateType: rateType, rateValue: rateValue };
 }
 
 function getCategories(db) {
@@ -1674,11 +1820,18 @@ function renderSalary() {
   var totalSalary = 0;
   var rows = filtered.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    var rate = p ? Math.round(p.sellPrice * 0.25) : 0;
+    var rate = 0;
+    var rateLabel = '';
+    if (p) {
+      var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+      var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+      if (rType === 'percent') { rate = Math.round(p.sellPrice * rVal / 100); rateLabel = rVal+'%'; }
+      else { rate = rVal; rateLabel = 'фікс.'; }
+    }
     var earned = rate * (b.completedQty||b.qty);
     totalSalary += earned;
     return '<tr><td>'+(b.completedDate||b.date)+'</td><td>'+esc(b.worker)+'</td><td>'+(p?esc(p.name):'?')+'</td>'+
-      '<td>'+(b.completedQty||b.qty)+'</td><td>'+fmt(rate)+' грн (25%)</td><td><strong>'+fmt(earned)+' грн</strong></td></tr>';
+      '<td>'+(b.completedQty||b.qty)+'</td><td>'+fmt(rate)+' грн ('+rateLabel+')</td><td><strong>'+fmt(earned)+' грн</strong></td></tr>';
   });
 
   document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
@@ -1686,7 +1839,13 @@ function renderSalary() {
   var byWorker = {};
   filtered.forEach(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    var earned = (p?Math.round(p.sellPrice*0.25):0) * (b.completedQty||b.qty);
+    var sRate = 0;
+    if (p) {
+      var sType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+      var sVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+      sRate = sType==='percent' ? Math.round(p.sellPrice*sVal/100) : sVal;
+    }
+    var earned = sRate * (b.completedQty||b.qty);
     var pcs = b.completedQty||b.qty;
     if(!byWorker[b.worker]) byWorker[b.worker] = {earned:0, pcs:0};
     byWorker[b.worker].earned += earned;
@@ -1707,33 +1866,50 @@ function renderCosts() {
   var db = getDB();
   var tb = document.getElementById('costs-table');
   var detailHTML = '';
-  tb.innerHTML = db.products.map(function(p) {
-    var cost = calcCost(p, db.materials);
+  tb.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p) {
+    var cost = calcCost(p, db.materials, db);
     var margin = p.sellPrice - cost.total;
     var marginPct = p.sellPrice>0 ? (margin/p.sellPrice*100) : 0;
+    var rateLabel = cost.rateType==='percent' ? '('+fmt(cost.rateValue)+'%)' : '(фікс.)';
+    // Detail card
     var matDetails = (p.recipe||[]).map(function(r) {
       var mat = db.materials.find(function(m){return m.id===r.materialId});
       if(!mat) return '';
-      return '<tr><td style="padding-left:30px;">'+esc(mat.name)+'</td><td>'+fmt(r.qty)+' '+esc(mat.unit)+'</td><td>'+fmt(mat.price)+' грн/'+esc(mat.unit)+'</td><td>'+fmt(r.qty*mat.price)+' грн</td></tr>';
+      return '<tr><td style="padding-left:30px;">📦 '+esc(mat.name)+'</td><td>'+fmt(r.qty)+' '+esc(mat.unit)+'</td><td>'+fmt(mat.price)+' грн/'+esc(mat.unit)+'</td><td>'+fmt(r.qty*mat.price)+' грн</td></tr>';
     }).join('');
-    if(matDetails) {
+    var hasDetails = matDetails || cost.print > 0 || cost.packaging > 0;
+    if(hasDetails || matDetails) {
       detailHTML += '<div class="table-wrap" style="margin-bottom:12px;">'+
-        '<table><thead><tr><th colspan="4">'+(p.sku?p.sku+' — ':'')+esc(p.name)+'</th></tr><tr><th>Матеріал</th><th>Витрата</th><th>Ціна</th><th>Вартість</th></tr></thead>'+
-        '<tbody>'+matDetails+
-        '<tr style="font-weight:600;background:#f1f2f6;"><td>Матеріали разом</td><td></td><td></td><td>'+fmt(cost.materials)+' грн</td></tr>'+
-        '<tr style="background:#f1f2f6;"><td>Робота майстра</td><td></td><td></td><td>'+fmt(cost.work)+' грн</td></tr>'+
-        '<tr style="font-weight:700;background:#dfe6e9;"><td>СОБІВАРТІСТЬ</td><td></td><td></td><td>'+fmt(cost.total)+' грн</td></tr>'+
-        '</tbody></table></div>';
+        '<table><thead><tr><th colspan="4" style="font-size:14px;">'+(p.sku?'<code>'+esc(p.sku)+'</code> — ':'')+esc(p.name)+'</th></tr><tr><th>Складова</th><th>Деталі</th><th>Ціна</th><th>Вартість</th></tr></thead>'+
+        '<tbody>'+matDetails;
+      if (matDetails) {
+        detailHTML += '<tr style="font-weight:600;background:#EDE7F6;"><td>📦 Матеріали разом</td><td></td><td></td><td>'+fmt(cost.materials)+' грн</td></tr>';
+      }
+      if (cost.print > 0) {
+        var ps = db.printerSettings||{};
+        detailHTML += '<tr><td style="padding-left:30px;">🖨 Друк</td><td>'+(p.pages||0)+' стор. А4</td><td>'+fmt(ps.costPerPageA4||0)+' грн/стор.</td><td>'+fmt(cost.print)+' грн</td></tr>';
+      }
+      if (cost.packaging > 0) {
+        detailHTML += '<tr><td style="padding-left:30px;">📎 Пакування</td><td></td><td></td><td>'+fmt(cost.packaging)+' грн</td></tr>';
+      }
+      detailHTML += '<tr style="background:#EDE7F6;"><td>👩‍🔧 Робота майстра '+rateLabel+'</td><td></td><td></td><td>'+fmt(cost.work)+' грн</td></tr>';
+      detailHTML += '<tr style="font-weight:700;background:#D1C4E9;"><td>СОБІВАРТІСТЬ</td><td></td><td></td><td>'+fmt(cost.total)+' грн</td></tr>';
+      detailHTML += '<tr><td>Ціна продажу</td><td></td><td></td><td>'+fmt(p.sellPrice)+' грн</td></tr>';
+      detailHTML += '<tr style="font-weight:600;"><td>Маржа</td><td></td><td></td><td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн ('+fmt(marginPct)+'%)</td></tr>';
+      detailHTML += '</tbody></table></div>';
     }
     return '<tr>'+
       '<td><code>'+esc(p.sku||'—')+'</code></td>'+
       '<td><strong>'+esc(p.name)+'</strong></td>'+
-      '<td>'+fmt(cost.materials)+' грн</td><td>'+fmt(cost.work)+' грн</td>'+
+      '<td>'+fmt(cost.materials)+' грн</td>'+
+      '<td>'+(cost.print>0?fmt(cost.print)+' грн':'—')+'</td>'+
+      '<td>'+(cost.packaging>0?fmt(cost.packaging)+' грн':'—')+'</td>'+
+      '<td>'+fmt(cost.work)+' грн <span class="text-muted" style="font-size:11px;">'+rateLabel+'</span></td>'+
       '<td><strong>'+fmt(cost.total)+' грн</strong></td><td>'+fmt(p.sellPrice)+' грн</td>'+
       '<td class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
       '<td class="'+(marginPct>30?'text-success':marginPct>15?'text-warning':'text-danger')+'">'+fmt(marginPct)+'%</td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри з рецептурою</td></tr>';
+  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте ігри з рецептурою</td></tr>';
   document.getElementById('costs-detail').innerHTML = detailHTML;
 }
 
@@ -1792,6 +1968,18 @@ function renderSettings() {
   var crm = getCrmSettings();
   document.getElementById('sd-domain').value = crm.domain || '';
   document.getElementById('sd-apikey').value = crm.apiKey || '';
+  // Load printer settings
+  var ps = db.printerSettings || {};
+  document.getElementById('printer-colors').value = ps.colors || 6;
+  document.getElementById('printer-cost-per-page').value = ps.costPerPageA4 || 0;
+  // Load default worker rate
+  var dr = db.workerRateDefault || { type:'percent', value:25 };
+  document.getElementById('default-rate-type').value = dr.type || 'percent';
+  document.getElementById('default-rate-value').value = dr.value || 25;
+  // Set ink refill date default
+  document.getElementById('ink-date').value = new Date().toISOString().slice(0,10);
+  // Render ink refills
+  renderInkRefills(db);
   // Load linked workers
   if (!_currentUser || !_currentUser.isWorker) loadLinkedWorkers();
 }
@@ -1811,6 +1999,97 @@ function removeWorker(i) {
   db.workers.splice(i,1);
   saveDB(db);
   renderSettings();
+}
+
+// ==================== PRINTER & INK ====================
+function savePrinterSettings() {
+  var db = getDB();
+  db.printerSettings = {
+    colors: parseInt(v('printer-colors'))||6,
+    costPerPageA4: parseFloat(v('printer-cost-per-page'))||0
+  };
+  saveDB(db);
+  alert('Налаштування принтера збережено!');
+}
+
+function calcPrintCostHelper() {
+  var el = document.getElementById('print-cost-helper');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function doCalcPrintCost() {
+  var refillCost = parseFloat(v('calc-refill-cost'))||150;
+  var pagesPerRefill = parseInt(v('calc-pages-per-refill'))||300;
+  var colors = parseInt(v('printer-colors'))||6;
+  if (pagesPerRefill <= 0) return;
+  var costPerPage = (refillCost * colors) / pagesPerRefill;
+  document.getElementById('calc-result').innerHTML =
+    '<strong>Вартість друку 1 стор. А4 = ' + fmt(costPerPage) + ' грн</strong><br>' +
+    '<span class="text-muted">(' + fmt(refillCost) + ' грн × ' + colors + ' кольорів) ÷ ' + pagesPerRefill + ' сторінок</span>';
+  document.getElementById('printer-cost-per-page').value = Math.round(costPerPage * 100) / 100;
+}
+
+function recalcPrintCost() {
+  var helper = document.getElementById('print-cost-helper');
+  if (helper && helper.style.display !== 'none') doCalcPrintCost();
+}
+
+function addInkRefill() {
+  var db = getDB();
+  if (!db.inkRefills) db.inkRefills = [];
+  var refill = {
+    id: uid(),
+    date: v('ink-date') || new Date().toISOString().slice(0,10),
+    color: v('ink-color'),
+    cost: n('ink-cost')
+  };
+  if (!refill.color || refill.cost <= 0) return alert('Вкажіть колір та вартість');
+  db.inkRefills.push(refill);
+  saveDB(db);
+  renderInkRefills(db);
+}
+
+function deleteInkRefill(id) {
+  var db = getDB();
+  db.inkRefills = (db.inkRefills||[]).filter(function(r){ return r.id !== id; });
+  saveDB(db);
+  renderInkRefills(db);
+}
+
+function renderInkRefills(db) {
+  var list = document.getElementById('ink-refills-list');
+  if (!list) return;
+  var refills = (db.inkRefills||[]).slice().reverse();
+  var totalCost = refills.reduce(function(s,r){ return s + (r.cost||0); }, 0);
+
+  if (refills.length === 0) {
+    list.innerHTML = '<p class="text-muted" style="font-size:13px;">Немає записів</p>';
+    return;
+  }
+
+  var colorEmoji = { 'Чорний':'⬛', 'Голубий':'🟦', 'Пурпурний':'🟪', 'Жовтий':'🟨', 'Світло-голубий':'🔵', 'Світло-пурпурний':'🟣', 'Червоний':'🟥', 'Сірий':'⬜' };
+  list.innerHTML = '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Витрачено на чорнила: <span class="text-danger">' + fmt(totalCost) + ' грн</span> (' + refills.length + ' заправок)</div>' +
+    '<div style="max-height:200px;overflow-y:auto;">' +
+    refills.slice(0,20).map(function(r) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(0,0,0,0.04);">' +
+        '<span style="min-width:80px;">' + r.date + '</span>' +
+        '<span>' + (colorEmoji[r.color]||'🔘') + ' ' + esc(r.color) + '</span>' +
+        '<span style="margin-left:auto;font-weight:600;">' + fmt(r.cost) + ' грн</span>' +
+        '<button class="btn btn-danger btn-sm" style="padding:1px 6px;font-size:10px;" onclick="deleteInkRefill(\'' + r.id + '\')">✕</button>' +
+      '</div>';
+    }).join('') +
+    (refills.length > 20 ? '<div class="text-muted" style="padding:4px;font-size:11px;">...та ще ' + (refills.length-20) + ' записів</div>' : '') +
+    '</div>';
+}
+
+function saveDefaultRate() {
+  var db = getDB();
+  db.workerRateDefault = {
+    type: v('default-rate-type'),
+    value: parseFloat(v('default-rate-value'))||25
+  };
+  saveDB(db);
+  alert('Ставку за замовчуванням збережено!');
 }
 
 // ==================== LINKED WORKERS (ONLINE) ====================
