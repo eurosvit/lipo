@@ -2762,8 +2762,12 @@ function importData(event) {
 }
 
 function resetAllData() {
+  var empty = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 } };
+  _dbCache = null;
   localStorage.removeItem(DB_KEY);
-  location.reload();
+  fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(empty) }).then(function(){
+    location.reload();
+  }).catch(function(){ location.reload(); });
 }
 
 // ==================== LOAD REAL DATA ====================
