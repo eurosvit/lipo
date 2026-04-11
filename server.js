@@ -410,6 +410,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Static files (images)
+    if (url.match(/\.(png|jpg|jpeg|svg|ico|webp)$/)) {
+      const filePath = path.join(__dirname, 'public', url);
+      const ext = path.extname(url).slice(1);
+      const mimeTypes = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', svg:'image/svg+xml', ico:'image/x-icon', webp:'image/webp' };
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=86400' });
+        res.end(data);
+      });
+      return;
+    }
+
     // Legal
     if (url.startsWith('/legal')) {
       serveFile(res, FILES.legal);

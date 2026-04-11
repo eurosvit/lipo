@@ -92,6 +92,45 @@ a { text-decoration:none; color:inherit; }
 .cta .btn { background:#fff; color:var(--pink); font-size:18px; padding:16px 40px; }
 .cta .btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.2); }
 
+/* BROWSER MOCKUP */
+.browser-frame { max-width:1000px; margin:60px auto 0; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.1); }
+.browser-bar { background:#f1f1f1; padding:10px 16px; display:flex; align-items:center; gap:8px; }
+.browser-dots { display:flex; gap:6px; }
+.browser-dots span { width:12px; height:12px; border-radius:50%; }
+.browser-dots span:nth-child(1) { background:#FF5F57; }
+.browser-dots span:nth-child(2) { background:#FFBD2E; }
+.browser-dots span:nth-child(3) { background:#27C93F; }
+.browser-url { flex:1; background:#fff; border-radius:6px; padding:5px 12px; font-size:13px; color:var(--gray); margin-left:8px; }
+.browser-body { background:#F8F5FF; }
+.browser-body img { width:100%; display:block; }
+
+/* HOW IT WORKS */
+.how-it-works { padding:100px 40px; background:#fff; }
+.steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:40px; max-width:900px; margin:0 auto; }
+.step { text-align:center; position:relative; }
+.step-num { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:900; margin:0 auto 20px; }
+.step:nth-child(1) .step-num { background:rgba(201,27,110,0.1); color:var(--pink); }
+.step:nth-child(2) .step-num { background:rgba(76,188,190,0.1); color:var(--teal); }
+.step:nth-child(3) .step-num { background:rgba(242,192,49,0.15); color:var(--orange); }
+.step h3 { font-size:20px; font-weight:800; margin-bottom:8px; }
+.step p { font-size:15px; color:var(--gray); line-height:1.6; }
+.step-arrow { display:none; }
+@media(min-width:769px) {
+  .step-arrow { display:block; position:absolute; top:32px; right:-28px; font-size:24px; color:rgba(0,0,0,0.1); }
+}
+
+/* FAQ */
+.faq { padding:100px 40px; }
+.faq-list { max-width:750px; margin:0 auto; }
+.faq-item { border-bottom:1px solid rgba(0,0,0,0.06); }
+.faq-q { padding:20px 0; font-size:17px; font-weight:700; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; transition:color .2s; }
+.faq-q:hover { color:var(--pink); }
+.faq-q::after { content:'+'; font-size:24px; font-weight:300; color:var(--pink); transition:transform .3s; flex-shrink:0; }
+.faq-item.open .faq-q::after { transform:rotate(45deg); }
+.faq-a { max-height:0; overflow:hidden; transition:max-height .3s ease, padding .3s ease; }
+.faq-item.open .faq-a { max-height:300px; padding-bottom:20px; }
+.faq-a p { font-size:15px; color:var(--gray); line-height:1.7; }
+
 /* FOOTER */
 .footer { padding:40px; text-align:center; font-size:14px; color:var(--gray); }
 .footer a { color:var(--pink); font-weight:600; }
@@ -105,7 +144,7 @@ a { text-decoration:none; color:inherit; }
   .hero { padding:110px 20px 60px; }
   .hero h1 { font-size:32px; }
   .hero p { font-size:16px; }
-  .features, .pricing, .cta { padding:60px 20px; }
+  .features, .pricing, .cta, .how-it-works, .faq { padding:60px 20px; }
   .section-title h2 { font-size:28px; }
   .price-amount { font-size:36px; }
 }
@@ -121,6 +160,8 @@ a { text-decoration:none; color:inherit; }
   </div>
   <nav class="header-nav">
     <a href="#features">Можливості</a>
+    <a href="#how">Як працює</a>
+    <a href="#faq">FAQ</a>
     <a href="#pricing">Тарифи</a>
     <a href="/login" class="btn btn-outline" style="padding:8px 20px;font-size:14px;">Увійти</a>
     <a href="/register" class="btn btn-primary" style="padding:8px 20px;font-size:14px;">Реєстрація</a>
@@ -135,6 +176,63 @@ a { text-decoration:none; color:inherit; }
   <div class="hero-buttons">
     <a href="/register" class="btn btn-primary">Почати безкоштовно</a>
     <a href="#features" class="btn btn-outline">Дізнатись більше</a>
+  </div>
+  <div class="browser-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">lipoland.top/app</div>
+    </div>
+    <div class="browser-body" style="padding:20px;font-family:'Segoe UI',system-ui,sans-serif;">
+      <!-- Mock Dashboard -->
+      <div style="background:linear-gradient(135deg,#4A148C,#7B1FA2);padding:8px 16px;border-radius:8px 8px 0 0;display:flex;gap:12px;align-items:center;font-size:12px;">
+        <span style="color:#fff;font-weight:700;font-size:14px;">🧸 LipoLand</span>
+        <span style="color:#fff;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-weight:600;">📊 Дашборд</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📦 Матеріали</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">🎮 Продукція</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📋 Замовлення</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">🖨 Обладнання</span>
+      </div>
+      <div style="padding:16px;background:#F8F5FF;">
+        <div style="font-size:18px;font-weight:700;color:#2d2d2d;margin-bottom:12px;">Дашборд</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
+          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #7B1FA2;">
+            <div style="font-size:10px;color:#757575;text-transform:uppercase;">На складі</div>
+            <div style="font-size:22px;font-weight:700;color:#4A148C;">24 шт</div>
+            <div style="font-size:10px;color:#757575;">8 450 грн</div>
+          </div>
+          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;">
+            <div style="font-size:10px;color:#757575;text-transform:uppercase;">В виробництві</div>
+            <div style="font-size:22px;font-weight:700;color:#4A148C;">12 шт</div>
+          </div>
+          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #F9A825;">
+            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Матеріали</div>
+            <div style="font-size:22px;font-weight:700;color:#4A148C;">11</div>
+            <div style="font-size:10px;color:#E65100;">3 потребують замовлення</div>
+          </div>
+          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #2E7D32;">
+            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Замовлення</div>
+            <div style="font-size:22px;font-weight:700;color:#4A148C;">5</div>
+            <div style="font-size:10px;color:#757575;">2 850 грн</div>
+          </div>
+          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;">
+            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Товарів</div>
+            <div style="font-size:22px;font-weight:700;color:#4A148C;">180</div>
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:6px;padding:10px 14px;border:1px solid #E0D8E8;font-size:12px;">
+          <div style="font-weight:600;color:#2d2d2d;margin-bottom:8px;">Критичні залишки матеріалів</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;color:#757575;font-size:11px;font-weight:600;border-bottom:1px solid #E0D8E8;padding-bottom:6px;">
+            <span>Матеріал</span><span>Залишок</span><span>Мінімум</span><span>Статус</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;align-items:center;">
+            <span style="font-weight:600;">Папір 180г глянець</span><span>2 упак</span><span>5</span><span style="background:#FFCDD2;color:#C62828;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;display:inline-block;">Замовити!</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:6px 0;font-size:12px;align-items:center;">
+            <span style="font-weight:600;">Плівка для ламінації</span><span>1 упак</span><span>3</span><span style="background:#FFF9C4;color:#E65100;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;display:inline-block;">Мало</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -192,6 +290,70 @@ a { text-decoration:none; color:inherit; }
       <div class="feature-icon">🧾</div>
       <h3>Чеки та фіскалізація</h3>
       <p>Видача чеків клієнтам відповідно до вимог законодавства. Інтеграція з Checkbox або pRRO</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works" id="how">
+  <div class="section-title">
+    <h2>Як це працює</h2>
+    <p>Три простих кроки до порядку у виробництві</p>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Зареєструйтесь</h3>
+      <p>Створіть акаунт за 30 секунд. Перший місяць безкоштовно — жодних зобов'язань</p>
+      <span class="step-arrow">→</span>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Внесіть свої дані</h3>
+      <p>Додайте матеріали, обладнання та продукцію. Система одразу почне рахувати собівартість</p>
+      <span class="step-arrow">→</span>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Контролюйте все</h3>
+      <p>Отримуйте сповіщення, слідкуйте за залишками та приймайте рішення на основі даних</p>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="section-title">
+    <h2>Часті запитання</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що таке LipoLand CRM?</div>
+      <div class="faq-a"><p>LipoLand — це перша в Україні спеціалізована система управління для майстринь, які виробляють книжки та ігри на ліпучках. Ми розуміємо вашу специфіку: облік паперу, плівки для ламінації, кілець, фурнітури — все це вже є в системі.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи потрібні технічні знання для роботи?</div>
+      <div class="faq-a"><p>Ні, система максимально проста та зрозуміла. Якщо ви вмієте користуватися Instagram — ви впораєтесь з LipoLand. Все працює у браузері, нічого не треба встановлювати.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що входить у безкоштовний період?</div>
+      <div class="faq-a"><p>Абсолютно все! 30 днів повного доступу до всіх модулів: склад, обладнання, собівартість, замовлення. Без обмежень і без прив'язки картки.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як зберігаються мої дані?</div>
+      <div class="faq-a"><p>Ваші дані зберігаються у захищеній базі даних на серверах в Європі (Франкфурт). Щоденне резервне копіювання. Ви завжди можете експортувати всі свої дані.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи можна скасувати підписку?</div>
+      <div class="faq-a"><p>Так, в будь-який момент. Доступ зберігається до кінця оплаченого періоду. Ваші дані залишаються ще 30 днів після закінчення підписки.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я працюю сама, без майстрів. Мені підійде?</div>
+      <div class="faq-a"><p>Саме для вас це і створено! Більшість наших користувачів працюють самостійно. Модуль "Майстри" — це окрема опція для тих, хто має команду.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як з вами зв'язатися?</div>
+      <div class="faq-a"><p>Пишіть на <a href="mailto:hello@lipoland.top" style="color:var(--pink);">hello@lipoland.top</a> — відповідаємо протягом робочого дня.</p></div>
     </div>
   </div>
 </section>
