@@ -703,24 +703,23 @@ a.order-link:hover { text-decoration:underline; }
     </div>
 
     <div style="margin-bottom:8px;padding-top:12px;border-top:1px solid var(--border);">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);display:flex;align-items:center;gap:8px;">
-        <span>📱 Telegram-сповіщення</span>
-        <span style="font-size:11px;background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:10px;font-weight:600;">скоро</span>
-      </div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">📱 Telegram-сповіщення</div>
       <p class="text-muted" style="font-size:13px;margin-bottom:10px;">Підключіть Telegram-бота щоб отримувати миттєві сповіщення.</p>
       <div id="telegram-status" style="margin-bottom:12px;"></div>
-      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
-        <input type="checkbox" id="pref-tg-material" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
-        Матеріали закінчуються
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
-        <input type="checkbox" id="pref-tg-stock" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
-        Товари закінчуються на складі
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;opacity:0.5;">
-        <input type="checkbox" id="pref-tg-order" style="accent-color:var(--primary);width:18px;height:18px;" disabled>
-        Нові замовлення
-      </label>
+      <div id="tg-checkboxes">
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+          <input type="checkbox" id="pref-tg-material" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+          Матеріали закінчуються
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+          <input type="checkbox" id="pref-tg-stock" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+          Товари закінчуються на складі
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
+          <input type="checkbox" id="pref-tg-order" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
+          Нові замовлення
+        </label>
+      </div>
     </div>
 
     <div id="notif-save-status" style="font-size:13px;color:var(--success);display:none;margin-top:8px;">✅ Збережено</div>
@@ -3621,10 +3620,25 @@ function loadNotifPrefs() {
     document.getElementById('pref-email-stock').checked = p.email_stock_alert === true;
     // Telegram
     var tgStatus = document.getElementById('telegram-status');
+    var tgBoxes = document.getElementById('tg-checkboxes');
     if (p.telegram_enabled && p.telegram_chat_id) {
-      tgStatus.innerHTML = '<span style="color:var(--success);font-size:13px;">✅ Telegram підключено (chat: ' + p.telegram_chat_id + ')</span>';
+      tgStatus.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-size:13px;font-weight:600;">✅ Telegram підключено</span>'+
+        '<button class="btn btn-danger btn-sm" onclick="disconnectTelegram()" style="font-size:11px;">Відключити</button></div>';
+      tgBoxes.style.opacity = '1';
+      document.getElementById('pref-tg-material').disabled = false;
+      document.getElementById('pref-tg-stock').disabled = false;
+      document.getElementById('pref-tg-order').disabled = false;
+      document.getElementById('pref-tg-material').checked = p.telegram_material_alert === true;
+      document.getElementById('pref-tg-stock').checked = p.telegram_stock_alert === true;
+      document.getElementById('pref-tg-order').checked = p.telegram_order_alert === true;
     } else {
-      tgStatus.innerHTML = '<span style="color:var(--text-light);font-size:13px;">Не підключено</span>';
+      tgStatus.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+        '<span style="color:var(--text-light);font-size:13px;">Не підключено</span>'+
+        '<button class="btn btn-primary btn-sm" onclick="connectTelegram()" style="font-size:12px;">🔗 Підключити Telegram</button></div>';
+      tgBoxes.style.opacity = '0.5';
+      document.getElementById('pref-tg-material').disabled = true;
+      document.getElementById('pref-tg-stock').disabled = true;
+      document.getElementById('pref-tg-order').disabled = true;
     }
   }).catch(function(){});
 }
@@ -3640,7 +3654,10 @@ function saveNotifPrefs() {
       email_subscription_reminder: document.getElementById('pref-email-sub-reminder').checked,
       email_payment_confirm: document.getElementById('pref-email-payment').checked,
       email_material_alert: document.getElementById('pref-email-material').checked,
-      email_stock_alert: document.getElementById('pref-email-stock').checked
+      email_stock_alert: document.getElementById('pref-email-stock').checked,
+      telegram_material_alert: document.getElementById('pref-tg-material').checked,
+      telegram_stock_alert: document.getElementById('pref-tg-stock').checked,
+      telegram_order_alert: document.getElementById('pref-tg-order').checked
     };
     fetch('/api/notifications/prefs', {
       method: 'POST',
@@ -3652,6 +3669,28 @@ function saveNotifPrefs() {
       setTimeout(function(){ el.style.display = 'none'; }, 2000);
     }).catch(function(){});
   }, 500);
+}
+
+// ==================== TELEGRAM ====================
+function connectTelegram() {
+  var statusEl = document.getElementById('telegram-status');
+  statusEl.innerHTML = '<span class="text-muted" style="font-size:13px;">Генеруємо посилання...</span>';
+  fetch('/api/telegram/link', { method:'POST' }).then(function(r){ return r.json(); }).then(function(data){
+    if (!data.ok) { statusEl.innerHTML = '<span style="color:var(--danger);font-size:13px;">Помилка: ' + (data.error||'невідомо') + '</span>'; return; }
+    var botLink = 'https://t.me/' + data.botUsername + '?start=' + data.code;
+    statusEl.innerHTML =
+      '<div style="background:#F3E8FF;border-radius:12px;padding:16px;margin-bottom:8px;">'+
+        '<p style="font-size:14px;font-weight:600;margin-bottom:8px;">Підключіть бота:</p>'+
+        '<p style="font-size:13px;margin-bottom:12px;">1. Натисніть кнопку нижче<br>2. Відкриється Telegram з нашим ботом<br>3. Натисніть <b>Start</b> (Запустити)</p>'+
+        '<a href="'+botLink+'" target="_blank" class="btn btn-primary" style="display:inline-flex;font-size:14px;padding:10px 20px;text-decoration:none;">📲 Відкрити Telegram-бот</a>'+
+        '<p style="font-size:11px;color:var(--text-light);margin-top:10px;">Після підключення оновіть цю сторінку</p>'+
+      '</div>';
+  }).catch(function(){ statusEl.innerHTML = '<span style="color:var(--danger);font-size:13px;">Помилка з\'єднання</span>'; });
+}
+
+function disconnectTelegram() {
+  if (!confirm('Відключити Telegram-сповіщення?')) return;
+  fetch('/api/telegram/disconnect', { method:'POST' }).then(function(){ loadNotifPrefs(); }).catch(function(){});
 }
 
 // ==================== PAYMENT ====================

@@ -17,6 +17,7 @@ const WAYFORPAY_MERCHANT = process.env.WAYFORPAY_MERCHANT || 'lipoland_top';
 const WAYFORPAY_SECRET = process.env.WAYFORPAY_SECRET || '';
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'LipoLand <hello@lipoland.top>';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 // Subscription plans
 const PLANS = {
@@ -132,9 +133,12 @@ async function initDB() {
       telegram_material_alert BOOLEAN NOT NULL DEFAULT false,
       telegram_stock_alert BOOLEAN NOT NULL DEFAULT false,
       telegram_order_alert BOOLEAN NOT NULL DEFAULT false,
+      telegram_link_code TEXT,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Add telegram_link_code column if not exists (for existing tables)
+  await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS telegram_link_code TEXT`).catch(()=>{});
 
   // Sent emails log (to avoid duplicate sends)
   await pool.query(`
@@ -213,6 +217,86 @@ function sendEmail(to, subject, html) {
       resolve(); // don't fail registration
     });
     req.write(data);
+    req.end();
+  });
+}
+
+// ==================== TELEGRAM ====================
+function sendTelegram(chatId, text) {
+  if (!TELEGRAM_BOT_TOKEN || !chatId) return Promise.resolve();
+  return new Promise((resolve) => {
+    const data = JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true });
+    const options = {
+      hostname: 'api.telegram.org',
+      path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log('[Telegram] Sent to', chatId);
+        } else {
+          console.error('[Telegram] Error:', res.statusCode, body);
+        }
+        resolve();
+      });
+    });
+    req.on('error', (e) => { console.error('[Telegram] Error:', e.message); resolve(); });
+    req.write(data); req.end();
+  });
+}
+
+async function sendTelegramNotif(userId, type, text) {
+  if (!pool || !TELEGRAM_BOT_TOKEN) return;
+  try {
+    const prefs = await pool.query("SELECT * FROM notification_prefs WHERE user_id = $1", [userId]);
+    if (!prefs.rows.length) return;
+    const p = prefs.rows[0];
+    if (!p.telegram_enabled || !p.telegram_chat_id) return;
+    if (type === 'material' && !p.telegram_material_alert) return;
+    if (type === 'stock' && !p.telegram_stock_alert) return;
+    if (type === 'order' && !p.telegram_order_alert) return;
+    await sendTelegram(p.telegram_chat_id, text);
+  } catch(e) { console.error('[Telegram] notif error:', e.message); }
+}
+
+// Telegram bot webhook/polling for /start command
+async function setupTelegramWebhook() {
+  if (!TELEGRAM_BOT_TOKEN) return;
+  const webhookUrl = `${BASE_URL}/api/telegram/webhook`;
+  const data = JSON.stringify({ url: webhookUrl });
+  const options = {
+    hostname: 'api.telegram.org',
+    path: `/bot${TELEGRAM_BOT_TOKEN}/setWebhook`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+  };
+  const req = https.request(options, (res) => {
+    let body = '';
+    res.on('data', d => body += d);
+    res.on('end', () => console.log('[Telegram] Webhook set:', body));
+  });
+  req.on('error', e => console.error('[Telegram] Webhook error:', e.message));
+  req.write(data); req.end();
+}
+
+let _telegramBotUsername = '';
+async function getTelegramBotUsername() {
+  if (_telegramBotUsername) return _telegramBotUsername;
+  return new Promise((resolve) => {
+    const options = { hostname: 'api.telegram.org', path: `/bot${TELEGRAM_BOT_TOKEN}/getMe`, method: 'GET' };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        try { const r = JSON.parse(body); _telegramBotUsername = r.result.username || ''; } catch {}
+        resolve(_telegramBotUsername);
+      });
+    });
+    req.on('error', () => resolve(''));
     req.end();
   });
 }
@@ -1009,6 +1093,79 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- TELEGRAM WEBHOOK ----
+    if (req.method === 'POST' && url === '/api/telegram/webhook') {
+      try {
+        const body = JSON.parse(await readBody(req));
+        const msg = body.message;
+        if (msg && msg.text) {
+          const chatId = msg.chat.id;
+          const text = msg.text.trim();
+          // /start CODE — link telegram account
+          if (text.startsWith('/start')) {
+            const code = text.split(' ')[1];
+            if (code && pool) {
+              // Find user by link code
+              const linkRes = await pool.query(
+                "SELECT user_id FROM notification_prefs WHERE telegram_link_code = $1", [code]
+              );
+              if (linkRes.rows.length) {
+                const userId = linkRes.rows[0].user_id;
+                await pool.query(
+                  `UPDATE notification_prefs SET telegram_chat_id = $1, telegram_enabled = true,
+                   telegram_link_code = NULL, telegram_material_alert = true, telegram_stock_alert = true, telegram_order_alert = true,
+                   updated_at = NOW() WHERE user_id = $2`,
+                  [chatId.toString(), userId]
+                );
+                const userRes = await pool.query("SELECT name FROM users WHERE id = $1", [userId]);
+                const userName = userRes.rows.length ? userRes.rows[0].name : '';
+                await sendTelegram(chatId,
+                  `✅ Telegram підключено!\n\nПривіт${userName ? ', '+userName : ''}! Тепер ви будете отримувати сповіщення від LipoLand:\n\n📦 Матеріали закінчуються\n🎮 Товари на складі\n📋 Нові замовлення\n\nНалаштувати які сповіщення отримувати можна в CRM → Налаштування.`
+                );
+              } else {
+                await sendTelegram(chatId, '❌ Код не знайдено або вже використаний. Спробуйте згенерувати новий код в CRM → Налаштування.');
+              }
+            } else if (!code) {
+              await sendTelegram(chatId, '👋 Привіт! Це бот LipoLand для сповіщень.\n\nЩоб підключити, перейдіть в CRM → Налаштування → Telegram-сповіщення і натисніть "Підключити".');
+            }
+          }
+        }
+      } catch(e) { console.error('[Telegram] Webhook error:', e.message); }
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- TELEGRAM: Generate link code ----
+    if (req.method === 'POST' && url === '/api/telegram/link') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const code = crypto.randomBytes(16).toString('hex');
+      if (pool) {
+        await pool.query(
+          `INSERT INTO notification_prefs (user_id, telegram_link_code) VALUES ($1, $2)
+           ON CONFLICT (user_id) DO UPDATE SET telegram_link_code = $2, updated_at = NOW()`,
+          [user.id, code]
+        );
+      }
+      const botUsername = TELEGRAM_BOT_TOKEN ? await getTelegramBotUsername() : '';
+      sendJSON(res, 200, { ok: true, code, botUsername });
+      return;
+    }
+
+    // ---- TELEGRAM: Disconnect ----
+    if (req.method === 'POST' && url === '/api/telegram/disconnect') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (pool) {
+        await pool.query(
+          `UPDATE notification_prefs SET telegram_enabled = false, telegram_chat_id = NULL, updated_at = NOW() WHERE user_id = $1`,
+          [user.id]
+        );
+      }
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
     // ---- WORKERS: Invite worker ----
     if (req.method === 'POST' && url === '/api/workers/invite') {
       const user = await getSessionUser(req);
@@ -1455,8 +1612,12 @@ async function start() {
 
   // Run trial reminders every 24 hours (check at startup + every 24h)
   if (pool && RESEND_API_KEY) {
-    setTimeout(() => checkTrialReminders(), 10000); // 10s after start
-    setInterval(() => checkTrialReminders(), 24 * 60 * 60 * 1000); // every 24h
+    setTimeout(() => checkTrialReminders(), 10000);
+    setInterval(() => checkTrialReminders(), 24 * 60 * 60 * 1000);
+  }
+  // Setup Telegram webhook
+  if (TELEGRAM_BOT_TOKEN) {
+    setTimeout(() => setupTelegramWebhook(), 5000);
   }
 }
 
