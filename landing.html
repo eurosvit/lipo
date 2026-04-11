@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipoLand — Система управління для майстрів ліпучок</title>
+<link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQW7b7lDuX9_YMpD2F7ayKrhtZLV8B-yUyf9A&s" type="image/png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+:root {
+  --pink: #C91B6E;
+  --teal: #4CBCBE;
+  --yellow: #F2C031;
+  --orange: #E89240;
+  --dark: #2D2D2D;
+  --light: #FDFBF7;
+  --gray: #7A7A7A;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',system-ui,sans-serif; color:var(--dark); background:var(--light); }
+a { text-decoration:none; color:inherit; }
+
+/* HEADER */
+.header { padding:16px 40px; display:flex; align-items:center; justify-content:space-between; position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(253,251,247,0.95); backdrop-filter:blur(10px); border-bottom:1px solid rgba(0,0,0,0.05); }
+.header-logo { display:flex; align-items:center; gap:10px; }
+.header-logo img { height:36px; width:36px; border-radius:50%; }
+.header-logo span { font-weight:800; font-size:20px; color:var(--pink); }
+.header-nav { display:flex; gap:24px; align-items:center; }
+.header-nav a { font-weight:600; font-size:15px; color:var(--gray); transition:color .2s; }
+.header-nav a:hover { color:var(--pink); }
+.btn { padding:12px 28px; border-radius:50px; font-weight:700; font-size:15px; border:none; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:8px; }
+.btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 20px rgba(201,27,110,0.3); }
+.btn-primary:hover { background:#A8155B; transform:translateY(-1px); box-shadow:0 6px 24px rgba(201,27,110,0.4); }
+.btn-outline { background:none; border:2px solid var(--pink); color:var(--pink); }
+.btn-outline:hover { background:var(--pink); color:#fff; }
+.btn-teal { background:var(--teal); color:#fff; box-shadow:0 4px 20px rgba(76,188,190,0.3); }
+.btn-teal:hover { background:#3AA3A5; }
+
+/* HERO */
+.hero { padding:140px 40px 80px; text-align:center; position:relative; overflow:hidden; }
+.hero::before { content:''; position:absolute; top:-200px; right:-200px; width:500px; height:500px; border-radius:50%; background:var(--yellow); opacity:0.08; }
+.hero::after { content:''; position:absolute; bottom:-150px; left:-100px; width:400px; height:400px; border-radius:50%; background:var(--teal); opacity:0.08; }
+.hero-badge { display:inline-block; padding:8px 20px; background:linear-gradient(135deg,rgba(201,27,110,0.1),rgba(76,188,190,0.1)); border-radius:50px; font-weight:700; font-size:14px; color:var(--pink); margin-bottom:24px; }
+.hero h1 { font-size:52px; font-weight:900; line-height:1.15; max-width:700px; margin:0 auto 20px; }
+.hero h1 span { background:linear-gradient(135deg,var(--pink),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero p { font-size:20px; color:var(--gray); max-width:550px; margin:0 auto 40px; line-height:1.6; }
+.hero-buttons { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+.hero-img { margin-top:60px; max-width:900px; margin-left:auto; margin-right:auto; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden; border:1px solid rgba(0,0,0,0.08); }
+.hero-img img { width:100%; display:block; }
+
+/* FEATURES */
+.features { padding:100px 40px; }
+.section-title { text-align:center; margin-bottom:60px; }
+.section-title h2 { font-size:36px; font-weight:800; margin-bottom:12px; }
+.section-title p { font-size:18px; color:var(--gray); }
+.features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:24px; max-width:1100px; margin:0 auto; }
+.feature-card { background:#fff; border-radius:16px; padding:32px; border:1px solid rgba(0,0,0,0.06); transition:all .3s; }
+.feature-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.08); }
+.feature-icon { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:20px; }
+.feature-card:nth-child(1) .feature-icon { background:rgba(201,27,110,0.1); }
+.feature-card:nth-child(2) .feature-icon { background:rgba(76,188,190,0.1); }
+.feature-card:nth-child(3) .feature-icon { background:rgba(242,192,49,0.15); }
+.feature-card:nth-child(4) .feature-icon { background:rgba(232,146,64,0.12); }
+.feature-card:nth-child(5) .feature-icon { background:rgba(201,27,110,0.1); }
+.feature-card:nth-child(6) .feature-icon { background:rgba(76,188,190,0.1); }
+.feature-card h3 { font-size:18px; font-weight:800; margin-bottom:8px; }
+.feature-card p { font-size:14px; color:var(--gray); line-height:1.6; }
+
+/* PRICING */
+.pricing { padding:100px 40px; background:#fff; }
+.pricing-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; max-width:960px; margin:0 auto; }
+.price-card { border-radius:16px; padding:36px; border:2px solid rgba(0,0,0,0.06); text-align:center; transition:all .3s; position:relative; }
+.price-card:hover { transform:translateY(-4px); }
+.price-card.popular { border-color:var(--pink); box-shadow:0 12px 40px rgba(201,27,110,0.12); }
+.price-badge { position:absolute; top:-14px; left:50%; transform:translateX(-50%); background:var(--pink); color:#fff; padding:4px 20px; border-radius:50px; font-size:13px; font-weight:700; }
+.price-card h3 { font-size:20px; font-weight:800; margin-bottom:8px; }
+.price-amount { font-size:44px; font-weight:900; color:var(--pink); margin:16px 0 4px; }
+.price-amount span { font-size:16px; font-weight:600; color:var(--gray); }
+.price-per-month { font-size:14px; color:var(--gray); margin-bottom:24px; }
+.price-save { display:inline-block; background:rgba(242,192,49,0.2); color:#B8860B; padding:4px 12px; border-radius:50px; font-size:13px; font-weight:700; margin-bottom:16px; }
+.price-features { list-style:none; text-align:left; margin-bottom:28px; }
+.price-features li { padding:8px 0; font-size:14px; color:var(--dark); display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,0.04); }
+.price-features li::before { content:'✓'; color:var(--teal); font-weight:800; font-size:16px; }
+
+/* CTA */
+.cta { padding:100px 40px; text-align:center; background:linear-gradient(135deg,var(--pink),var(--orange)); color:#fff; }
+.cta h2 { font-size:36px; font-weight:900; margin-bottom:16px; }
+.cta p { font-size:18px; opacity:0.9; margin-bottom:32px; max-width:500px; margin-left:auto; margin-right:auto; }
+.cta .btn { background:#fff; color:var(--pink); font-size:18px; padding:16px 40px; }
+.cta .btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.2); }
+
+/* FOOTER */
+.footer { padding:40px; text-align:center; font-size:14px; color:var(--gray); }
+.footer a { color:var(--pink); font-weight:600; }
+.footer-social { margin-bottom:12px; }
+.footer-social a { display:inline-flex; align-items:center; gap:6px; font-size:15px; }
+
+/* MOBILE */
+@media(max-width:768px) {
+  .header { padding:12px 20px; }
+  .header-nav a:not(.btn) { display:none; }
+  .hero { padding:110px 20px 60px; }
+  .hero h1 { font-size:32px; }
+  .hero p { font-size:16px; }
+  .features, .pricing, .cta { padding:60px 20px; }
+  .section-title h2 { font-size:28px; }
+  .price-amount { font-size:36px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQW7b7lDuX9_YMpD2F7ayKrhtZLV8B-yUyf9A&s" alt="LipoLand">
+    <span>LipoLand</span>
+  </div>
+  <nav class="header-nav">
+    <a href="#features">Можливості</a>
+    <a href="#pricing">Тарифи</a>
+    <a href="https://www.instagram.com/lipoland.ua/" target="_blank">Instagram</a>
+    <a href="/app" class="btn btn-outline" style="padding:8px 20px;font-size:14px;">Увійти</a>
+    <a href="/app" class="btn btn-primary" style="padding:8px 20px;font-size:14px;">Реєстрація</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Перша в Україні для майстрів ліпучок</div>
+  <h1>Все виробництво — <span>в одній системі</span></h1>
+  <p>Спеціалізована CRM для майстринь ліпучок: склад, обладнання, собівартість, замовлення та продажі</p>
+  <div class="hero-buttons">
+    <a href="/app" class="btn btn-primary">Почати безкоштовно</a>
+    <a href="#features" class="btn btn-outline">Дізнатись більше</a>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-title">
+    <h2>Все, що потрібно майстрині</h2>
+    <p>Спеціалізовані модулі саме для виробництва ліпучок</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📦</div>
+      <h3>Склад матеріалів</h3>
+      <p>Облік ліпучки, папери, плівки для ламінації, кілець та іншої фурнітури. Автоматичні нагадування коли закінчується</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🖨</div>
+      <h3>Обладнання</h3>
+      <p>Принтер, ламінатор, різак — все під контролем. Нагадування про планове обслуговування та облік витрат на ремонт</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Собівартість</h3>
+      <p>Автоматичний розрахунок собівартості кожного виробу з урахуванням матеріалів та роботи майстра</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎮</div>
+      <h3>Каталог продукції</h3>
+      <p>Всі ваші ігри з артикулами, рецептурою та цінами. Завжди знаєте скільки готової продукції на складі</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📋</div>
+      <h3>Замовлення</h3>
+      <p>Ведіть замовлення від створення до відправки. Інтеграція з SalesDrive CRM для автоматичного імпорту</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">👷</div>
+      <h3>Управління майстрами</h3>
+      <p>Передача матеріалів майстрам, облік виконаної роботи та автоматичний розрахунок зарплати</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="section-title">
+    <h2>Прості та зрозумілі тарифи</h2>
+    <p>Обирайте план, який підходить вам</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <h3>Місячний</h3>
+      <div class="price-amount">250<span> грн/міс</span></div>
+      <div class="price-per-month">&nbsp;</div>
+      <ul class="price-features">
+        <li>Всі модулі системи</li>
+        <li>Необмежена кількість товарів</li>
+        <li>Облік обладнання</li>
+        <li>Оновлення та підтримка</li>
+      </ul>
+      <a href="/app" class="btn btn-outline" style="width:100%;justify-content:center;">Обрати</a>
+    </div>
+    <div class="price-card popular">
+      <div class="price-badge">Популярний</div>
+      <h3>6 місяців</h3>
+      <div class="price-amount">1 250<span> грн</span></div>
+      <div class="price-per-month">208 грн/міс</div>
+      <div class="price-save">Економія 250 грн</div>
+      <ul class="price-features">
+        <li>Всі модулі системи</li>
+        <li>Необмежена кількість товарів</li>
+        <li>Облік обладнання</li>
+        <li>Оновлення та підтримка</li>
+        <li>Пріоритетна підтримка</li>
+      </ul>
+      <a href="/app" class="btn btn-primary" style="width:100%;justify-content:center;">Обрати</a>
+    </div>
+    <div class="price-card">
+      <h3>12 місяців</h3>
+      <div class="price-amount">2 200<span> грн</span></div>
+      <div class="price-per-month">183 грн/міс</div>
+      <div class="price-save">Економія 800 грн</div>
+      <ul class="price-features">
+        <li>Всі модулі системи</li>
+        <li>Необмежена кількість товарів</li>
+        <li>Облік обладнання</li>
+        <li>Оновлення та підтримка</li>
+        <li>Пріоритетна підтримка</li>
+        <li>Ранній доступ до нових функцій</li>
+      </ul>
+      <a href="/app" class="btn btn-teal" style="width:100%;justify-content:center;">Обрати</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <h2>Готові навести лад у виробництві?</h2>
+  <p>Приєднуйтесь до спільноти майстринь, які вже контролюють свій бізнес</p>
+  <a href="/app" class="btn">Почати зараз</a>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-social">
+    <a href="https://www.instagram.com/lipoland.ua/" target="_blank">📸 @lipoland.ua</a>
+  </div>
+  <p>&copy; 2026 LipoLand. Система управління для майстрів ліпучок.</p>
+</footer>
+
+</body>
+</html>

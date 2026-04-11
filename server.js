@@ -4,7 +4,8 @@ const path = require('path');
 const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3999;
-const FILE = path.join(__dirname, 'index.html');
+const LANDING_FILE = path.join(__dirname, 'landing.html');
+const APP_FILE = path.join(__dirname, 'index.html');
 const DB_FILE = path.join(__dirname, 'data.json');
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -102,16 +103,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Serve index.html
-    fs.readFile(FILE, 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end('Error: ' + err.message);
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(data);
-    });
+    // Serve landing page on /
+    if (req.url === '/' || req.url === '') {
+      fs.readFile(LANDING_FILE, 'utf8', (err, data) => {
+        if (err) { res.writeHead(500); res.end('Error: ' + err.message); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(data);
+      });
+      return;
+    }
+
+    // Serve CRM app on /app
+    if (req.url === '/app' || req.url.startsWith('/app?')) {
+      fs.readFile(APP_FILE, 'utf8', (err, data) => {
+        if (err) { res.writeHead(500); res.end('Error: ' + err.message); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(data);
+      });
+      return;
+    }
+
+    // 404
+    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<h1>404</h1><p>Сторінку не знайдено. <a href="/">На головну</a></p>');
   } catch (e) {
     console.error('Request error:', e.message);
     sendJSON(res, e.message.includes('Invalid') ? 400 : 500, { error: e.message });
