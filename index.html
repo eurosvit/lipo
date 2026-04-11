@@ -1098,9 +1098,12 @@ function saveDB(db) {
 fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
   var prevUser = localStorage.getItem('lipo_current_user');
   var curUser = u && u.id ? u.id : '';
-  if (prevUser && prevUser !== curUser) {
-    // Different user — clear old data
+  if (!prevUser || prevUser !== curUser) {
+    // Different user or first login — clear all old data
     localStorage.removeItem(DB_KEY);
+    localStorage.removeItem(SD_SETTINGS_KEY);
+    localStorage.removeItem('lipo_read_notifs');
+    localStorage.removeItem('lipo_onboarding_done');
     _dbCache = null;
   }
   if (curUser) localStorage.setItem('lipo_current_user', curUser);
