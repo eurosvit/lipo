@@ -150,6 +150,16 @@ async function initDB() {
     )
   `);
 
+  // CRM settings (SalesDrive)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS crm_settings (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      domain TEXT NOT NULL DEFAULT '',
+      api_key TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   console.log('PostgreSQL connected, tables ready');
 }
 
@@ -1163,6 +1173,79 @@ const server = http.createServer(async (req, res) => {
         );
       }
       sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- CRM SETTINGS: Save ----
+    if (req.method === 'POST' && url === '/api/crm-settings') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const body = JSON.parse(await readBody(req));
+      if (pool) {
+        await pool.query(
+          `INSERT INTO crm_settings (user_id, domain, api_key) VALUES ($1, $2, $3)
+           ON CONFLICT (user_id) DO UPDATE SET domain = $2, api_key = $3, updated_at = NOW()`,
+          [user.id, body.domain || '', body.apiKey || '']
+        );
+      }
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- CRM SETTINGS: Get ----
+    if (req.method === 'GET' && url === '/api/crm-settings') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (pool) {
+        const r = await pool.query(`SELECT domain, api_key FROM crm_settings WHERE user_id = $1`, [user.id]);
+        if (r.rows.length) {
+          sendJSON(res, 200, { domain: r.rows[0].domain, apiKey: r.rows[0].api_key });
+        } else {
+          sendJSON(res, 200, {});
+        }
+      } else {
+        sendJSON(res, 200, {});
+      }
+      return;
+    }
+
+    // ---- SALESDRIVE PROXY ----
+    if (req.method === 'POST' && url === '/api/salesdrive/proxy') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const sdPath = body.path || '/api/statuses/';
+      // Get CRM settings from DB
+      if (!pool) { sendJSON(res, 500, { error: 'No database' }); return; }
+      const settingsRes = await pool.query(`SELECT domain, api_key FROM crm_settings WHERE user_id = $1`, [user.id]);
+      if (!settingsRes.rows.length || !settingsRes.rows[0].domain || !settingsRes.rows[0].api_key) {
+        sendJSON(res, 400, { error: 'CRM не налаштовано. Збережіть налаштування.' });
+        return;
+      }
+      const sdDomain = settingsRes.rows[0].domain;
+      const sdApiKey = settingsRes.rows[0].api_key;
+      // Proxy request to SalesDrive
+      const sdUrl = `https://${sdDomain}${sdPath}`;
+      const proxyReq = https.request(sdUrl, { method: 'GET', headers: { 'X-Api-Key': sdApiKey } }, (proxyRes) => {
+        let proxyBody = '';
+        proxyRes.on('data', d => proxyBody += d);
+        proxyRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(proxyBody);
+            sendJSON(res, 200, parsed);
+          } catch {
+            sendJSON(res, 502, { error: 'Невірна відповідь від CRM' });
+          }
+        });
+      });
+      proxyReq.on('error', (err) => {
+        sendJSON(res, 502, { error: 'Помилка з\'єднання з CRM: ' + err.message });
+      });
+      proxyReq.setTimeout(15000, () => {
+        proxyReq.destroy();
+        sendJSON(res, 504, { error: 'Таймаут з\'єднання з CRM' });
+      });
+      proxyReq.end();
       return;
     }
 

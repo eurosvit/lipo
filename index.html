@@ -675,10 +675,6 @@ a.order-link:hover { text-decoration:underline; }
     <div style="margin-bottom:16px;">
       <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">📧 Email-сповіщення</div>
       <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
-        <input type="checkbox" id="pref-email-welcome" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
-        Привітальний лист при реєстрації
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;">
         <input type="checkbox" id="pref-email-trial-reminder" style="accent-color:var(--primary);width:18px;height:18px;" onchange="saveNotifPrefs()">
         Нагадування про закінчення пробного періоду
       </label>
@@ -1875,8 +1871,28 @@ function getCrmSettings() {
 function saveCrmSettings() {
   var settings = { domain: v('sd-domain').trim(), apiKey: v('sd-apikey').trim() };
   if(!settings.domain || !settings.apiKey) return alert('Заповніть домен та API-ключ');
-  localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify(settings));
-  alert('Збережено!');
+  // Save to server
+  fetch('/api/crm-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(settings) })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.ok) {
+        localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify(settings));
+        alert('Збережено!');
+      } else {
+        alert('Помилка: '+(data.error||'невідомо'));
+      }
+    }).catch(function(){ alert('Помилка збереження'); });
+}
+
+function loadCrmSettings() {
+  fetch('/api/crm-settings').then(function(r){ return r.json(); }).then(function(data){
+    if(data.domain) {
+      var settings = { domain: data.domain, apiKey: data.apiKey || '' };
+      localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify(settings));
+      document.getElementById('sd-domain').value = settings.domain;
+      document.getElementById('sd-apikey').value = settings.apiKey;
+    }
+  }).catch(function(){});
 }
 
 function testCrmConnection() {
@@ -1884,14 +1900,14 @@ function testCrmConnection() {
   if(!settings.domain || !settings.apiKey) return alert('Спочатку збережіть налаштування CRM');
   var el = document.getElementById('crm-test-result');
   el.innerHTML = '<span class="text-muted">Перевірка...</span>';
-  fetch('https://'+settings.domain+'/api/statuses/', { headers: {'X-Api-Key': settings.apiKey} })
+  fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path:'/api/statuses/' }) })
     .then(function(r){return r.json()})
     .then(function(data) {
       if(data.success) {
         var statuses = data.data.map(function(s){return s.name}).join(', ');
         el.innerHTML = '<span class="text-success">✅ Підключено! Статуси: '+statuses+'</span>';
       } else {
-        el.innerHTML = '<span class="text-danger">❌ Помилка: '+JSON.stringify(data)+'</span>';
+        el.innerHTML = '<span class="text-danger">❌ Помилка: '+(data.error || JSON.stringify(data))+'</span>';
       }
     })
     .catch(function(err) {
@@ -1921,9 +1937,9 @@ function syncSalesDrive() {
   fromDate.setDate(fromDate.getDate() - 30);
   var fromStr = fromDate.toISOString().slice(0,10) + ' 00:00:00';
 
-  var url = 'https://'+settings.domain+'/api/order/list/?page=1&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
+  var sdPath = '/api/order/list/?page=1&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
 
-  fetch(url, { headers: {'X-Api-Key': settings.apiKey} })
+  fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: sdPath }) })
     .then(function(r){return r.json()})
     .then(function(data) {
       if(!data.data) throw new Error('Невірна відповідь API');
@@ -2351,10 +2367,8 @@ function renderSettings() {
       '<span style="flex:1;">'+esc(w)+'</span>'+
       '<button class="btn btn-danger btn-sm" onclick="removeWorker('+i+')">&#x2715;</button></div>';
   }).join('') || '<p class="text-muted">Додайте майстрів</p>';
-  // Load CRM settings
-  var crm = getCrmSettings();
-  document.getElementById('sd-domain').value = crm.domain || '';
-  document.getElementById('sd-apikey').value = crm.apiKey || '';
+  // Load CRM settings from server
+  loadCrmSettings();
   // Load printer settings
   var ps = db.printerSettings || {};
   document.getElementById('printer-colors').value = ps.colors || 6;
@@ -3633,7 +3647,6 @@ function deleteAccount() {
 function loadNotifPrefs() {
   fetch('/api/notifications/prefs').then(function(r){ return r.json(); }).then(function(p){
     if (!p || p.error) return;
-    document.getElementById('pref-email-welcome').checked = p.email_welcome !== false;
     document.getElementById('pref-email-trial-reminder').checked = p.email_trial_reminder !== false;
     document.getElementById('pref-email-trial-expired').checked = p.email_trial_expired !== false;
     document.getElementById('pref-email-sub-reminder').checked = p.email_subscription_reminder !== false;
@@ -3670,7 +3683,6 @@ function saveNotifPrefs() {
   clearTimeout(_notifSaveTimer);
   _notifSaveTimer = setTimeout(function() {
     var prefs = {
-      email_welcome: document.getElementById('pref-email-welcome').checked,
       email_trial_reminder: document.getElementById('pref-email-trial-reminder').checked,
       email_trial_expired: document.getElementById('pref-email-trial-expired').checked,
       email_subscription_reminder: document.getElementById('pref-email-sub-reminder').checked,
