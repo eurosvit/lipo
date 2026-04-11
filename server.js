@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const PORT = process.env.PORT || 3999;
 const LANDING_FILE = path.join(__dirname, 'landing.html');
 const APP_FILE = path.join(__dirname, 'index.html');
+const LEGAL_FILE = path.join(__dirname, 'legal.html');
 const DB_FILE = path.join(__dirname, 'data.json');
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -106,6 +107,16 @@ const server = http.createServer(async (req, res) => {
     // Serve landing page on /
     if (req.url === '/' || req.url === '') {
       fs.readFile(LANDING_FILE, 'utf8', (err, data) => {
+        if (err) { res.writeHead(500); res.end('Error: ' + err.message); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(data);
+      });
+      return;
+    }
+
+    // Serve legal pages
+    if (req.url.startsWith('/legal')) {
+      fs.readFile(LEGAL_FILE, 'utf8', (err, data) => {
         if (err) { res.writeHead(500); res.end('Error: ' + err.message); return; }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(data);
