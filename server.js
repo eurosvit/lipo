@@ -18,6 +18,7 @@ const WAYFORPAY_SECRET = process.env.WAYFORPAY_SECRET || '';
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'LipoLand <hello@lipoland.top>';
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
 
 // Subscription plans
 const PLANS = {
@@ -655,6 +656,23 @@ const server = http.createServer(async (req, res) => {
   const query = new URL(req.url, BASE_URL).searchParams;
 
   try {
+    // ---- BASIC AUTH (staging) ----
+    if (BASIC_AUTH_PASSWORD && url !== '/api/telegram/webhook' && url !== '/api/wayforpay/webhook') {
+      const auth = req.headers.authorization;
+      if (!auth || !auth.startsWith('Basic ')) {
+        res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Staging"', 'Content-Type': 'text/plain' });
+        res.end('Authorization required');
+        return;
+      }
+      const decoded = Buffer.from(auth.slice(6), 'base64').toString();
+      const pass = decoded.split(':')[1] || '';
+      if (pass !== BASIC_AUTH_PASSWORD) {
+        res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Staging"', 'Content-Type': 'text/plain' });
+        res.end('Wrong password');
+        return;
+      }
+    }
+
     // ---- CORS preflight ----
     if (req.method === 'OPTIONS') {
       res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' });
