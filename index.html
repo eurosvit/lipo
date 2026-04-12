@@ -1796,7 +1796,7 @@ function renderOrders() {
   var statusMap = { new:'🆕 Новий', in_production:'🔧 На виробництві', completed:'✔ Виконано' };
   var statusColors = { new:'#ffeaa7', in_production:'#81ecec', completed:'#55efc4' };
 
-  var filtered = db.orders.slice().reverse().filter(function(o) {
+  var filtered = db.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || b.num - a.num; }).filter(function(o) {
     if(statusFilter && o.status!==statusFilter) return false;
     if(crmOnly && !o.crmId) return false;
     return true;
