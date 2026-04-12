@@ -1948,10 +1948,9 @@ function syncSalesDrive() {
       var updatedCount = 0;
 
       orders.forEach(function(o) {
-        // Filter: only Lipoland products, exclude Demax
+        // Filter: only products with "lipoland" or "Lipoland" in name
         var lipoProducts = (o.products||[]).filter(function(p) {
-          var t = (p.text||'').toLowerCase();
-          return t.indexOf('lipoland') !== -1 && t.indexOf('demax') === -1;
+          return (p.text||'').toLowerCase().indexOf('lipoland') !== -1;
         });
         if(lipoProducts.length === 0) return;
 
