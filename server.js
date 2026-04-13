@@ -178,6 +178,9 @@ async function initDB() {
     ON CONFLICT (code) DO NOTHING
   `);
 
+  // Add last_login_at column if not exists
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`).catch(()=>{});
+
   console.log('PostgreSQL connected, tables ready');
 }
 
@@ -732,6 +735,8 @@ async function createSession(res, userId) {
       "INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)",
       [token, userId, expiresAt]
     );
+    // Track last login
+    await pool.query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [userId]).catch(()=>{});
   }
   setSessionCookie(res, token, 30);
 }
@@ -1160,7 +1165,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url === '/api/admin/users') {
       const user = await getSessionUser(req);
       if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
-      const result = await pool.query("SELECT id, email, name, role, trial_ends_at, subscription_ends_at, promo_used, created_at FROM users ORDER BY created_at DESC");
+      const result = await pool.query("SELECT id, email, name, role, trial_ends_at, subscription_ends_at, promo_used, created_at, last_login_at FROM users ORDER BY created_at DESC");
       sendJSON(res, 200, result.rows);
       return;
     }
