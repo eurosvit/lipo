@@ -1031,7 +1031,7 @@ a.order-link:hover { text-decoration:underline; }
     <div class="form-row">
       <div class="form-group"><label>Дата</label><input id="svc-date" type="date"></div>
       <div class="form-group"><label>Тип</label>
-        <select id="svc-type">
+        <select id="svc-type" onchange="toggleInkSection()">
           <option value="Планове обслуговування">Планове обслуговування</option>
           <option value="Ремонт">Ремонт</option>
           <option value="Заміна деталей">Заміна деталей</option>
@@ -1043,9 +1043,19 @@ a.order-link:hover { text-decoration:underline; }
         </select>
       </div>
     </div>
+    <div id="svc-ink-section" style="display:none;margin-bottom:12px;padding:12px;background:#F3E5F5;border-radius:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Кольори (вкажіть скільки мл долили)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔵 C (Cyan)</label><input id="svc-ink-c" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔴 M (Magenta)</label><input id="svc-ink-m" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🟡 Y (Yellow)</label><input id="svc-ink-y" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">⚫ BK (Black)</label><input id="svc-ink-bk" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">💧 LC (Light Cyan)</label><input id="svc-ink-lc" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🩷 LM (Light Magenta)</label><input id="svc-ink-lm" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+      </div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label>Кількість, мл (опційно)</label><input id="svc-qty" type="number" step="1" value="" placeholder="напр. 70"></div>
     </div>
     <div class="form-group mb-16"><label>Коментар</label><input id="svc-comment" placeholder="Що було зроблено..."></div>
     <div class="modal-actions">
@@ -3385,10 +3395,19 @@ function renderEquipment() {
       '<td data-label="Тип">'+esc(l.type||'')+'</td>'+
       '<td data-label="Вартість">'+(l.cost ? fmt(l.cost)+' грн' : '—')+'</td>'+
       '<td data-label="Коментар">'+esc(l.comment||'')+'</td>'+
-      '<td data-label="Дії"><button class="btn btn-danger btn-sm" onclick="deleteServiceLog(\''+l.id+'\')">✕</button></td>'+
+      '<td data-label="Дії" style="white-space:nowrap;text-align:right;"><button class="btn btn-outline btn-sm" onclick="editServiceLog(\''+l.id+'\')" title="Редагувати">✏️</button> <button class="btn btn-danger btn-sm" onclick="deleteServiceLog(\''+l.id+'\')">✕</button></td>'+
     '</tr>';
   }).join('');
   document.getElementById('service-history-table').innerHTML = historyRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light);">Поки немає записів</td></tr>';
+}
+
+function toggleInkSection() {
+  var isInk = document.getElementById('svc-type').value === 'Заправка чорнил';
+  document.getElementById('svc-ink-section').style.display = isInk ? 'block' : 'none';
+}
+
+function clearInkFields() {
+  ['svc-ink-c','svc-ink-m','svc-ink-y','svc-ink-bk','svc-ink-lc','svc-ink-lm'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 
 function populateSvcEquipmentSelect(selectedId) {
@@ -3398,24 +3417,42 @@ function populateSvcEquipmentSelect(selectedId) {
   sel.innerHTML = items.map(function(eq){ return '<option value="'+eq.id+'"'+(eq.id===selectedId?' selected':'')+'>'+esc(eq.name)+'</option>'; }).join('');
 }
 
+var _svcEditId = '';
+
 function openServiceLog(eqId) {
+  _svcEditId = '';
   populateSvcEquipmentSelect(eqId);
   document.getElementById('svc-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('svc-cost').value = '0';
-  document.getElementById('svc-qty').value = '';
   document.getElementById('svc-comment').value = '';
   document.getElementById('svc-type').value = 'Планове обслуговування';
+  clearInkFields(); toggleInkSection();
   openModal('log-service');
 }
 
 function openServiceLogFromHistory() {
+  _svcEditId = '';
   var filter = document.getElementById('eq-history-filter').value;
   populateSvcEquipmentSelect(filter);
   document.getElementById('svc-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('svc-cost').value = '0';
-  document.getElementById('svc-qty').value = '';
   document.getElementById('svc-comment').value = '';
   document.getElementById('svc-type').value = 'Планове обслуговування';
+  clearInkFields(); toggleInkSection();
+  openModal('log-service');
+}
+
+function editServiceLog(id) {
+  var db = getDB();
+  var entry = (db.serviceLog||[]).find(function(x){ return x.id===id; });
+  if (!entry) return;
+  _svcEditId = id;
+  populateSvcEquipmentSelect(entry.equipmentId);
+  document.getElementById('svc-date').value = entry.date||'';
+  document.getElementById('svc-type').value = entry.type||'Планове обслуговування';
+  document.getElementById('svc-cost').value = entry.cost||0;
+  document.getElementById('svc-comment').value = entry.comment||'';
+  clearInkFields(); toggleInkSection();
   openModal('log-service');
 }
 
@@ -3424,22 +3461,36 @@ function saveServiceLog() {
   if (!db.serviceLog) db.serviceLog = [];
   var eqId = document.getElementById('svc-eq-id').value;
   if (!eqId) return alert('Оберіть обладнання');
-  var qty = parseInt(document.getElementById('svc-qty').value) || 0;
+  var type = v('svc-type');
   var comment = v('svc-comment');
-  if (qty > 0) comment = (comment ? comment + ' ' : '') + '(' + qty + ' мл)';
+  // Build ink details
+  if (type === 'Заправка чорнил') {
+    var inks = [];
+    var inkIds = {c:'C',m:'M',y:'Y',bk:'BK',lc:'LC',lm:'LM'};
+    Object.keys(inkIds).forEach(function(k){
+      var val = parseInt(document.getElementById('svc-ink-'+k).value) || 0;
+      if (val > 0) inks.push(inkIds[k]+': '+val+' мл');
+    });
+    if (inks.length) comment = inks.join(', ') + (comment ? '. ' + comment : '');
+  }
   var entry = {
-    id: uid(),
+    id: _svcEditId || uid(),
     equipmentId: eqId,
     date: v('svc-date'),
-    type: v('svc-type'),
+    type: type,
     cost: n('svc-cost'),
     comment: comment
   };
   if (!entry.date) return alert('Вкажіть дату');
-  db.serviceLog.push(entry);
+  if (_svcEditId) {
+    var idx = db.serviceLog.findIndex(function(x){ return x.id===_svcEditId; });
+    if (idx >= 0) db.serviceLog[idx] = entry;
+  } else {
+    db.serviceLog.push(entry);
+  }
   // Update lastService on the equipment (for general service tracking)
   var eq = (db.equipment||[]).find(function(x){ return x.id===eqId; });
-  if (eq && entry.type !== 'Заміна ножа' && entry.type !== 'Заміна килимка') {
+  if (eq && entry.type !== 'Заміна ножа' && entry.type !== 'Заміна килимка' && entry.type !== 'Заправка чорнил') {
     eq.lastService = entry.date;
   }
   saveDB(db);
