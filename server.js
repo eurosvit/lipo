@@ -162,6 +162,12 @@ async function initDB() {
     )
   `);
 
+  // Seed default promo codes
+  await pool.query(`
+    INSERT INTO promo_codes (code, free_days, max_uses) VALUES ('LISICHKA2FREE', 30, NULL)
+    ON CONFLICT (code) DO NOTHING
+  `);
+
   console.log('PostgreSQL connected, tables ready');
 }
 
@@ -506,6 +512,103 @@ function sendAccountDeletedEmail(name, email) {
   `);
   return sendEmail(email, subject, html);
 }
+
+// ==================== ONBOARDING EMAIL SERIES ====================
+// Content-only emails (no upgrade push) — suitable for all users
+const ONBOARDING_EMAILS = [
+  {
+    dayAfterRegistration: 3,
+    key: 'onboard_day3',
+    subject: '💡 Порада: починайте з матеріалів',
+    getHtml: (name) => emailTemplate(`
+      <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">💡 Корисна порада</h2>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Привіт, <strong>${name}</strong>! Як просувається знайомство з LipoLand?
+      </p>
+      <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+        <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">
+          <strong>Порада дня:</strong> Почніть з розділу <strong>Матеріали</strong> — додайте тканини, фурнітуру та витратники. Для кожного вкажіть мінімальний залишок, і система сама попередить коли пора замовляти.
+        </p>
+      </div>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        А ще можна завантажити накладну від постачальника по фото — AI розпізнає все автоматично 📷
+      </p>
+      <div style="text-align:center;margin:24px 0 8px;">
+        <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Відкрити LipoLand →</a>
+      </div>
+    `)
+  },
+  {
+    dayAfterRegistration: 7,
+    key: 'onboard_day7',
+    subject: '🧩 Як рахувати собівартість гри?',
+    getHtml: (name) => emailTemplate(`
+      <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">🧩 Собівартість — це просто</h2>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Привіт, <strong>${name}</strong>! Розкажу про головну суперсилу LipoLand.
+      </p>
+      <div style="background:#E8F5E9;border-radius:10px;padding:20px;margin:20px 0;">
+        <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">
+          <strong>3 кроки до точної собівартості:</strong><br><br>
+          1️⃣ Додайте матеріали з цінами<br>
+          2️⃣ Створіть гру та вкажіть які матеріали потрібні<br>
+          3️⃣ Система автоматично порахує собівартість!
+        </p>
+      </div>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Більше не потрібно рахувати вручну — LipoLand зробить це за вас 💜
+      </p>
+      <div style="text-align:center;margin:24px 0 8px;">
+        <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Створити першу гру →</a>
+      </div>
+    `)
+  },
+  {
+    dayAfterRegistration: 14,
+    key: 'onboard_day14',
+    subject: '📊 Відстежуйте обладнання та витратники',
+    getHtml: (name) => emailTemplate(`
+      <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">📊 Все обладнання під контролем</h2>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Привіт, <strong>${name}</strong>! Сьогодні — про облік обладнання.
+      </p>
+      <div style="background:#FFF8E1;border-radius:10px;padding:20px;margin:20px 0;">
+        <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">
+          В розділі <strong>Обладнання</strong> можна:<br><br>
+          🖨 Вести облік принтерів, плотерів та інструментів<br>
+          🔧 Записувати обслуговування (заміна ножа, заправка чорнил)<br>
+          📈 Бачити загальну вартість всього обладнання<br>
+          🎨 Відстежувати заправку чорнил по кольорах
+        </p>
+      </div>
+      <div style="text-align:center;margin:24px 0 8px;">
+        <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Додати обладнання →</a>
+      </div>
+    `)
+  },
+  {
+    dayAfterRegistration: 30,
+    key: 'onboard_day30',
+    subject: '🤗 Як у вас справи з LipoLand?',
+    getHtml: (name) => emailTemplate(`
+      <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">🤗 Як справи?</h2>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Привіт, <strong>${name}</strong>! Вже місяць як ви з LipoLand. Як враження?
+      </p>
+      <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+        <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">
+          Якщо є питання, пропозиції чи щось не працює як треба — просто напишіть у відповідь на цей лист. Ми завжди раді допомогти! 💜
+        </p>
+      </div>
+      <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+        Ваша думка дуже важлива — разом ми зробимо LipoLand ідеальним інструментом для кожної майстрині.
+      </p>
+      <div style="text-align:center;margin:24px 0 8px;">
+        <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до LipoLand →</a>
+      </div>
+    `)
+  }
+];
 
 function sendMaterialAlertEmail(name, email, materials) {
   const rows = materials.map(m =>
@@ -983,7 +1086,8 @@ const server = http.createServer(async (req, res) => {
         id: user.id, email: user.email, name: user.name, role: user.role,
         hasAccess: user.hasAccess,
         trialEndsAt: user.trial_ends_at,
-        subscriptionEndsAt: user.subscription_ends_at
+        subscriptionEndsAt: user.subscription_ends_at,
+        promoUsed: user.promo_used || null
       };
       if (user.isWorker) {
         response.isWorker = true;
@@ -1734,21 +1838,49 @@ async function logEmailSent(userId, emailType) {
 async function checkTrialReminders() {
   if (!pool || !RESEND_API_KEY) return;
   try {
-    // === TRIAL REMINDERS (7 days and 3 days) ===
+    // === ONBOARDING EMAIL SERIES (content, no upgrade push) ===
+    const onboardUsers = await pool.query(`
+      SELECT u.id, u.name, u.email, u.created_at, u.promo_used FROM users u
+      WHERE u.role != 'admin'
+        AND u.created_at > NOW() - INTERVAL '60 days'
+    `);
+    for (const u of onboardUsers.rows) {
+      const daysSinceReg = Math.floor((Date.now() - new Date(u.created_at)) / (1000*60*60*24));
+      for (const step of ONBOARDING_EMAILS) {
+        if (daysSinceReg >= step.dayAfterRegistration && daysSinceReg <= step.dayAfterRegistration + 1) {
+          if (await wasEmailSentToday(u.id, step.key)) continue;
+          // Check if already sent this step ever (avoid re-sends)
+          const already = await pool.query(
+            "SELECT 1 FROM email_log WHERE user_id=$1 AND email_type=$2", [u.id, step.key]
+          );
+          if (already.rows.length) continue;
+          if (!(await userWantsEmail(u.id, 'email_welcome'))) continue;
+          console.log(`[Cron] Onboarding ${step.key}: ${u.email}`);
+          await sendEmail(u.email, step.subject, step.getHtml(u.name || ''));
+          await logEmailSent(u.id, step.key);
+        }
+      }
+    }
+
+    // === TRIAL REMINDERS ===
+    // Regular users: 7, 3, 1 days before end
+    // Promo users: 10, 5, 3, 1 days before end (no earlier upgrade push)
     const trialUsers = await pool.query(`
-      SELECT u.id, u.name, u.email, u.trial_ends_at FROM users u
+      SELECT u.id, u.name, u.email, u.trial_ends_at, u.promo_used FROM users u
       WHERE u.role != 'admin'
         AND (u.subscription_ends_at IS NULL OR u.subscription_ends_at < NOW())
         AND u.trial_ends_at > NOW()
-        AND u.trial_ends_at <= NOW() + INTERVAL '7 days'
+        AND u.trial_ends_at <= NOW() + INTERVAL '10 days'
     `);
     for (const u of trialUsers.rows) {
       const days = Math.ceil((new Date(u.trial_ends_at) - new Date()) / (1000*60*60*24));
+      const isPromo = !!u.promo_used;
+      const triggerDays = isPromo ? [10, 5, 3, 1] : [7, 3, 1];
       const key = `trial_reminder_${days}d`;
-      if (days === 7 || days === 3 || days === 1) {
+      if (triggerDays.includes(days)) {
         if (await wasEmailSentToday(u.id, key)) continue;
         if (!(await userWantsEmail(u.id, 'email_trial_reminder'))) continue;
-        console.log(`[Cron] Trial reminder: ${u.email}, ${days} days left`);
+        console.log(`[Cron] Trial reminder: ${u.email}, ${days} days left${isPromo ? ' (promo)' : ''}`);
         await sendTrialReminderEmail(u.name || '', u.email, days);
         await logEmailSent(u.id, key);
       }

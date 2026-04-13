@@ -4015,7 +4015,8 @@ function updateNotifications() {
   // Trial ending soon
   if (_currentUser && _currentUser.trialEndsAt && !_currentUser.subscriptionEndsAt && _currentUser.role !== 'admin') {
     var trialDays = Math.ceil((new Date(_currentUser.trialEndsAt) - new Date()) / (1000*60*60*24));
-    if (trialDays <= 7 && trialDays > 0) {
+    var warnDays = _currentUser.promoUsed ? 10 : 7;
+    if (trialDays <= warnDays && trialDays > 0) {
       notifs.push({ id:'trial_'+trialDays, type:'info', icon:'⏰', text:'Пробний період закінчується через <b>'+trialDays+' дн.</b> <a href="#" onclick="openPaymentModal();return false;" style="color:var(--primary);">Оберіть тариф →</a>' });
     }
   }
