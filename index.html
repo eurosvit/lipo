@@ -850,7 +850,6 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group"><label>Ціна за одиницю, грн</label><input id="mat-price" type="number" step="0.01" value="0"></div>
     </div>
     <div class="form-group mb-16"><label>Постачальник</label><input id="mat-supplier" placeholder="Назва або контакт"></div>
-    <div class="form-group mb-16"><label>Посилання на замовлення</label><input id="mat-orderUrl" placeholder="https://..."></div>
     <div class="form-group"><label>Коментар</label><textarea id="mat-note" placeholder="Додаткова інформація..."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-material')">Скасувати</button>
@@ -990,7 +989,6 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group"><label>Ціна/од.</label><input id="emat-price" type="number" step="0.01"></div>
     </div>
     <div class="form-group mb-16"><label>Постачальник</label><input id="emat-supplier"></div>
-    <div class="form-group mb-16"><label>Посилання на замовлення</label><input id="emat-orderUrl" placeholder="https://..."></div>
     <div class="form-group"><label>Коментар</label><textarea id="emat-note"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('edit-material')">Скасувати</button>
@@ -1366,13 +1364,12 @@ function closeModal(name) { document.getElementById('modal-'+name).classList.rem
 // ==================== MATERIALS ====================
 function saveMaterial() {
   const db = getDB();
-  const m = { id:uid(), name:v('mat-name'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), orderUrl:v('mat-orderUrl'), note:v('mat-note') };
+  const m = { id:uid(), name:v('mat-name'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), note:v('mat-note') };
   if(!m.name) return alert('Введіть назву');
   db.materials.push(m);
   saveDB(db);
   closeModal('add-material');
   document.getElementById('mat-name').value='';
-  document.getElementById('mat-orderUrl').value='';
   document.getElementById('mat-note').value='';
   renderPage('materials');
 }
@@ -1388,7 +1385,6 @@ function editMaterial(id) {
   document.getElementById('emat-min').value = m.min;
   document.getElementById('emat-price').value = m.price;
   document.getElementById('emat-supplier').value = m.supplier||'';
-  document.getElementById('emat-orderUrl').value = m.orderUrl||'';
   document.getElementById('emat-note').value = m.note||'';
   openModal('edit-material');
 }
@@ -1400,7 +1396,7 @@ function updateMaterial() {
   if(!m) return;
   m.name = v('emat-name'); m.unit = v('emat-unit'); m.qty = n('emat-qty');
   m.min = n('emat-min'); m.price = n('emat-price'); m.supplier = v('emat-supplier');
-  m.orderUrl = v('emat-orderUrl'); m.note = v('emat-note');
+  m.note = v('emat-note');
   saveDB(db);
   closeModal('edit-material');
   renderPage('materials');
@@ -1444,9 +1440,6 @@ function renderMaterials() {
       : m.qty <= m.min ? '<span class="badge badge-warning">Замовити!</span>'
       : '<span class="badge badge-ok">Ок</span>';
     var supplierHtml = m.supplier ? esc(m.supplier) : '—';
-    if(m.orderUrl) {
-      supplierHtml = '<a class="order-link" href="'+esc(m.orderUrl)+'" target="_blank" rel="noopener">'+supplierHtml+' &#x2197;</a>';
-    }
     var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
     return '<tr>'+
       '<td><input type="checkbox" class="mat-cb" value="'+m.id+'" onchange="updateMatSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
