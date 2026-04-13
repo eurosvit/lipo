@@ -900,7 +900,12 @@ a.order-link:hover { text-decoration:underline; }
   <div class="modal">
     <h3>Запустити виробництво</h3>
     <div class="form-row">
-      <div class="form-group"><label>Гра</label><select id="sp-product" onchange="checkCanProduce()"></select></div>
+      <div class="form-group" style="position:relative;">
+        <label>Гра</label>
+        <input id="sp-search" type="text" placeholder="Пошук гри..." autocomplete="off" oninput="filterSpProducts()" onfocus="document.getElementById('sp-dropdown').style.display='block'">
+        <input type="hidden" id="sp-product">
+        <div id="sp-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>
       <div class="form-group"><label>Кількість</label><input id="sp-qty" type="number" value="1" min="1" onchange="checkCanProduce()"></div>
     </div>
     <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
@@ -1754,12 +1759,50 @@ function renderProducts() {
 // ==================== PRODUCTION ====================
 function populateStartProd() {
   var db = getDB();
-  var sp = document.getElementById('sp-product');
-  sp.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p){return '<option value="'+p.id+'">'+(p.sku?p.sku+' — ':'')+esc(p.name)+' (можна: '+calcCanProduce(p,db.materials)+')</option>';}).join('');
+  document.getElementById('sp-search').value = '';
+  document.getElementById('sp-product').value = '';
+  document.getElementById('sp-info').innerHTML = '';
+  filterSpProducts();
   var sw = document.getElementById('sp-worker');
   sw.innerHTML = db.workers.map(function(w){return '<option>'+esc(w)+'</option>';}).join('');
+}
+
+function filterSpProducts() {
+  var db = getDB();
+  var q = (document.getElementById('sp-search').value || '').toLowerCase();
+  var products = db.products.filter(function(p){ return p.active !== false; });
+  if (q) {
+    products = products.filter(function(p){
+      return (p.name||'').toLowerCase().indexOf(q) !== -1 || (p.sku||'').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  var dd = document.getElementById('sp-dropdown');
+  dd.innerHTML = products.map(function(p){
+    var can = calcCanProduce(p, db.materials);
+    var label = (p.sku ? p.sku + ' — ' : '') + esc(p.name);
+    return '<div onclick="selectSpProduct(\''+p.id+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'#fff\'">' +
+      '<span>'+label+'</span><span style="font-size:12px;color:'+(can>0?'var(--success)':'var(--danger)')+';">можна: '+can+'</span></div>';
+  }).join('') || '<div style="padding:12px;color:var(--text-light);font-size:13px;text-align:center;">Нічого не знайдено</div>';
+  dd.style.display = 'block';
+}
+
+function selectSpProduct(id) {
+  var db = getDB();
+  var p = db.products.find(function(x){ return x.id === id; });
+  if (!p) return;
+  document.getElementById('sp-product').value = id;
+  document.getElementById('sp-search').value = (p.sku ? p.sku + ' — ' : '') + p.name;
+  document.getElementById('sp-dropdown').style.display = 'none';
   checkCanProduce();
 }
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('sp-dropdown');
+  if (dd && !e.target.closest('#sp-search') && !e.target.closest('#sp-dropdown')) {
+    dd.style.display = 'none';
+  }
+});
 
 function checkCanProduce() {
   var db = getDB();
