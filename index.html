@@ -340,6 +340,7 @@ a.order-link:hover { text-decoration:underline; }
         📷 Накладна з фото
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadInvoice(this)">
       </label>
+      <button class="btn btn-danger btn-sm" id="undo-invoice-btn" style="display:none;" onclick="undoLastInvoice()">↩ Скасувати накладну</button>
     </div>
   </div>
   <div class="table-wrap" style="margin-top:16px;">
@@ -1348,6 +1349,8 @@ function receiveMaterial() {
 
 function renderMaterials() {
   const db = getDB();
+  var undoBtn = document.getElementById('undo-invoice-btn');
+  if (undoBtn) undoBtn.style.display = (_lastInvoiceUndo && _lastInvoiceUndo.actions.length) ? 'inline-block' : 'none';
   const tb = document.getElementById('materials-table');
   tb.innerHTML = db.materials.map(function(m) {
     var status = m.qty <= 0 ? '<span class="badge badge-danger">Немає!</span>'
@@ -3526,9 +3529,12 @@ function recalcInvItem(i) {
   }
 }
 
+var _lastInvoiceUndo = null;
+
 function applyInvoiceItems() {
   var db = getDB();
   var added = 0, updated = 0, skipped = 0;
+  var undoActions = []; // Track what we did for undo
   _invoiceItems.forEach(function(item, i) {
     var action = document.getElementById('inv-action-'+i).value;
     if (action === 'skip') { skipped++; return; }
@@ -3541,19 +3547,41 @@ function applyInvoiceItems() {
       var matchId = document.getElementById('inv-match-'+i).value;
       var existing = db.materials.find(function(m){ return m.id===matchId; });
       if (existing) {
+        undoActions.push({ type:'updated', id:existing.id, prevQty:existing.qty, prevPrice:existing.price, addedQty:qty });
         existing.qty = (existing.qty||0) + qty;
         if (price > 0) existing.price = price;
         updated++;
       } else { skipped++; }
     } else {
-      db.materials.push({ id: uid(), name: name, unit: unit, qty: qty, min: 0, price: price, supplier: '', note: 'Додано з накладної' });
+      var newId = uid();
+      db.materials.push({ id: newId, name: name, unit: unit, qty: qty, min: 0, price: price, supplier: '', note: 'Додано з накладної' });
+      undoActions.push({ type:'added', id:newId });
       added++;
     }
   });
   saveDB(db);
+  _lastInvoiceUndo = { actions: undoActions, date: new Date().toISOString() };
   closeModal('invoice');
   renderPage('materials');
-  alert('Готово! Додано нових: '+added+', оновлено: '+updated+(skipped>0 ? ', пропущено: '+skipped : ''));
+  alert('Готово! Додано нових: '+added+', оновлено: '+updated+(skipped>0 ? ', пропущено: '+skipped : '')+'\n\nЯкщо помилка — натисніть "Скасувати накладну" на сторінці матеріалів.');
+}
+
+function undoLastInvoice() {
+  if (!_lastInvoiceUndo || !_lastInvoiceUndo.actions.length) { alert('Нема чого скасовувати'); return; }
+  if (!confirm('Скасувати останнє завантаження накладної? Видалить додані матеріали та поверне кількості.')) return;
+  var db = getDB();
+  _lastInvoiceUndo.actions.forEach(function(a) {
+    if (a.type === 'added') {
+      db.materials = db.materials.filter(function(m){ return m.id !== a.id; });
+    } else if (a.type === 'updated') {
+      var m = db.materials.find(function(m){ return m.id === a.id; });
+      if (m) { m.qty = a.prevQty; m.price = a.prevPrice; }
+    }
+  });
+  saveDB(db);
+  _lastInvoiceUndo = null;
+  renderPage('materials');
+  alert('Скасовано! Матеріали повернуто як було.');
 }
 
 function toggleInkSection() {
