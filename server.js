@@ -162,6 +162,16 @@ async function initDB() {
     )
   `);
 
+  // API usage tracking
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT,
+      endpoint TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   // Seed default promo codes
   await pool.query(`
     INSERT INTO promo_codes (code, free_days, max_uses) VALUES ('LISICHKA2FREE', 30, NULL)
@@ -963,6 +973,19 @@ const server = http.createServer(async (req, res) => {
       } else {
         sendWelcomeEmail(name, email.toLowerCase(), TRIAL_DAYS + bonusDays).catch(() => {});
       }
+      // Notify admin about new registration
+      if (RESEND_API_KEY && ADMIN_EMAIL) {
+        sendEmail(ADMIN_EMAIL, '🆕 Новий користувач: ' + name, emailTemplate(`
+          <h2 style="color:#4A148C;margin:0 0 16px;">🆕 Нова реєстрація</h2>
+          <p><strong>Ім'я:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Промокод:</strong> ${promo || '—'}</p>
+          <p><strong>Дата:</strong> ${new Date().toLocaleString('uk-UA')}</p>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;">Відкрити адмін-панель →</a>
+          </div>
+        `)).catch(() => {});
+      }
       sendJSON(res, 200, { ok: true, isNewUser: true });
       return;
     }
@@ -1070,6 +1093,18 @@ const server = http.createServer(async (req, res) => {
         );
         // Send welcome email for new Google users
         sendWelcomeEmail(googleUser.name || '', googleUser.email.toLowerCase(), TRIAL_DAYS).catch(() => {});
+        // Notify admin about new Google registration
+        if (RESEND_API_KEY && ADMIN_EMAIL) {
+          sendEmail(ADMIN_EMAIL, '🆕 Новий користувач (Google): ' + (googleUser.name || ''), emailTemplate(`
+            <h2 style="color:#4A148C;margin:0 0 16px;">🆕 Нова реєстрація (Google)</h2>
+            <p><strong>Ім'я:</strong> ${googleUser.name || '—'}</p>
+            <p><strong>Email:</strong> ${googleUser.email}</p>
+            <p><strong>Дата:</strong> ${new Date().toLocaleString('uk-UA')}</p>
+            <div style="text-align:center;margin:24px 0;">
+              <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;">Відкрити адмін-панель →</a>
+            </div>
+          `)).catch(() => {});
+        }
       }
 
       await createSession(res, userId);
@@ -1127,6 +1162,95 @@ const server = http.createServer(async (req, res) => {
       if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
       const result = await pool.query("SELECT id, email, name, role, trial_ends_at, subscription_ends_at, promo_used, created_at FROM users ORDER BY created_at DESC");
       sendJSON(res, 200, result.rows);
+      return;
+    }
+
+    // ---- ADMIN: Stats ----
+    if (req.method === 'GET' && url === '/api/admin/stats') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const stats = await pool.query(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE trial_ends_at > NOW() OR subscription_ends_at > NOW()) as active,
+          COUNT(*) FILTER (WHERE subscription_ends_at > NOW()) as paid,
+          COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as new_this_week,
+          COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '30 days') as new_this_month
+        FROM users WHERE role != 'admin'
+      `);
+      sendJSON(res, 200, stats.rows[0]);
+      return;
+    }
+
+    // ---- ADMIN: Extend trial ----
+    if (req.method === 'POST' && url === '/api/admin/extend-trial') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { userId, days } = body;
+      if (!userId || !days) { sendJSON(res, 400, { error: 'userId and days required' }); return; }
+      await pool.query("UPDATE users SET trial_ends_at = GREATEST(trial_ends_at, NOW()) + ($1 || ' days')::INTERVAL WHERE id = $2", [days, userId]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- ADMIN: Set subscription ----
+    if (req.method === 'POST' && url === '/api/admin/set-subscription') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { userId, months } = body;
+      if (!userId || !months) { sendJSON(res, 400, { error: 'userId and months required' }); return; }
+      const end = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+      await pool.query("UPDATE users SET subscription_ends_at = $1 WHERE id = $2", [end, userId]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- ADMIN: Delete user ----
+    if (req.method === 'POST' && url === '/api/admin/delete-user') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { userId } = body;
+      if (!userId) { sendJSON(res, 400, { error: 'userId required' }); return; }
+      // Delete all related data
+      await pool.query("DELETE FROM notification_prefs WHERE user_id = $1", [userId]);
+      await pool.query("DELETE FROM email_log WHERE user_id = $1", [userId]);
+      await pool.query("DELETE FROM app_data WHERE id = $1", [userId]);
+      await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+      await pool.query("DELETE FROM worker_links WHERE owner_id = $1 OR worker_id = $1", [userId]);
+      await pool.query("DELETE FROM worker_invites WHERE owner_id = $1", [userId]);
+      await pool.query("DELETE FROM api_usage WHERE user_id = $1", [userId]);
+      await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- ADMIN: API usage stats ----
+    if (req.method === 'GET' && url === '/api/admin/api-usage') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const result = await pool.query(`
+        SELECT endpoint,
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE created_at > date_trunc('month', NOW())) as this_month,
+          COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as this_week
+        FROM api_usage GROUP BY endpoint ORDER BY total DESC
+      `);
+      sendJSON(res, 200, result.rows);
+      return;
+    }
+
+    // ---- ADMIN: Toggle promo code active/inactive ----
+    if (req.method === 'POST' && url === '/api/admin/promo-toggle') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { code } = body;
+      if (!code) { sendJSON(res, 400, { error: 'code required' }); return; }
+      await pool.query("UPDATE promo_codes SET active = NOT active WHERE code = $1", [code]);
+      sendJSON(res, 200, { ok: true });
       return;
     }
 
@@ -1459,12 +1583,14 @@ const server = http.createServer(async (req, res) => {
             const objMatch = text.match(/\{[\s\S]*"items"[\s\S]*\}/);
             if (objMatch) {
               const parsed = JSON.parse(objMatch[0]);
+              if (pool) pool.query("INSERT INTO api_usage (user_id, endpoint) VALUES ($1, $2)", [user.id, 'parse-invoice']).catch(()=>{});
               sendJSON(res, 200, { items: parsed.items || [], invoiceNumber: parsed.invoiceNumber || null });
             } else {
               // Fallback: plain array format
               const jsonMatch = text.match(/\[[\s\S]*\]/);
               if (jsonMatch) {
                 const items = JSON.parse(jsonMatch[0]);
+                if (pool) pool.query("INSERT INTO api_usage (user_id, endpoint) VALUES ($1, $2)", [user.id, 'parse-invoice']).catch(()=>{});
                 sendJSON(res, 200, { items });
               } else {
                 sendJSON(res, 200, { items: [], error: 'Не вдалось розпізнати товари' });
