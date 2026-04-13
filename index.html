@@ -43,7 +43,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 .mobile-menu-panel .menu-footer a { color:rgba(255,255,255,0.7); font-size:13px; text-decoration:none; display:flex; align-items:center; gap:6px; }
 .nav-brand { color:#fff; font-weight:700; font-size:15px; padding:8px 10px 8px 0; white-space:nowrap; margin-right:4px; display:flex; align-items:center; gap:6px; }
 .nav-brand img { height:30px; width:30px; border-radius:50%; }
-.nav button { background:none; border:none; color:rgba(255,255,255,0.7); padding:10px 10px; cursor:pointer; font-size:13px; white-space:nowrap; border-bottom:2px solid transparent; transition:all .2s; }
+.nav button { background:none; border:none; color:rgba(255,255,255,0.7); padding:10px 7px; cursor:pointer; font-size:12.5px; white-space:nowrap; border-bottom:2px solid transparent; transition:all .2s; }
 .nav button:hover { color:#fff; background:rgba(255,255,255,0.1); }
 .nav button.active { color:#fff; border-bottom-color:#fff; font-weight:600; }
 
@@ -174,7 +174,7 @@ a.order-link:hover { text-decoration:underline; }
 .account-actions button:hover { background:rgba(0,0,0,0.04); }
 .account-actions .logout { color:var(--danger); }
 
-@media(max-width:1500px) {
+@media(max-width:1100px) {
   .nav-links { display:none; }
   .burger-btn { display:block; }
 }
@@ -1000,6 +1000,17 @@ a.order-link:hover { text-decoration:underline; }
         <div class="form-group"><label>Інтервал обслуговування (днів)</label><input id="eq-service-interval" type="number" value="180" min="0"></div>
         <div class="form-group"><label>Дата останнього обслуговування</label><input id="eq-last-service" type="date"></div>
       </div>
+      <div style="margin-top:8px;padding:12px;background:#F3E5F5;border-radius:8px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Витратні матеріали (опційно)</div>
+        <div class="form-row">
+          <div class="form-group"><label>Інтервал заміни ножа (днів)</label><input id="eq-knife-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
+          <div class="form-group"><label>Останній раз ніж</label><input id="eq-knife-last" type="date"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Інтервал заміни килимка (днів)</label><input id="eq-mat-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
+          <div class="form-group"><label>Останній раз килимок</label><input id="eq-mat-last" type="date"></div>
+        </div>
+      </div>
     </div>
     <div class="form-group mb-16"><label>Нотатки</label><textarea id="eq-note" placeholder="Серійний номер, гарантія, деталі..."></textarea></div>
     <div class="modal-actions">
@@ -1022,6 +1033,8 @@ a.order-link:hover { text-decoration:underline; }
           <option value="Планове обслуговування">Планове обслуговування</option>
           <option value="Ремонт">Ремонт</option>
           <option value="Заміна деталей">Заміна деталей</option>
+          <option value="Заміна ножа">Заміна ножа</option>
+          <option value="Заміна килимка">Заміна килимка</option>
           <option value="Чистка">Чистка</option>
           <option value="Інше">Інше</option>
         </select>
@@ -3276,6 +3289,7 @@ function renderEquipment() {
     var stats = eqServiceStats(eq.id, logs);
     var nextService = '';
     var statusBadge = eq.noService ? '<span class="text-muted">—</span>' : '<span class="badge badge-ok">OK</span>';
+    var consumableInfo = [];
     if (!eq.noService && eq.serviceInterval && eq.serviceInterval > 0) {
       var lastDate = eq.lastService ? new Date(eq.lastService) : (eq.purchaseDate ? new Date(eq.purchaseDate) : null);
       if (lastDate) {
@@ -3294,6 +3308,28 @@ function renderEquipment() {
         }
       }
     }
+    // Consumables: knife
+    if (!eq.noService && eq.knifeInterval && eq.knifeInterval > 0) {
+      var kLast = eq.knifeLast ? new Date(eq.knifeLast) : (eq.purchaseDate ? new Date(eq.purchaseDate) : null);
+      if (kLast) {
+        var kNext = new Date(kLast); kNext.setDate(kNext.getDate() + eq.knifeInterval);
+        var kDays = Math.ceil((kNext - today) / (1000*60*60*24));
+        if (kDays < 0) { consumableInfo.push('<span class="badge badge-danger">Ніж: прострочено '+Math.abs(kDays)+' дн.</span>'); alerts.push('🔪 <b>'+esc(eq.name)+'</b> — заміна ножа прострочена на '+Math.abs(kDays)+' дн.'); needService++; }
+        else if (kDays <= 14) { consumableInfo.push('<span class="badge badge-warning">Ніж: через '+kDays+' дн.</span>'); alerts.push('🔪 <b>'+esc(eq.name)+'</b> — заміна ножа через '+kDays+' дн.'); }
+        else { consumableInfo.push('<span style="font-size:11px;color:var(--text-light);">Ніж: '+kNext.toISOString().slice(0,10)+'</span>'); }
+      }
+    }
+    // Consumables: mat
+    if (!eq.noService && eq.matInterval && eq.matInterval > 0) {
+      var mLast = eq.matLast ? new Date(eq.matLast) : (eq.purchaseDate ? new Date(eq.purchaseDate) : null);
+      if (mLast) {
+        var mNext = new Date(mLast); mNext.setDate(mNext.getDate() + eq.matInterval);
+        var mDays = Math.ceil((mNext - today) / (1000*60*60*24));
+        if (mDays < 0) { consumableInfo.push('<span class="badge badge-danger">Килимок: прострочено '+Math.abs(mDays)+' дн.</span>'); alerts.push('🟫 <b>'+esc(eq.name)+'</b> — заміна килимка прострочена на '+Math.abs(mDays)+' дн.'); needService++; }
+        else if (mDays <= 14) { consumableInfo.push('<span class="badge badge-warning">Килимок: через '+mDays+' дн.</span>'); alerts.push('🟫 <b>'+esc(eq.name)+'</b> — заміна килимка через '+mDays+' дн.'); }
+        else { consumableInfo.push('<span style="font-size:11px;color:var(--text-light);">Килимок: '+mNext.toISOString().slice(0,10)+'</span>'); }
+      }
+    }
     var serviceBtn = eq.noService ? '' : '<button class="btn btn-success btn-sm" onclick="openServiceLog(\''+eq.id+'\')" title="Записати обслуговування">🔧</button> ';
     return '<tr>'+
       '<td data-label="Назва"><b>'+esc(eq.name)+'</b></td>'+
@@ -3303,7 +3339,7 @@ function renderEquipment() {
       '<td data-label="Обслуговувань">'+(eq.noService ? '—' : stats.count)+'</td>'+
       '<td data-label="Витрати">'+(eq.noService ? '—' : (stats.totalCost ? fmt(stats.totalCost)+' грн' : '—'))+'</td>'+
       '<td data-label="Наступне ТО">'+(eq.noService ? '—' : (nextService||'—'))+'</td>'+
-      '<td data-label="Статус">'+statusBadge+'</td>'+
+      '<td data-label="Статус">'+statusBadge+(consumableInfo.length ? '<div style="margin-top:4px;">'+consumableInfo.join(' ')+'</div>' : '')+'</td>'+
       '<td data-label="Нотатки" style="max-width:200px;font-size:12px;color:var(--text-light);">'+esc(eq.note||'')+'</td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         serviceBtn+
@@ -3365,9 +3401,13 @@ function saveServiceLog() {
   };
   if (!entry.date) return alert('Вкажіть дату');
   db.serviceLog.push(entry);
-  // Also update lastService on the equipment
+  // Update lastService / consumable dates on the equipment
   var eq = (db.equipment||[]).find(function(x){ return x.id===eqId; });
-  if (eq) eq.lastService = entry.date;
+  if (eq) {
+    if (entry.type === 'Заміна ножа') { eq.knifeLast = entry.date; }
+    else if (entry.type === 'Заміна килимка') { eq.matLast = entry.date; }
+    else { eq.lastService = entry.date; }
+  }
   saveDB(db);
   closeModal('log-service');
   renderPage('equipment');
@@ -3400,6 +3440,10 @@ function saveEquipment() {
     noService: noService,
     serviceInterval: noService ? 0 : (parseInt(document.getElementById('eq-service-interval').value)||0),
     lastService: noService ? '' : v('eq-last-service'),
+    knifeInterval: noService ? 0 : (parseInt(document.getElementById('eq-knife-interval').value)||0),
+    knifeLast: noService ? '' : v('eq-knife-last'),
+    matInterval: noService ? 0 : (parseInt(document.getElementById('eq-mat-interval').value)||0),
+    matLast: noService ? '' : v('eq-mat-last'),
     note: v('eq-note')
   };
   if (!eq.name) return alert('Введіть назву обладнання');
@@ -3431,6 +3475,10 @@ function editEquipment(id) {
   document.getElementById('eq-service-fields').style.display = eq.noService ? 'none' : 'block';
   document.getElementById('eq-service-interval').value = eq.serviceInterval||180;
   document.getElementById('eq-last-service').value = eq.lastService||'';
+  document.getElementById('eq-knife-interval').value = eq.knifeInterval||0;
+  document.getElementById('eq-knife-last').value = eq.knifeLast||'';
+  document.getElementById('eq-mat-interval').value = eq.matInterval||0;
+  document.getElementById('eq-mat-last').value = eq.matLast||'';
   document.getElementById('eq-note').value = eq.note||'';
   openModal('add-equipment');
 }
@@ -3454,6 +3502,10 @@ function clearEquipmentForm() {
   document.getElementById('eq-service-fields').style.display = 'block';
   document.getElementById('eq-service-interval').value = '180';
   document.getElementById('eq-last-service').value = '';
+  document.getElementById('eq-knife-interval').value = '0';
+  document.getElementById('eq-knife-last').value = '';
+  document.getElementById('eq-mat-interval').value = '0';
+  document.getElementById('eq-mat-last').value = '';
   document.getElementById('eq-note').value = '';
 }
 
