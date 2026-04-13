@@ -3341,7 +3341,7 @@ function renderEquipment() {
       '<td data-label="Наступне ТО">'+(eq.noService ? '—' : (nextService||'—'))+'</td>'+
       '<td data-label="Статус">'+statusBadge+(consumableInfo.length ? '<div style="margin-top:4px;">'+consumableInfo.join(' ')+'</div>' : '')+'</td>'+
       '<td data-label="Нотатки" style="max-width:200px;font-size:12px;color:var(--text-light);">'+esc(eq.note||'')+'</td>'+
-      '<td data-label="Дії" style="white-space:nowrap;">'+
+      '<td data-label="Дії" style="white-space:nowrap;text-align:right;">'+
         serviceBtn+
         '<button class="btn btn-outline btn-sm" onclick="editEquipment(\''+eq.id+'\')" title="Редагувати">✏️</button> '+
         '<button class="btn btn-danger btn-sm" onclick="deleteEquipment(\''+eq.id+'\')" title="Видалити">✕</button>'+
