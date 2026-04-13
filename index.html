@@ -343,8 +343,13 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-danger btn-sm" id="undo-invoice-btn" style="display:none;" onclick="undoLastInvoice()">↩ Скасувати накладну</button>
     </div>
   </div>
+  <div id="mat-bulk-bar" style="display:none;padding:10px 16px;background:#FFCDD2;border-radius:8px;margin-top:12px;display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span id="mat-selected-count" style="font-weight:600;font-size:13px;"></span>
+    <button class="btn btn-danger btn-sm" onclick="bulkDeleteMaterials()">🗑 Видалити обрані</button>
+    <button class="btn btn-outline btn-sm" onclick="clearMatSelection()">Скасувати</button>
+  </div>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th>Назва</th><th>Од.</th><th>Залишок</th><th>Мінімум</th><th>Ціна/од.</th><th>Постачальник</th><th>Коментар</th><th>Статус</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th>Од.</th><th>Залишок</th><th>Мінімум</th><th>Ціна/од.</th><th>Постачальник</th><th>Коментар</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="materials-table"></tbody></table>
   </div>
 </div>
@@ -1362,6 +1367,7 @@ function renderMaterials() {
     }
     var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
     return '<tr>'+
+      '<td><input type="checkbox" class="mat-cb" value="'+m.id+'" onchange="updateMatSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
       '<td data-label="Назва"><strong>'+esc(m.name)+'</strong></td>'+
       '<td data-label="Од.">'+esc(m.unit)+'</td>'+
       '<td data-label="Залишок">'+fmt(m.qty)+'</td>'+
@@ -1372,7 +1378,42 @@ function renderMaterials() {
       '<td data-label="Статус">'+status+'</td>'+
       '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+}
+
+function toggleAllMaterials(checked) {
+  document.querySelectorAll('.mat-cb').forEach(function(cb){ cb.checked = checked; });
+  updateMatSelection();
+}
+
+function updateMatSelection() {
+  var checked = document.querySelectorAll('.mat-cb:checked');
+  var bar = document.getElementById('mat-bulk-bar');
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    document.getElementById('mat-selected-count').textContent = 'Обрано: ' + checked.length;
+  } else {
+    bar.style.display = 'none';
+  }
+  var all = document.querySelectorAll('.mat-cb');
+  document.getElementById('mat-select-all').checked = all.length > 0 && checked.length === all.length;
+}
+
+function clearMatSelection() {
+  document.querySelectorAll('.mat-cb').forEach(function(cb){ cb.checked = false; });
+  document.getElementById('mat-select-all').checked = false;
+  document.getElementById('mat-bulk-bar').style.display = 'none';
+}
+
+function bulkDeleteMaterials() {
+  var ids = [];
+  document.querySelectorAll('.mat-cb:checked').forEach(function(cb){ ids.push(cb.value); });
+  if (!ids.length) return;
+  if (!confirm('Видалити ' + ids.length + ' матеріалів? Це незворотна дія.')) return;
+  var db = getDB();
+  db.materials = db.materials.filter(function(m){ return ids.indexOf(m.id) === -1; });
+  saveDB(db);
+  renderMaterials();
 }
 
 // ==================== PRODUCTS ====================
