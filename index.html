@@ -600,6 +600,10 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="form-group"><label>Вартість друку 1 стор. А4, грн</label><input id="printer-cost-per-page" type="number" step="0.01" value="0" placeholder="Наприклад: 3.00"></div>
     </div>
+    <div class="form-row">
+      <div class="form-group"><label>Вартість чорнил за 1 мл, грн</label><input id="printer-ink-cost-ml" type="number" step="0.01" value="0" placeholder="Наприклад: 5.00"></div>
+    </div>
+    <p class="text-muted" style="font-size:12px;margin-bottom:8px;">💡 Приклад: пляшка 70 мл за 350 грн → 350 ÷ 70 = 5 грн/мл. Використовується для автопідрахунку вартості заправки.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button class="btn btn-primary" onclick="savePrinterSettings()">Зберегти</button>
       <button class="btn btn-outline" onclick="calcPrintCostHelper()">🧮 Допомога з розрахунком</button>
@@ -1046,13 +1050,14 @@ a.order-link:hover { text-decoration:underline; }
     <div id="svc-ink-section" style="display:none;margin-bottom:12px;padding:12px;background:#F3E5F5;border-radius:8px;">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Кольори (вкажіть скільки мл долили)</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔵 C (Cyan)</label><input id="svc-ink-c" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔴 M (Magenta)</label><input id="svc-ink-m" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🟡 Y (Yellow)</label><input id="svc-ink-y" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">⚫ BK (Black)</label><input id="svc-ink-bk" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">💧 LC (Light Cyan)</label><input id="svc-ink-lc" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🩷 LM (Light Magenta)</label><input id="svc-ink-lm" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔵 C (Cyan)</label><input id="svc-ink-c" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔴 M (Magenta)</label><input id="svc-ink-m" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🟡 Y (Yellow)</label><input id="svc-ink-y" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">⚫ BK (Black)</label><input id="svc-ink-bk" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">💧 LC (Light Cyan)</label><input id="svc-ink-lc" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🩷 LM (Light Magenta)</label><input id="svc-ink-lm" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
       </div>
+      <div id="svc-ink-total" style="margin-top:8px;font-size:13px;font-weight:600;color:var(--primary-dark);"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
@@ -2406,6 +2411,7 @@ function renderSettings() {
   var ps = db.printerSettings || {};
   document.getElementById('printer-colors').value = ps.colors || 6;
   document.getElementById('printer-cost-per-page').value = ps.costPerPageA4 || 0;
+  document.getElementById('printer-ink-cost-ml').value = ps.inkCostPerMl || 0;
   // Load default worker rate
   var dr = db.workerRateDefault || { type:'percent', value:25 };
   document.getElementById('default-rate-type').value = dr.type || 'percent';
@@ -2444,7 +2450,8 @@ function savePrinterSettings() {
   var db = getDB();
   db.printerSettings = {
     colors: parseInt(v('printer-colors'))||6,
-    costPerPageA4: parseFloat(v('printer-cost-per-page'))||0
+    costPerPageA4: parseFloat(v('printer-cost-per-page'))||0,
+    inkCostPerMl: parseFloat(v('printer-ink-cost-ml'))||0
   };
   saveDB(db);
   alert('Налаштування принтера збережено!');
@@ -3408,6 +3415,26 @@ function toggleInkSection() {
 
 function clearInkFields() {
   ['svc-ink-c','svc-ink-m','svc-ink-y','svc-ink-bk','svc-ink-lc','svc-ink-lm'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('svc-ink-total').textContent = '';
+}
+
+function calcInkCost() {
+  var db = getDB();
+  var costPerMl = (db.printerSettings||{}).inkCostPerMl || 0;
+  var totalMl = 0;
+  ['svc-ink-c','svc-ink-m','svc-ink-y','svc-ink-bk','svc-ink-lc','svc-ink-lm'].forEach(function(id){
+    totalMl += parseInt(document.getElementById(id).value) || 0;
+  });
+  var el = document.getElementById('svc-ink-total');
+  if (totalMl > 0 && costPerMl > 0) {
+    var total = totalMl * costPerMl;
+    el.innerHTML = 'Всього: ' + totalMl + ' мл × ' + fmt(costPerMl) + ' грн = <b>' + fmt(total) + ' грн</b>';
+    document.getElementById('svc-cost').value = Math.round(total * 100) / 100;
+  } else if (totalMl > 0) {
+    el.innerHTML = 'Всього: ' + totalMl + ' мл <span style="color:var(--text-light);">(вкажіть ціну за мл в Налаштуваннях → Принтер)</span>';
+  } else {
+    el.textContent = '';
+  }
 }
 
 function populateSvcEquipmentSelect(selectedId) {
