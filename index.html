@@ -3534,7 +3534,7 @@ function renderInvoiceItems() {
         '<label style="display:flex;flex-direction:column;gap:2px;">Назва<input id="inv-name-'+i+'" value="'+esc(item.name)+'" style="padding:4px 6px;width:180px;font-size:12px;"></label>' +
         '<label style="display:flex;flex-direction:column;gap:2px;">К-сть<input id="inv-qty-'+i+'" type="number" value="'+(item.qty||1)+'" style="padding:4px 6px;width:55px;font-size:12px;" readonly></label>' +
         '<label style="display:flex;flex-direction:column;gap:2px;" title="Скільки одиниць в 1 упаковці (напр. 300 листів). Залиште 0 якщо не потрібно розпаковувати.">В упак.<input id="inv-pack-'+i+'" type="number" value="0" min="0" placeholder="0" style="padding:4px 6px;width:55px;font-size:12px;" oninput="recalcInvItem('+i+')"></label>' +
-        '<label style="display:flex;flex-direction:column;gap:2px;">Од.<input id="inv-unit-'+i+'" value="'+(item.unit||'шт')+'" style="padding:4px 6px;width:45px;font-size:12px;"></label>' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">Од.<input id="inv-unit-'+i+'" value="'+(item.unit||'шт')+'" style="padding:4px 6px;width:45px;font-size:12px;" oninput="recalcInvItem('+i+')"></label>' +
         '<label style="display:flex;flex-direction:column;gap:2px;">Ціна/од.<input id="inv-price-'+i+'" type="number" step="0.01" value="'+(item.price||0)+'" style="padding:4px 6px;width:75px;font-size:12px;" readonly></label>' +
         '<label style="display:flex;flex-direction:column;gap:2px;">Сума<span style="padding:4px;font-weight:600;color:var(--primary);">'+(item.total||0)+' грн</span></label>' +
       '</div>' +
@@ -3556,13 +3556,15 @@ function recalcInvItem(i) {
   var item = _invoiceItems[i];
   if (!item) return;
   var pack = parseInt(document.getElementById('inv-pack-'+i).value) || 0;
+  var unit = document.getElementById('inv-unit-'+i).value || 'шт';
   var el = document.getElementById('inv-calc-'+i);
   if (pack > 0) {
-    var totalQty = (item.qty || 1) * pack;
+    var origQty = item.qty || 1;
+    var totalQty = origQty * pack;
     var pricePerUnit = Math.round((item.total || 0) / totalQty * 100) / 100;
     document.getElementById('inv-qty-'+i).value = totalQty;
     document.getElementById('inv-price-'+i).value = pricePerUnit;
-    el.innerHTML = '→ ' + (item.qty||1) + ' уп. × ' + pack + ' = <b>' + totalQty + '</b> шт, ціна: <b>' + fmt(pricePerUnit) + ' грн/шт</b>';
+    el.innerHTML = '→ ' + origQty + ' уп. × ' + pack + ' = <b>' + totalQty + '</b> ' + esc(unit) + ', ціна: <b>' + fmt(pricePerUnit) + ' грн/' + esc(unit) + '</b>';
   } else {
     document.getElementById('inv-qty-'+i).value = item.qty || 1;
     document.getElementById('inv-price-'+i).value = item.price || 0;
