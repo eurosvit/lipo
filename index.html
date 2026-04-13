@@ -487,11 +487,14 @@ a.order-link:hover { text-decoration:underline; }
     <tbody id="equipment-table"></tbody></table>
   </div>
   <div style="margin-top:24px;">
-    <div class="flex-between">
+    <div class="flex-between" style="flex-wrap:wrap;gap:8px;">
       <h3>Історія обслуговування</h3>
-      <select id="eq-history-filter" onchange="renderEquipment()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
-        <option value="">Все обладнання</option>
-      </select>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="eq-history-filter" onchange="renderEquipment()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+          <option value="">Все обладнання</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openServiceLogFromHistory()">+ Записати</button>
+      </div>
     </div>
     <div class="table-wrap" style="margin-top:8px;">
       <table><thead><tr><th>Дата</th><th>Обладнання</th><th>Тип</th><th>Вартість, грн</th><th>Коментар</th><th>Дії</th></tr></thead>
@@ -1024,8 +1027,7 @@ a.order-link:hover { text-decoration:underline; }
 <div class="modal-overlay" id="modal-log-service">
   <div class="modal">
     <h3>Записати обслуговування</h3>
-    <input type="hidden" id="svc-eq-id" value="">
-    <div class="form-group mb-16"><label>Обладнання</label><input id="svc-eq-name" readonly style="background:#f5f5f5;"></div>
+    <div class="form-group mb-16"><label>Обладнання</label><select id="svc-eq-id" style="width:100%;"></select></div>
     <div class="form-row">
       <div class="form-group"><label>Дата</label><input id="svc-date" type="date"></div>
       <div class="form-group"><label>Тип</label>
@@ -1043,6 +1045,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div class="form-row">
       <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
+      <div class="form-group"><label>Кількість, мл (опційно)</label><input id="svc-qty" type="number" step="1" value="" placeholder="напр. 70"></div>
     </div>
     <div class="form-group mb-16"><label>Коментар</label><input id="svc-comment" placeholder="Що було зроблено..."></div>
     <div class="modal-actions">
@@ -3388,14 +3391,29 @@ function renderEquipment() {
   document.getElementById('service-history-table').innerHTML = historyRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light);">Поки немає записів</td></tr>';
 }
 
-function openServiceLog(eqId) {
+function populateSvcEquipmentSelect(selectedId) {
   var db = getDB();
-  var eq = (db.equipment||[]).find(function(x){ return x.id===eqId; });
-  if (!eq) return;
-  document.getElementById('svc-eq-id').value = eqId;
-  document.getElementById('svc-eq-name').value = eq.name;
+  var items = (db.equipment||[]).filter(function(eq){ return !eq.noService; });
+  var sel = document.getElementById('svc-eq-id');
+  sel.innerHTML = items.map(function(eq){ return '<option value="'+eq.id+'"'+(eq.id===selectedId?' selected':'')+'>'+esc(eq.name)+'</option>'; }).join('');
+}
+
+function openServiceLog(eqId) {
+  populateSvcEquipmentSelect(eqId);
   document.getElementById('svc-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('svc-cost').value = '0';
+  document.getElementById('svc-qty').value = '';
+  document.getElementById('svc-comment').value = '';
+  document.getElementById('svc-type').value = 'Планове обслуговування';
+  openModal('log-service');
+}
+
+function openServiceLogFromHistory() {
+  var filter = document.getElementById('eq-history-filter').value;
+  populateSvcEquipmentSelect(filter);
+  document.getElementById('svc-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('svc-cost').value = '0';
+  document.getElementById('svc-qty').value = '';
   document.getElementById('svc-comment').value = '';
   document.getElementById('svc-type').value = 'Планове обслуговування';
   openModal('log-service');
@@ -3405,13 +3423,17 @@ function saveServiceLog() {
   var db = getDB();
   if (!db.serviceLog) db.serviceLog = [];
   var eqId = document.getElementById('svc-eq-id').value;
+  if (!eqId) return alert('Оберіть обладнання');
+  var qty = parseInt(document.getElementById('svc-qty').value) || 0;
+  var comment = v('svc-comment');
+  if (qty > 0) comment = (comment ? comment + ' ' : '') + '(' + qty + ' мл)';
   var entry = {
     id: uid(),
     equipmentId: eqId,
     date: v('svc-date'),
     type: v('svc-type'),
     cost: n('svc-cost'),
-    comment: v('svc-comment')
+    comment: comment
   };
   if (!entry.date) return alert('Вкажіть дату');
   db.serviceLog.push(entry);
