@@ -19,6 +19,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'LipoLand <hello@lipoland.top>';
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 // Subscription plans
 const PLANS = {
@@ -1264,6 +1265,109 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 504, { error: 'Таймаут з\'єднання з CRM' });
       });
       proxyReq.end();
+      return;
+    }
+
+    // ---- INVOICE OCR (Claude Vision) ----
+    if (req.method === 'POST' && url === '/api/parse-invoice') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!ANTHROPIC_API_KEY) { sendJSON(res, 400, { error: 'AI не налаштовано. Додайте ANTHROPIC_API_KEY.' }); return; }
+
+      // Parse multipart form data to get image
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = Buffer.concat(chunks);
+      const contentType = req.headers['content-type'] || '';
+      const boundaryMatch = contentType.match(/boundary=([^\s;]+)/);
+      if (!boundaryMatch) { sendJSON(res, 400, { error: 'Invalid request' }); return; }
+      const boundary = Buffer.from('--' + boundaryMatch[1]);
+
+      // Find image part in multipart body
+      let imageData = null;
+      let imageMime = 'image/jpeg';
+      let searchFrom = 0;
+      while (true) {
+        const bStart = body.indexOf(boundary, searchFrom);
+        if (bStart === -1) break;
+        const headerStart = bStart + boundary.length + 2; // skip \r\n
+        const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart);
+        if (headerEnd === -1) break;
+        const headers = body.slice(headerStart, headerEnd).toString('utf8');
+        if (headers.includes('name="image"')) {
+          const mimeMatch = headers.match(/Content-Type:\s*(\S+)/i);
+          if (mimeMatch) imageMime = mimeMatch[1].trim();
+          const dataStart = headerEnd + 4;
+          const nextBoundary = body.indexOf(boundary, dataStart);
+          const dataEnd = nextBoundary > 0 ? nextBoundary - 2 : body.length; // -2 for \r\n before boundary
+          imageData = body.slice(dataStart, dataEnd).toString('base64');
+          break;
+        }
+        searchFrom = headerEnd + 4;
+      }
+
+      if (!imageData) { sendJSON(res, 400, { error: 'Не вдалось прочитати зображення' }); return; }
+
+      // Call Claude Vision API
+      const apiBody = JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: imageMime, data: imageData } },
+            { type: 'text', text: `Розпізнай цю накладну/чек. Поверни JSON масив товарів у форматі:
+[{"name": "Назва товару (коротко)", "qty": кількість_число, "unit": "шт/л/м/кг/пач/рул", "price": ціна_за_одиницю_число, "total": загальна_сума_число}]
+
+Правила:
+- name: коротка зрозуміла назва матеріалу (без артикулів та зайвих деталей)
+- qty: кількість як число
+- unit: одиниця виміру (шт, пач, л, м, кг, рул)
+- price: ціна за одиницю
+- total: загальна сума позиції
+- Поверни ТІЛЬКИ JSON масив, без тексту навколо` }
+          ]
+        }]
+      });
+
+      const apiReq = https.request({
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }, (apiRes) => {
+        let apiBody = '';
+        apiRes.on('data', d => apiBody += d);
+        apiRes.on('end', () => {
+          try {
+            const result = JSON.parse(apiBody);
+            if (result.error) {
+              sendJSON(res, 500, { error: 'AI помилка: ' + (result.error.message || JSON.stringify(result.error)) });
+              return;
+            }
+            const text = result.content && result.content[0] && result.content[0].text || '';
+            // Extract JSON from response
+            const jsonMatch = text.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const items = JSON.parse(jsonMatch[0]);
+              sendJSON(res, 200, { items });
+            } else {
+              sendJSON(res, 200, { items: [], error: 'Не вдалось розпізнати товари' });
+            }
+          } catch (e) {
+            sendJSON(res, 500, { error: 'Помилка обробки відповіді AI' });
+          }
+        });
+      });
+      apiReq.on('error', (err) => {
+        sendJSON(res, 500, { error: 'Помилка з\'єднання з AI: ' + err.message });
+      });
+      apiReq.write(apiBody);
+      apiReq.end();
       return;
     }
 

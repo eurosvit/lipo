@@ -333,9 +333,13 @@ a.order-link:hover { text-decoration:underline; }
 <div id="materials" class="page">
   <div class="flex-between">
     <h2>Склад матеріалів</h2>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="openModal('add-material')">+ Додати матеріал</button>
       <button class="btn btn-success" onclick="openModal('receive-material')">Прихід</button>
+      <label class="btn btn-outline" style="cursor:pointer;display:flex;align-items:center;gap:4px;">
+        📷 Накладна з фото
+        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadInvoice(this)">
+      </label>
     </div>
   </div>
   <div class="table-wrap" style="margin-top:16px;">
@@ -1066,6 +1070,20 @@ a.order-link:hover { text-decoration:underline; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('log-service')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveServiceLog()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Parse Modal -->
+<div class="modal-overlay" id="modal-invoice">
+  <div class="modal" style="max-width:700px;">
+    <h3>📷 Розпізнавання накладної</h3>
+    <div id="invoice-status" style="margin-bottom:12px;"></div>
+    <div id="invoice-preview" style="max-height:200px;overflow:auto;margin-bottom:12px;text-align:center;"></div>
+    <div id="invoice-items" style="margin-bottom:12px;"></div>
+    <div class="modal-actions" id="invoice-actions" style="display:none;">
+      <button class="btn btn-outline" onclick="closeModal('invoice')">Скасувати</button>
+      <button class="btn btn-primary" onclick="applyInvoiceItems()">✅ Додати все</button>
     </div>
   </div>
 </div>
@@ -3406,6 +3424,116 @@ function renderEquipment() {
     '</tr>';
   }).join('');
   document.getElementById('service-history-table').innerHTML = historyRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light);">Поки немає записів</td></tr>';
+}
+
+// ==================== INVOICE OCR ====================
+var _invoiceItems = [];
+
+function uploadInvoice(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) { alert('Файл завеликий (макс 10 МБ)'); input.value=''; return; }
+  openModal('invoice');
+  document.getElementById('invoice-status').innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:24px;margin-bottom:8px;">🔍</div><span class="text-muted">Розпізнаю накладну...</span></div>';
+  document.getElementById('invoice-items').innerHTML = '';
+  document.getElementById('invoice-actions').style.display = 'none';
+  // Show preview
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('invoice-preview').innerHTML = '<img src="'+e.target.result+'" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--border);">';
+    // Send to server
+    var formData = new FormData();
+    formData.append('image', file);
+    fetch('/api/parse-invoice', { method:'POST', body: formData })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.error) {
+          document.getElementById('invoice-status').innerHTML = '<div class="alert alert-warning">❌ '+esc(data.error)+'</div>';
+          return;
+        }
+        _invoiceItems = data.items || [];
+        renderInvoiceItems();
+      })
+      .catch(function(err){
+        document.getElementById('invoice-status').innerHTML = '<div class="alert alert-warning">❌ Помилка: '+esc(err.message)+'</div>';
+      });
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function renderInvoiceItems() {
+  if (!_invoiceItems.length) {
+    document.getElementById('invoice-status').innerHTML = '<div class="alert alert-warning">Не вдалось знайти товари на фото. Спробуйте інше фото.</div>';
+    return;
+  }
+  var db = getDB();
+  document.getElementById('invoice-status').innerHTML = '<div style="color:var(--success);font-weight:600;margin-bottom:8px;">✅ Знайдено '+_invoiceItems.length+' позицій. Перевірте та відредагуйте:</div>';
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  _invoiceItems.forEach(function(item, i) {
+    // Try to match to existing material
+    var matchId = '';
+    var matchLabel = '';
+    db.materials.forEach(function(m) {
+      if (m.name && item.name && m.name.toLowerCase().indexOf(item.name.toLowerCase().slice(0,10)) !== -1) { matchId = m.id; matchLabel = m.name; }
+    });
+    var actionOptions = '<option value="new"'+(matchId?'':' selected')+'>➕ Новий матеріал</option>' +
+      '<option value="add"'+(matchId?' selected':'')+'>📦 Додати до існуючого</option>' +
+      '<option value="skip">⏭ Пропустити</option>';
+    var existingOpts = db.materials.map(function(m){ return '<option value="'+m.id+'"'+(m.id===matchId?' selected':'')+'>'+esc(m.name)+'</option>'; }).join('');
+    html += '<div style="padding:10px;background:#fafafa;border:1px solid var(--border);border-radius:8px;" id="inv-item-'+i+'">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">' +
+        '<select onchange="toggleInvAction('+i+')" id="inv-action-'+i+'" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;">'+actionOptions+'</select>' +
+        '<span style="font-weight:600;font-size:13px;">'+esc(item.name)+'</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;">' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">Назва<input id="inv-name-'+i+'" value="'+esc(item.name)+'" style="padding:4px 6px;width:200px;font-size:12px;"></label>' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">К-сть<input id="inv-qty-'+i+'" type="number" value="'+(item.qty||1)+'" style="padding:4px 6px;width:60px;font-size:12px;"></label>' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">Од.<input id="inv-unit-'+i+'" value="'+(item.unit||'шт')+'" style="padding:4px 6px;width:50px;font-size:12px;"></label>' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">Ціна/од.<input id="inv-price-'+i+'" type="number" step="0.01" value="'+(item.price||0)+'" style="padding:4px 6px;width:80px;font-size:12px;"></label>' +
+        '<label style="display:flex;flex-direction:column;gap:2px;">Сума<span style="padding:4px;font-weight:600;color:var(--primary);">'+(item.total||0)+' грн</span></label>' +
+      '</div>' +
+      '<div id="inv-existing-'+i+'" style="margin-top:6px;'+(matchId?'':'display:none;')+'"><label style="font-size:12px;">Додати до: <select id="inv-match-'+i+'" style="padding:4px 6px;font-size:12px;">'+existingOpts+'</select></label></div>' +
+    '</div>';
+  });
+  html += '</div>';
+  document.getElementById('invoice-items').innerHTML = html;
+  document.getElementById('invoice-actions').style.display = 'flex';
+}
+
+function toggleInvAction(i) {
+  var action = document.getElementById('inv-action-'+i).value;
+  document.getElementById('inv-existing-'+i).style.display = action === 'add' ? 'block' : 'none';
+}
+
+function applyInvoiceItems() {
+  var db = getDB();
+  var added = 0, updated = 0, skipped = 0;
+  _invoiceItems.forEach(function(item, i) {
+    var action = document.getElementById('inv-action-'+i).value;
+    if (action === 'skip') { skipped++; return; }
+    var name = document.getElementById('inv-name-'+i).value.trim();
+    var qty = parseFloat(document.getElementById('inv-qty-'+i).value) || 0;
+    var unit = document.getElementById('inv-unit-'+i).value.trim() || 'шт';
+    var price = parseFloat(document.getElementById('inv-price-'+i).value) || 0;
+    if (!name || qty <= 0) { skipped++; return; }
+    if (action === 'add') {
+      var matchId = document.getElementById('inv-match-'+i).value;
+      var existing = db.materials.find(function(m){ return m.id===matchId; });
+      if (existing) {
+        existing.qty = (existing.qty||0) + qty;
+        if (price > 0) existing.price = price;
+        updated++;
+      } else { skipped++; }
+    } else {
+      db.materials.push({ id: uid(), name: name, unit: unit, qty: qty, min: 0, price: price, supplier: '', note: 'Додано з накладної' });
+      added++;
+    }
+  });
+  saveDB(db);
+  closeModal('invoice');
+  renderPage('materials');
+  alert('Готово! Додано нових: '+added+', оновлено: '+updated+(skipped>0 ? ', пропущено: '+skipped : ''));
 }
 
 function toggleInkSection() {
