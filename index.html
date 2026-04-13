@@ -352,6 +352,13 @@ a.order-link:hover { text-decoration:underline; }
     <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th>Од.</th><th>Залишок</th><th>Мінімум</th><th>Ціна/од.</th><th>Постачальник</th><th>Коментар</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="materials-table"></tbody></table>
   </div>
+  <div style="margin-top:24px;">
+    <h3>Історія накладних</h3>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table><thead><tr><th>Дата</th><th>№ накладної</th><th>Позицій</th><th>Сума</th><th>Дії</th></tr></thead>
+      <tbody id="invoice-history-table"></tbody></table>
+    </div>
+  </div>
 </div>
 
 <!-- ========== PRODUCTS ========== -->
@@ -1379,6 +1386,37 @@ function renderMaterials() {
       '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+  renderInvoiceHistory();
+}
+
+function renderInvoiceHistory() {
+  var db = getDB();
+  if (!db.invoiceHistory) db.invoiceHistory = [];
+  var tb = document.getElementById('invoice-history-table');
+  if (!tb) return;
+  var sorted = db.invoiceHistory.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+  tb.innerHTML = sorted.map(function(h) {
+    var canUndo = _lastInvoiceUndo && _lastInvoiceUndo.invoiceId === h.id;
+    return '<tr>'+
+      '<td data-label="Дата">'+esc(h.date)+'</td>'+
+      '<td data-label="№ накладної">'+(h.number ? esc(h.number) : '—')+'</td>'+
+      '<td data-label="Позицій">'+h.items+'</td>'+
+      '<td data-label="Сума">'+fmt(h.total)+' грн</td>'+
+      '<td data-label="Дії">'+
+        (canUndo ? '<button class="btn btn-danger btn-sm" onclick="undoLastInvoice()" title="Скасувати">↩</button> ' : '')+
+        '<button class="btn btn-outline btn-sm" onclick="deleteInvoiceHistory(\''+h.id+'\')" title="Видалити запис">🗑</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Ще немає накладних</td></tr>';
+}
+
+function deleteInvoiceHistory(id) {
+  if (!confirm('Видалити запис з історії? (Матеріали не зміняться)')) return;
+  var db = getDB();
+  db.invoiceHistory = (db.invoiceHistory||[]).filter(function(h){ return h.id !== id; });
+  if (_lastInvoiceUndo && _lastInvoiceUndo.invoiceId === id) _lastInvoiceUndo = null;
+  saveDB(db);
+  renderPage('materials');
 }
 
 function toggleAllMaterials(checked) {
@@ -3472,6 +3510,7 @@ function renderEquipment() {
 
 // ==================== INVOICE OCR ====================
 var _invoiceItems = [];
+var _invoiceNumber = '';
 
 function uploadInvoice(input) {
   if (!input.files || !input.files[0]) return;
@@ -3496,6 +3535,7 @@ function uploadInvoice(input) {
           return;
         }
         _invoiceItems = data.items || [];
+        _invoiceNumber = data.invoiceNumber || '';
         renderInvoiceItems();
       })
       .catch(function(err){
@@ -3602,8 +3642,27 @@ function applyInvoiceItems() {
       added++;
     }
   });
+  // Save invoice to history
+  var totalSum = 0;
+  var itemCount = added + updated;
+  _invoiceItems.forEach(function(item, i) {
+    var action = document.getElementById('inv-action-'+i).value;
+    if (action !== 'skip') totalSum += (item.total || 0);
+  });
+  if (!db.invoiceHistory) db.invoiceHistory = [];
+  var invRecord = {
+    id: uid(),
+    date: new Date().toISOString().slice(0,10),
+    number: '',
+    items: itemCount,
+    total: totalSum,
+    undoActions: undoActions
+  };
+  if (_invoiceNumber) invRecord.number = _invoiceNumber;
+  db.invoiceHistory.push(invRecord);
+
   saveDB(db);
-  _lastInvoiceUndo = { actions: undoActions, date: new Date().toISOString() };
+  _lastInvoiceUndo = { actions: undoActions, invoiceId: invRecord.id, date: new Date().toISOString() };
   closeModal('invoice');
   renderPage('materials');
   alert('Готово! Додано нових: '+added+', оновлено: '+updated+(skipped>0 ? ', пропущено: '+skipped : '')+'\n\nЯкщо помилка — натисніть "Скасувати накладну" на сторінці матеріалів.');
@@ -3621,6 +3680,10 @@ function undoLastInvoice() {
       if (m) { m.qty = a.prevQty; m.price = a.prevPrice; }
     }
   });
+  // Remove from invoice history
+  if (_lastInvoiceUndo.invoiceId) {
+    db.invoiceHistory = (db.invoiceHistory||[]).filter(function(h){ return h.id !== _lastInvoiceUndo.invoiceId; });
+  }
   saveDB(db);
   _lastInvoiceUndo = null;
   renderPage('materials');

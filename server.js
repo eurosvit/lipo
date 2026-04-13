@@ -1316,16 +1316,17 @@ const server = http.createServer(async (req, res) => {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: imageMime, data: imageData } },
-            { type: 'text', text: `Розпізнай цю накладну/чек. Поверни JSON масив товарів у форматі:
-[{"name": "Назва товару (коротко)", "qty": кількість_число, "unit": "шт/л/м/кг/пач/рул", "price": ціна_за_одиницю_число, "total": загальна_сума_число}]
+            { type: 'text', text: `Розпізнай цю накладну/чек. Поверни JSON об'єкт у форматі:
+{"invoiceNumber": "номер накладної або null", "items": [{"name": "Назва товару (коротко)", "qty": кількість_число, "unit": "шт/л/м/кг/пач/рул", "price": ціна_за_одиницю_число, "total": загальна_сума_число}]}
 
 Правила:
+- invoiceNumber: номер накладної/чеку якщо є на документі, інакше null
 - name: коротка зрозуміла назва матеріалу (без артикулів та зайвих деталей)
 - qty: кількість як число
 - unit: одиниця виміру (шт, пач, л, м, кг, рул)
 - price: ціна за одиницю
 - total: загальна сума позиції
-- Поверни ТІЛЬКИ JSON масив, без тексту навколо` }
+- Поверни ТІЛЬКИ JSON об'єкт, без тексту навколо` }
           ]
         }]
       });
@@ -1350,13 +1351,20 @@ const server = http.createServer(async (req, res) => {
               return;
             }
             const text = result.content && result.content[0] && result.content[0].text || '';
-            // Extract JSON from response
-            const jsonMatch = text.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-              const items = JSON.parse(jsonMatch[0]);
-              sendJSON(res, 200, { items });
+            // Try new object format first: {"invoiceNumber":..., "items":[...]}
+            const objMatch = text.match(/\{[\s\S]*"items"[\s\S]*\}/);
+            if (objMatch) {
+              const parsed = JSON.parse(objMatch[0]);
+              sendJSON(res, 200, { items: parsed.items || [], invoiceNumber: parsed.invoiceNumber || null });
             } else {
-              sendJSON(res, 200, { items: [], error: 'Не вдалось розпізнати товари' });
+              // Fallback: plain array format
+              const jsonMatch = text.match(/\[[\s\S]*\]/);
+              if (jsonMatch) {
+                const items = JSON.parse(jsonMatch[0]);
+                sendJSON(res, 200, { items });
+              } else {
+                sendJSON(res, 200, { items: [], error: 'Не вдалось розпізнати товари' });
+              }
             }
           } catch (e) {
             sendJSON(res, 500, { error: 'Помилка обробки відповіді AI' });
