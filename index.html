@@ -3371,7 +3371,7 @@ function renderEquipment() {
   items.forEach(function(eq){ eqMap[eq.id] = eq.name; });
   var filterEl = document.getElementById('eq-history-filter');
   var curFilter = filterEl.value;
-  var opts = '<option value="">Все обладнання</option>' + items.map(function(eq){ return '<option value="'+eq.id+'"'+(curFilter===eq.id?' selected':'')+'>'+esc(eq.name)+'</option>'; }).join('');
+  var opts = '<option value="">Все обладнання</option>' + items.filter(function(eq){ return !eq.noService; }).map(function(eq){ return '<option value="'+eq.id+'"'+(curFilter===eq.id?' selected':'')+'>'+esc(eq.name)+'</option>'; }).join('');
   filterEl.innerHTML = opts;
   var sortedLogs = logs.slice().sort(function(a,b){ return b.date>a.date?1:(b.date<a.date?-1:0); });
   if (curFilter) sortedLogs = sortedLogs.filter(function(l){ return l.equipmentId===curFilter; });
