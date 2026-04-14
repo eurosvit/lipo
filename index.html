@@ -248,7 +248,7 @@ a.order-link:hover { text-decoration:underline; }
   <button class="burger-btn" onclick="toggleMobileMenu()">☰</button>
   <span class="nav-brand" onclick="showPage('dashboard');window.scrollTo(0,0);" style="cursor:pointer;"><img src="/favicon.png" alt="LipoLand"> LipoLand</span>
   <div class="nav-links">
-    <button onclick="showPage('dashboard')" class="active" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
+    <button onclick="showPage('dashboard')" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
     <button onclick="showPage('materials')" data-page="materials">&#x1F4E6; &#x041C;&#x0430;&#x0442;&#x0435;&#x0440;&#x0456;&#x0430;&#x043B;&#x0438;</button>
     <button onclick="showPage('products')" data-page="products">🎮 Мої ігри</button>
     <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
@@ -323,7 +323,7 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <!-- ========== DASHBOARD ========== -->
-<div id="dashboard" class="page active">
+<div id="dashboard" class="page">
   <h2>Дашборд</h2>
   <div id="dash-alerts" class="alerts"></div>
   <div id="dash-cards" class="cards"></div>
@@ -1406,6 +1406,21 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <script>
+// Instantly restore last viewed page (no flash)
+(function(){
+  var sp = localStorage.getItem('lipo_current_page');
+  if (sp) {
+    var el = document.getElementById(sp);
+    if (el) el.classList.add('active');
+    var btn = document.querySelector('.nav-links button[data-page="'+sp+'"]');
+    if (btn) btn.classList.add('active');
+  } else {
+    document.getElementById('dashboard').classList.add('active');
+    var btn = document.querySelector('.nav-links button[data-page="dashboard"]');
+    if (btn) btn.classList.add('active');
+  }
+})();
+
 // ==================== DATA LAYER ====================
 const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
