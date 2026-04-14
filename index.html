@@ -136,6 +136,9 @@ textarea { resize:vertical; min-height:60px; }
 .note-text:hover { white-space:normal; overflow:visible; }
 th { background:#EDE7F6; color:var(--primary-dark); }
 tr:hover td { background:#F3F0FF; }
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { color:var(--primary); }
+th.sortable span { font-size:10px; }
 a.order-link { color:var(--primary); text-decoration:none; font-size:12px; }
 a.order-link:hover { text-decoration:underline; }
 
@@ -382,7 +385,7 @@ a.order-link:hover { text-decoration:underline; }
 <!-- ========== PRODUCTS ========== -->
 <div id="products" class="page">
   <div class="flex-between">
-    <h2>Мої ігри</h2>
+    <h2>Мої ігри — Склад</h2>
     <button class="btn btn-primary" onclick="populatePackagingKitSelects();openModal('add-product')">+ Додати гру</button>
   </div>
   <div style="margin-bottom:12px;">
@@ -419,7 +422,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="clearProdSelection()">Скасувати</button>
   </div>
   <div class="table-wrap">
-    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Артикул</th><th>Назва</th><th>Розмір</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Можна зібрати</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th class="sortable" onclick="sortProducts('sku')">Артикул <span id="sort-icon-sku"></span></th><th class="sortable" onclick="sortProducts('name')">Назва <span id="sort-icon-name"></span></th><th>Розмір</th><th>Категорія</th><th class="sortable" onclick="sortProducts('stock')">На складі <span id="sort-icon-stock"></span></th><th class="sortable" onclick="sortProducts('inProgress')">В роботі <span id="sort-icon-inProgress"></span></th><th class="sortable" onclick="sortProducts('cost')">Собівартість <span id="sort-icon-cost"></span></th><th class="sortable" onclick="sortProducts('sellPrice')">Ціна продажу <span id="sort-icon-sellPrice"></span></th><th class="sortable" onclick="sortProducts('margin')">Маржа <span id="sort-icon-margin"></span></th><th class="sortable" onclick="sortProducts('canProduce')">Можна зібрати <span id="sort-icon-canProduce"></span></th><th>Дії</th></tr></thead>
     <tbody id="products-table"></tbody></table>
   </div>
 </div>
@@ -2100,6 +2103,26 @@ function populateCategorySelects() {
   if (edit) { var sv2 = edit.value; edit.innerHTML = opts; edit.value = sv2; }
 }
 
+var _prodSort = { key: null, asc: true };
+
+function sortProducts(key) {
+  if (_prodSort.key === key) {
+    _prodSort.asc = !_prodSort.asc;
+  } else {
+    _prodSort.key = key;
+    _prodSort.asc = true;
+  }
+  renderProducts();
+}
+
+function updateSortIcons() {
+  var keys = ['sku','name','stock','inProgress','cost','sellPrice','margin','canProduce'];
+  keys.forEach(function(k) {
+    var el = document.getElementById('sort-icon-'+k);
+    if (el) el.textContent = _prodSort.key===k ? (_prodSort.asc ? '▲' : '▼') : '';
+  });
+}
+
 function renderProducts() {
   var db = getDB();
   var search = (document.getElementById('prod-search').value||'').toLowerCase().trim();
@@ -2128,6 +2151,30 @@ function renderProducts() {
   });
 
   document.getElementById('prod-count').textContent = 'Показано: '+filtered.length+' з '+db.products.length;
+
+  // Sort
+  if (_prodSort.key) {
+    filtered.sort(function(a, b) {
+      var va, vb;
+      switch(_prodSort.key) {
+        case 'sku': va = (a.sku||'').toLowerCase(); vb = (b.sku||'').toLowerCase(); break;
+        case 'name': va = (a.name||'').toLowerCase(); vb = (b.name||'').toLowerCase(); break;
+        case 'stock': va = a.stock||0; vb = b.stock||0; break;
+        case 'inProgress': va = a.inProgress||0; vb = b.inProgress||0; break;
+        case 'cost': va = calcCost(a, db.materials, db).total; vb = calcCost(b, db.materials, db).total; break;
+        case 'sellPrice': va = a.sellPrice||0; vb = b.sellPrice||0; break;
+        case 'margin': va = (a.sellPrice||0) - calcCost(a, db.materials, db).total; vb = (b.sellPrice||0) - calcCost(b, db.materials, db).total; break;
+        case 'canProduce': va = calcCanProduce(a, db.materials); vb = calcCanProduce(b, db.materials); break;
+        default: va = 0; vb = 0;
+      }
+      if (typeof va === 'string') {
+        var cmp = va.localeCompare(vb, 'uk');
+        return _prodSort.asc ? cmp : -cmp;
+      }
+      return _prodSort.asc ? va - vb : vb - va;
+    });
+  }
+  updateSortIcons();
 
   var tb = document.getElementById('products-table');
   tb.innerHTML = filtered.map(function(p) {
