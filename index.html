@@ -369,6 +369,16 @@ a.order-link:hover { text-decoration:underline; }
     <h2>Мої ігри</h2>
     <button class="btn btn-primary" onclick="openModal('add-product')">+ Додати гру</button>
   </div>
+  <div style="margin-bottom:12px;">
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
+    <div id="cat-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
+      <div id="cat-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="new-cat-name" placeholder="Нова категорія" style="flex:1;">
+        <button class="btn btn-primary btn-sm" onclick="addCategory()">+ Додати</button>
+      </div>
+    </div>
+  </div>
   <div class="filter-bar">
     <input type="text" id="prod-search" placeholder="Пошук за назвою або артикулом..." oninput="renderProducts()">
     <select id="prod-cat-filter" onchange="renderProducts()">
@@ -854,7 +864,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div class="form-row">
       <div class="form-group"><label>Розмір</label><input id="prod-size" placeholder="А4, 21x21 см..."></div>
-      <div class="form-group"><label>Категорія</label><input id="prod-category" placeholder="Тематичні альбоми"></div>
+      <div class="form-group"><label>Категорія</label><select id="prod-category"><option value="">— Оберіть —</option></select></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
@@ -983,7 +993,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div class="form-row">
       <div class="form-group"><label>Розмір</label><input id="eprod-size"></div>
-      <div class="form-group"><label>Категорія</label><input id="eprod-category"></div>
+      <div class="form-group"><label>Категорія</label><select id="eprod-category"><option value="">— Оберіть —</option></select></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
@@ -1328,7 +1338,7 @@ function renderPage(id) {
 function openModal(name) {
   document.getElementById('modal-'+name).classList.add('show');
   if(name==='receive-material') populateReceiveMat();
-  if(name==='add-product') { document.getElementById('prod-recipe').innerHTML=''; addRecipeLine(); }
+  if(name==='add-product') { populateCategorySelects(); document.getElementById('prod-recipe').innerHTML=''; addRecipeLine(); }
   if(name==='start-production') populateStartProd();
   if(name==='complete-production') populateCompleteProd();
   if(name==='add-order') { document.getElementById('ord-items').innerHTML=''; addOrderLine(); document.getElementById('ord-date').value=new Date().toISOString().slice(0,10); }
@@ -1547,6 +1557,7 @@ function editProduct(id) {
   document.getElementById('eprod-sku').value = p.sku||'';
   document.getElementById('eprod-name').value = p.name;
   document.getElementById('eprod-size').value = p.size||'';
+  populateCategorySelects();
   document.getElementById('eprod-category').value = p.category||'';
   document.getElementById('eprod-pages').value = p.pages||0;
   document.getElementById('eprod-price').value = p.sellPrice;
@@ -1700,8 +1711,68 @@ function calcCost(product, materials, db) {
 
 function getCategories(db) {
   var cats = {};
+  (db.categories||[]).forEach(function(c){ cats[c]=true; });
   db.products.forEach(function(p){ if(p.category) cats[p.category]=true; });
   return Object.keys(cats).sort();
+}
+
+function renderCatManager() {
+  var db = getDB();
+  var cats = getCategories(db);
+  var list = document.getElementById('cat-list');
+  if (!list) return;
+  list.innerHTML = cats.map(function(c){
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid var(--border);border-radius:16px;font-size:13px;">' +
+      esc(c) +
+      '<button onclick="renameCategory(\''+esc(c.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;" title="Перейменувати">✏️</button>' +
+      '<button onclick="deleteCategory(\''+esc(c.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:#F44336;" title="Видалити">✕</button>' +
+    '</span>';
+  }).join('') || '<span class="text-muted" style="font-size:13px;">Немає категорій</span>';
+}
+
+function addCategory() {
+  var name = document.getElementById('new-cat-name').value.trim();
+  if (!name) return;
+  var db = getDB();
+  if (!db.categories) db.categories = [];
+  if (db.categories.indexOf(name) === -1) db.categories.push(name);
+  saveDB(db);
+  document.getElementById('new-cat-name').value = '';
+  renderProducts();
+}
+
+function renameCategory(oldName) {
+  var newName = prompt('Нова назва для "' + oldName + '":', oldName);
+  if (!newName || newName.trim() === oldName) return;
+  newName = newName.trim();
+  var db = getDB();
+  if (!db.categories) db.categories = [];
+  var idx = db.categories.indexOf(oldName);
+  if (idx !== -1) db.categories[idx] = newName;
+  else db.categories.push(newName);
+  // Update all products with old category
+  db.products.forEach(function(p){ if(p.category === oldName) p.category = newName; });
+  saveDB(db);
+  renderProducts();
+}
+
+function deleteCategory(name) {
+  if (!confirm('Видалити категорію "' + name + '"? Товари залишаться без категорії.')) return;
+  var db = getDB();
+  db.categories = (db.categories||[]).filter(function(c){ return c !== name; });
+  db.products.forEach(function(p){ if(p.category === name) p.category = ''; });
+  saveDB(db);
+  renderProducts();
+}
+
+function populateCategorySelects() {
+  var db = getDB();
+  var cats = getCategories(db);
+  var opts = '<option value="">— Оберіть —</option>' + cats.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+  var add = document.getElementById('prod-category');
+  var edit = document.getElementById('eprod-category');
+  if (add) { var sv = add.value; add.innerHTML = opts; add.value = sv; }
+  if (edit) { var sv2 = edit.value; edit.innerHTML = opts; edit.value = sv2; }
 }
 
 function renderProducts() {
@@ -1715,6 +1786,8 @@ function renderProducts() {
   var opts = '<option value="">Всі категорії</option>';
   cats.forEach(function(c){ opts += '<option value="'+esc(c)+'" '+(c===catFilter?'selected':'')+'>'+esc(c)+'</option>'; });
   catSel.innerHTML = opts;
+  renderCatManager();
+  populateCategorySelects();
 
   var statusFilter = document.getElementById('prod-status-filter').value;
 
