@@ -395,8 +395,14 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(true)" title="Активувати все що в фільтрі">▶ Актив. показані</button>
     </div>
   </div>
+  <div id="prod-bulk-bar" style="display:none;padding:10px 16px;background:#E8F5E9;border-radius:8px;margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span id="prod-selected-count" style="font-weight:600;font-size:13px;"></span>
+    <button class="btn btn-success btn-sm" onclick="bulkSelectedProducts(true)">▶ Активувати</button>
+    <button class="btn btn-outline btn-sm" onclick="bulkSelectedProducts(false)">⏸ Деактивувати</button>
+    <button class="btn btn-outline btn-sm" onclick="clearProdSelection()">Скасувати</button>
+  </div>
   <div class="table-wrap">
-    <table><thead><tr><th>Артикул</th><th>Назва</th><th>Розмір</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Можна зібрати</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Артикул</th><th>Назва</th><th>Розмір</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Собівартість</th><th>Ціна продажу</th><th>Маржа</th><th>Можна зібрати</th><th>Дії</th></tr></thead>
     <tbody id="products-table"></tbody></table>
   </div>
 </div>
@@ -1811,6 +1817,7 @@ function renderProducts() {
     var margin = p.sellPrice - cost.total;
     var inactive = p.active===false;
     return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
+      '<td><input type="checkbox" class="prod-cb" value="'+p.id+'" onchange="updateProdSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
       '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>'+
       '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
       '<td data-label="Розмір">'+esc(p.size||'—')+'</td>'+
@@ -1826,7 +1833,44 @@ function renderProducts() {
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+  }).join('') || '<tr><td colspan="12" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+}
+
+function toggleAllProducts(checked) {
+  document.querySelectorAll('.prod-cb').forEach(function(cb){ cb.checked = checked; });
+  updateProdSelection();
+}
+
+function updateProdSelection() {
+  var checked = document.querySelectorAll('.prod-cb:checked');
+  var bar = document.getElementById('prod-bulk-bar');
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    document.getElementById('prod-selected-count').textContent = 'Обрано: ' + checked.length;
+  } else {
+    bar.style.display = 'none';
+  }
+  var all = document.querySelectorAll('.prod-cb');
+  document.getElementById('prod-select-all').checked = all.length > 0 && checked.length === all.length;
+}
+
+function clearProdSelection() {
+  document.querySelectorAll('.prod-cb').forEach(function(cb){ cb.checked = false; });
+  document.getElementById('prod-select-all').checked = false;
+  document.getElementById('prod-bulk-bar').style.display = 'none';
+}
+
+function bulkSelectedProducts(activate) {
+  var ids = [];
+  document.querySelectorAll('.prod-cb:checked').forEach(function(cb){ ids.push(cb.value); });
+  if (!ids.length) return;
+  var db = getDB();
+  ids.forEach(function(id) {
+    var p = db.products.find(function(x){ return x.id === id; });
+    if (p) p.active = activate;
+  });
+  saveDB(db);
+  renderProducts();
 }
 
 // ==================== PRODUCTION ====================
