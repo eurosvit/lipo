@@ -427,7 +427,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="clearProdSelection()">Скасувати</button>
   </div>
   <div class="table-wrap">
-    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th class="sortable" onclick="sortProducts('sku')">Артикул <span id="sort-icon-sku"></span></th><th class="sortable" onclick="sortProducts('name')">Назва <span id="sort-icon-name"></span></th><th>Розмір</th><th>Категорія</th><th class="sortable" onclick="sortProducts('stock')">На складі <span id="sort-icon-stock"></span></th><th class="sortable" onclick="sortProducts('inProgress')">В роботі <span id="sort-icon-inProgress"></span></th><th class="sortable" onclick="sortProducts('cost')">Собівартість <span id="sort-icon-cost"></span></th><th class="sortable" onclick="sortProducts('sellPrice')">Ціна продажу <span id="sort-icon-sellPrice"></span></th><th class="sortable" onclick="sortProducts('margin')">Маржа <span id="sort-icon-margin"></span></th><th class="sortable" onclick="sortProducts('canProduce')">Можна зібрати <span id="sort-icon-canProduce"></span></th><th>Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th class="sortable" onclick="sortProducts('sku')">Артикул <span id="sort-icon-sku"></span></th><th class="sortable" onclick="sortProducts('name')">Назва <span id="sort-icon-name"></span></th><th>Розмір</th><th>Категорія</th><th class="sortable" onclick="sortProducts('stock')">Мій склад <span id="sort-icon-stock"></span></th><th class="sortable" onclick="sortProducts('atWorker')">У майстрів <span id="sort-icon-atWorker"></span></th><th class="sortable" onclick="sortProducts('inProgress')">В роботі <span id="sort-icon-inProgress"></span></th><th class="sortable" onclick="sortProducts('cost')">Собівартість <span id="sort-icon-cost"></span></th><th class="sortable" onclick="sortProducts('sellPrice')">Ціна продажу <span id="sort-icon-sellPrice"></span></th><th class="sortable" onclick="sortProducts('margin')">Маржа <span id="sort-icon-margin"></span></th><th class="sortable" onclick="sortProducts('canProduce')">Можна зібрати <span id="sort-icon-canProduce"></span></th><th>Дії</th></tr></thead>
     <tbody id="products-table"></tbody></table>
   </div>
 </div>
@@ -2182,6 +2182,14 @@ function renderProducts() {
 
   document.getElementById('prod-count').textContent = 'Показано: '+filtered.length+' з '+db.products.length;
 
+  // Precompute products at workers
+  var _atWorker = {};
+  (db.workerStock || []).forEach(function(s) {
+    if (s.type === 'product') {
+      _atWorker[s.itemId] = (_atWorker[s.itemId] || 0) + s.qty;
+    }
+  });
+
   // Sort
   if (_prodSort.key) {
     filtered.sort(function(a, b) {
@@ -2190,6 +2198,7 @@ function renderProducts() {
         case 'sku': va = (a.sku||'').toLowerCase(); vb = (b.sku||'').toLowerCase(); break;
         case 'name': va = (a.name||'').toLowerCase(); vb = (b.name||'').toLowerCase(); break;
         case 'stock': va = a.stock||0; vb = b.stock||0; break;
+        case 'atWorker': va = _atWorker[a.id]||0; vb = _atWorker[b.id]||0; break;
         case 'inProgress': va = a.inProgress||0; vb = b.inProgress||0; break;
         case 'cost': va = calcCost(a, db.materials, db).total; vb = calcCost(b, db.materials, db).total; break;
         case 'sellPrice': va = a.sellPrice||0; vb = b.sellPrice||0; break;
@@ -2213,13 +2222,15 @@ function renderProducts() {
     var margin = p.sellPrice - cost.total;
     var marginPct = p.sellPrice > 0 ? Math.round(margin / p.sellPrice * 100) : 0;
     var inactive = p.active===false;
+    var atW = _atWorker[p.id] || 0;
     return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
       '<td><input type="checkbox" class="prod-cb" value="'+p.id+'" onchange="updateProdSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
       '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>'+
       '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
       '<td data-label="Розмір">'+esc(p.size||'—')+'</td>'+
       '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>'+
-      '<td data-label="На складі">'+(p.stock||0)+'</td>'+
+      '<td data-label="Мій склад">'+(p.stock||0)+'</td>'+
+      '<td data-label="У майстрів">'+(atW > 0 ? '<span style="color:var(--primary);font-weight:600;">'+atW+'</span>' : '0')+'</td>'+
       '<td data-label="В роботі">'+(p.inProgress||0)+'</td>'+
       '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>'+
       '<td data-label="Ціна продажу">'+fmt(p.sellPrice)+' грн</td>'+
@@ -2230,7 +2241,7 @@ function renderProducts() {
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="12" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+  }).join('') || '<tr><td colspan="13" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
 }
 
 function toggleAllProducts(checked) {
