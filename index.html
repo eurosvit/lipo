@@ -455,6 +455,16 @@ a.order-link:hover { text-decoration:underline; }
     </div>
   </div>
   <div id="sync-status" style="margin-top:8px;"></div>
+  <div style="margin-top:8px;">
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('channel-manager').style.display=document.getElementById('channel-manager').style.display==='none'?'block':'none'">📢 Канали продажів</button>
+    <div id="channel-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
+      <div id="channel-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="new-channel-name" placeholder="Новий канал" style="flex:1;">
+        <button class="btn btn-primary btn-sm" onclick="addChannel()">+ Додати</button>
+      </div>
+    </div>
+  </div>
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <select id="ord-status-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі статуси</option>
@@ -462,11 +472,14 @@ a.order-link:hover { text-decoration:underline; }
       <option value="in_production">🔧 На виробництві</option>
       <option value="completed">✔ Виконано</option>
     </select>
+    <select id="ord-channel-filter" onchange="renderOrders()" style="padding:8px 12px;">
+      <option value="">Всі канали</option>
+    </select>
     <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
     <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
   </div>
   <div class="table-wrap" style="margin-top:12px;">
-    <table><thead><tr><th>#</th><th>CRM</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th>#</th><th>CRM</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Канал</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="orders-table"></tbody></table>
   </div>
 </div>
@@ -592,6 +605,16 @@ a.order-link:hover { text-decoration:underline; }
       <table>
         <thead><tr><th>Гра</th><th>Продано шт</th><th>Виручка</th><th>Собівартість</th><th>Прибуток</th><th>Маржа %</th></tr></thead>
         <tbody id="analytics-top"></tbody>
+      </table>
+    </div>
+  </div>
+  <div style="margin-top:24px;">
+    <h3>📢 Продажі по каналах</h3>
+    <div class="cards" id="analytics-channels-cards" style="margin-top:12px;"></div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>Канал</th><th>Замовлень</th><th>Продано шт</th><th>Виручка</th><th>Частка %</th></tr></thead>
+        <tbody id="analytics-channels"></tbody>
       </table>
     </div>
   </div>
@@ -1052,6 +1075,11 @@ a.order-link:hover { text-decoration:underline; }
         <div class="form-group"><label>Клієнт</label><input id="ord-client" placeholder="Ім'я / телефон"></div>
         <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group"><label>Канал продажу</label>
+          <select id="ord-channel"><option value="">— не вказано —</option></select>
+        </div>
+      </div>
       <div class="section-title">Товари</div>
       <div id="ord-items"></div>
       <button class="btn btn-outline btn-sm mt-8" onclick="addOrderLine()">+ Додати товар</button>
@@ -1383,7 +1411,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -2417,7 +2445,7 @@ function saveOrder() {
   }
   var total = items.reduce(function(s,i){return s+i.qty*i.price},0);
   db.orders.push({ id:uid(), num:db.nextOrderNum++, date:v('ord-date')||new Date().toISOString().slice(0,10),
-    client:v('ord-client'), items:items, total:total, status:'new' });
+    client:v('ord-client'), channel:v('ord-channel'), items:items, total:total, status:'new' });
   saveDB(db);
   closeModal('add-order');
   renderPage('orders');
@@ -2435,27 +2463,130 @@ function setOrderWorker(id, worker) {
   if(ord) { ord.worker=worker; saveDB(db); }
 }
 
+// ==================== ORDER CHANNELS ====================
+var _channelColors = [
+  { bg:'#E1BEE7', text:'#6A1B9A' },  // purple
+  { bg:'#BBDEFB', text:'#1565C0' },  // blue
+  { bg:'#C8E6C9', text:'#2E7D32' },  // green
+  { bg:'#FFE0B2', text:'#E65100' },  // orange
+  { bg:'#F8BBD0', text:'#AD1457' },  // pink
+  { bg:'#B2DFDB', text:'#00695C' },  // teal
+  { bg:'#FFF9C4', text:'#F57F17' },  // yellow
+  { bg:'#D1C4E9', text:'#4527A0' },  // deep purple
+  { bg:'#FFCCBC', text:'#BF360C' },  // deep orange
+  { bg:'#B3E5FC', text:'#01579B' },  // light blue
+];
+
+function getChannelColor(channel) {
+  if (!channel) return { bg:'#f0f0f0', text:'#999' };
+  var db = getDB();
+  var channels = db.orderChannels || [];
+  var idx = channels.indexOf(channel);
+  if (idx === -1) idx = 0;
+  return _channelColors[idx % _channelColors.length];
+}
+
+function setOrderChannel(id, channel) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(ord) { ord.channel=channel; saveDB(db); renderPage('orders'); }
+}
+
+function renderChannelManager() {
+  var db = getDB();
+  var channels = db.orderChannels || [];
+  var list = document.getElementById('channel-list');
+  if (!list) return;
+  list.innerHTML = channels.map(function(ch, i) {
+    var col = _channelColors[i % _channelColors.length];
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:'+col.bg+';color:'+col.text+';border-radius:16px;font-size:13px;font-weight:600;">' +
+      esc(ch) +
+      '<button onclick="renameChannel(\''+esc(ch.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:'+col.text+';" title="Перейменувати">✏️</button>' +
+      '<button onclick="deleteChannel(\''+esc(ch.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:'+col.text+';" title="Видалити">✕</button>' +
+    '</span>';
+  }).join('') || '<span class="text-muted" style="font-size:13px;">Додайте перший канал</span>';
+}
+
+function addChannel() {
+  var name = document.getElementById('new-channel-name').value.trim();
+  if (!name) return;
+  var db = getDB();
+  if (!db.orderChannels) db.orderChannels = [];
+  if (db.orderChannels.indexOf(name) !== -1) return alert('Такий канал вже є');
+  db.orderChannels.push(name);
+  saveDB(db);
+  document.getElementById('new-channel-name').value = '';
+  renderPage('orders');
+}
+
+function renameChannel(oldName) {
+  var newName = prompt('Нова назва каналу:', oldName);
+  if (!newName || newName.trim() === '' || newName === oldName) return;
+  newName = newName.trim();
+  var db = getDB();
+  var idx = (db.orderChannels || []).indexOf(oldName);
+  if (idx === -1) return;
+  db.orderChannels[idx] = newName;
+  // Update all orders using this channel
+  db.orders.forEach(function(o) { if (o.channel === oldName) o.channel = newName; });
+  saveDB(db);
+  renderPage('orders');
+}
+
+function deleteChannel(name) {
+  if (!confirm('Видалити канал "'+name+'"?')) return;
+  var db = getDB();
+  db.orderChannels = (db.orderChannels || []).filter(function(c) { return c !== name; });
+  // Clear channel from orders that use it
+  db.orders.forEach(function(o) { if (o.channel === name) o.channel = ''; });
+  saveDB(db);
+  renderPage('orders');
+}
+
+function populateOrderChannels() {
+  var db = getDB();
+  var channels = db.orderChannels || [];
+  var el = document.getElementById('ord-channel');
+  if (!el) return;
+  el.innerHTML = '<option value="">— не вказано —</option>' + channels.map(function(ch) {
+    return '<option value="'+esc(ch)+'">'+esc(ch)+'</option>';
+  }).join('');
+}
+
 function renderOrders() {
   var db = getDB();
   var tb = document.getElementById('orders-table');
   var statusFilter = document.getElementById('ord-status-filter').value;
+  var channelFilter = document.getElementById('ord-channel-filter').value;
   var crmOnly = document.getElementById('ord-crm-only').checked;
   var statusMap = { new:'🆕 Новий', in_production:'🔧 На виробництві', completed:'✔ Виконано' };
   var statusColors = { new:'#ffeaa7', in_production:'#81ecec', completed:'#55efc4' };
 
+  // Populate channel filter
+  var channels = db.orderChannels || [];
+  var chFilterEl = document.getElementById('ord-channel-filter');
+  var curChFilter = chFilterEl.value;
+  chFilterEl.innerHTML = '<option value="">Всі канали</option>' + channels.map(function(ch){ return '<option value="'+esc(ch)+'" '+(curChFilter===ch?'selected':'')+'>'+esc(ch)+'</option>'; }).join('');
+
   var filtered = db.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || b.num - a.num; }).filter(function(o) {
     if(statusFilter && o.status!==statusFilter) return false;
+    if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
     return true;
   });
 
   document.getElementById('ord-count').textContent = 'Показано: '+filtered.length+' з '+db.orders.length;
 
+  var channelOpts = '<option value="">—</option>' + channels.map(function(ch){ return '<option value="'+esc(ch)+'">'+esc(ch)+'</option>'; }).join('');
+
   tb.innerHTML = filtered.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
     var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
     var crmBadge = o.crmId ? '<span class="badge badge-ok" style="font-size:10px;" title="SalesDrive #'+o.crmId+'">CRM #'+o.crmId+'</span>' : '<span class="text-muted" style="font-size:11px;">ручне</span>';
     var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    var chColor = getChannelColor(o.channel);
+    var channelBadge = o.channel ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:'+chColor.bg+';color:'+chColor.text+';">'+esc(o.channel)+'</span>' : '<span class="text-muted" style="font-size:11px;">—</span>';
+    var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
     return '<tr>'+
       '<td data-label="№">#'+o.num+'</td>'+
       '<td data-label="Джерело">'+crmBadge+'</td>'+
@@ -2463,12 +2594,18 @@ function renderOrders() {
       '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
       '<td data-label="Товари">'+itemsStr+'</td>'+
       '<td data-label="Сума">'+fmt(o.total)+' грн</td>'+
+      '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>'+
       '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>'+
       '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
+  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
+
+  // Also render channel manager
+  renderChannelManager();
+  // Populate order modal channel dropdown
+  populateOrderChannels();
 }
 
 function confirmOrder(id) {
@@ -3642,6 +3779,43 @@ function renderAnalytics() {
       '<td data-label="Маржа" class="'+(margin>30?'text-success':margin>15?'text-warning':'text-danger')+'">'+fmt(margin)+'%</td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
+
+  // Channel stats
+  var channelStats = {};
+  orders.forEach(function(o) {
+    var ch = o.channel || 'Не вказано';
+    if (!channelStats[ch]) channelStats[ch] = { orders:0, items:0, revenue:0 };
+    channelStats[ch].orders++;
+    (o.items||[]).forEach(function(item) {
+      channelStats[ch].items += item.qty||0;
+      channelStats[ch].revenue += (item.qty||0) * (item.price||0);
+    });
+  });
+  var channelNames = Object.keys(channelStats).sort(function(a,b){ return channelStats[b].revenue - channelStats[a].revenue; });
+
+  // Channel cards (visual)
+  var chCardsHtml = '';
+  channelNames.forEach(function(ch) {
+    var s = channelStats[ch];
+    var col = getChannelColor(ch === 'Не вказано' ? '' : ch);
+    var pct = totalRevenue > 0 ? Math.round(s.revenue / totalRevenue * 100) : 0;
+    chCardsHtml += '<div class="card" style="border-left:4px solid '+col.bg+';"><div class="card-label" style="color:'+col.text+';">'+esc(ch)+'</div><div class="card-value">'+fmt(s.revenue)+'</div><div class="card-sub">грн ('+pct+'%) · '+s.orders+' замовл.</div></div>';
+  });
+  document.getElementById('analytics-channels-cards').innerHTML = chCardsHtml || '<p class="text-muted">Немає даних</p>';
+
+  // Channel table
+  document.getElementById('analytics-channels').innerHTML = channelNames.map(function(ch) {
+    var s = channelStats[ch];
+    var col = getChannelColor(ch === 'Не вказано' ? '' : ch);
+    var pct = totalRevenue > 0 ? (s.revenue / totalRevenue * 100) : 0;
+    return '<tr>'+
+      '<td data-label="Канал"><span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;background:'+col.bg+';color:'+col.text+';">'+esc(ch)+'</span></td>'+
+      '<td data-label="Замовлень">'+s.orders+'</td>'+
+      '<td data-label="Продано">'+s.items+' шт</td>'+
+      '<td data-label="Виручка">'+fmt(s.revenue)+' грн</td>'+
+      '<td data-label="Частка"><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar" style="flex:1;max-width:100px;"><div class="progress-fill" style="width:'+pct+'%;background:'+col.bg+';"></div></div><strong>'+fmt(pct)+'%</strong></div></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
 }
 
 // ==================== LOAD REAL DATA ====================
