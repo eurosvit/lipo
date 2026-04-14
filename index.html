@@ -366,13 +366,24 @@ a.order-link:hover { text-decoration:underline; }
       <tbody id="invoice-history-table"></tbody></table>
     </div>
   </div>
+  <div style="margin-top:24px;">
+    <div class="flex-between">
+      <h3>🎁 Комплекти пакування</h3>
+      <button class="btn btn-primary btn-sm" onclick="openModal('add-packaging')">+ Додати комплект</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-light);margin:4px 0 12px;">Створюйте комплекти пакування (наприклад: коробка + зіп пакет) і обирайте їх при описі гри</p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Назва комплекту</th><th>Компоненти</th><th>Вартість</th><th>Дії</th></tr></thead>
+      <tbody id="packaging-kits-table"></tbody></table>
+    </div>
+  </div>
 </div>
 
 <!-- ========== PRODUCTS ========== -->
 <div id="products" class="page">
   <div class="flex-between">
     <h2>Мої ігри</h2>
-    <button class="btn btn-primary" onclick="openModal('add-product')">+ Додати гру</button>
+    <button class="btn btn-primary" onclick="populatePackagingKitSelects();openModal('add-product')">+ Додати гру</button>
   </div>
   <div style="margin-bottom:12px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
@@ -876,6 +887,53 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- Add Packaging Kit -->
+<div class="modal-overlay" id="modal-add-packaging">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Додати комплект пакування</h3>
+      <button class="modal-close" onclick="closeModal('add-packaging')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group mb-16"><label>Назва комплекту</label><input id="pkg-name" placeholder="Наприклад: Коробка 20x20 + зіп пакет"></div>
+      <div class="section-title">Компоненти</div>
+      <div id="pkg-components"></div>
+      <button class="btn btn-outline btn-sm mt-8" onclick="addPkgComponent('pkg-components')">+ Додати компонент</button>
+      <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;">
+        <strong>Загальна вартість: <span id="pkg-total-cost">0.00</span> грн</strong>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('add-packaging')">Скасувати</button>
+      <button class="btn btn-primary" onclick="savePackagingKit()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Packaging Kit -->
+<div class="modal-overlay" id="modal-edit-packaging">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Редагувати комплект пакування</h3>
+      <button class="modal-close" onclick="closeModal('edit-packaging')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="epkg-id">
+      <div class="form-group mb-16"><label>Назва комплекту</label><input id="epkg-name"></div>
+      <div class="section-title">Компоненти</div>
+      <div id="epkg-components"></div>
+      <button class="btn btn-outline btn-sm mt-8" onclick="addPkgComponent('epkg-components')">+ Додати компонент</button>
+      <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;">
+        <strong>Загальна вартість: <span id="epkg-total-cost">0.00</span> грн</strong>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('edit-packaging')">Скасувати</button>
+      <button class="btn btn-primary" onclick="updatePackagingKit()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Product -->
 <div class="modal-overlay" id="modal-add-product">
   <div class="modal">
@@ -913,7 +971,12 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="section-title">Пакування</div>
       <div class="form-row">
-        <div class="form-group"><label>Вартість пакування, грн</label><input id="prod-packaging" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Комплект пакування</label>
+          <select id="prod-packaging-kit" onchange="updatePackagingPreview('prod')">
+            <option value="">— Без пакування —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Вартість пакування</label><input id="prod-packaging" type="text" disabled style="background:#f5f5f5;" value="0 грн"></div>
       </div>
       <div class="section-title">Шаблон (одноразова інвестиція)</div>
       <div class="form-row">
@@ -1067,7 +1130,12 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="section-title">Пакування</div>
       <div class="form-row">
-        <div class="form-group"><label>Вартість пакування, грн</label><input id="eprod-packaging" type="number" step="0.01"></div>
+        <div class="form-group"><label>Комплект пакування</label>
+          <select id="eprod-packaging-kit" onchange="updatePackagingPreview('eprod')">
+            <option value="">— Без пакування —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Вартість пакування</label><input id="eprod-packaging" type="text" disabled style="background:#f5f5f5;" value="0 грн"></div>
       </div>
       <div class="section-title">Шаблон (одноразова інвестиція)</div>
       <div class="form-row">
@@ -1315,7 +1383,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 } };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -1512,6 +1580,155 @@ function renderMaterials() {
     '</tr>';
   }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
   renderInvoiceHistory();
+  renderPackagingKits();
+}
+
+// ==================== PACKAGING KITS ====================
+function addPkgComponent(containerId) {
+  var container = document.getElementById(containerId);
+  var div = document.createElement('div');
+  div.className = 'form-row';
+  div.innerHTML = '<div class="form-group" style="flex:2;"><label>Назва компонента</label><input class="pkg-comp-name" placeholder="Коробка 20x20"></div>'+
+    '<div class="form-group"><label>Ціна, грн</label><input class="pkg-comp-price" type="number" step="0.01" value="0" oninput="recalcPkgTotal(\''+containerId+'\')"></div>'+
+    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove();recalcPkgTotal(\''+containerId+'\')" style="margin-bottom:2px;">✕</button>';
+  container.appendChild(div);
+}
+
+function recalcPkgTotal(containerId) {
+  var container = document.getElementById(containerId);
+  var total = 0;
+  container.querySelectorAll('.pkg-comp-price').forEach(function(inp) {
+    total += parseFloat(inp.value) || 0;
+  });
+  var prefix = containerId === 'pkg-components' ? 'pkg' : 'epkg';
+  var el = document.getElementById(prefix + '-total-cost');
+  if (el) el.textContent = fmt(total);
+}
+
+function getPkgComponents(containerId) {
+  var container = document.getElementById(containerId);
+  var rows = container.querySelectorAll('.form-row');
+  var comps = [];
+  rows.forEach(function(r) {
+    var name = r.querySelector('.pkg-comp-name').value.trim();
+    var price = parseFloat(r.querySelector('.pkg-comp-price').value) || 0;
+    if (name) comps.push({ name: name, price: price });
+  });
+  return comps;
+}
+
+function savePackagingKit() {
+  var name = document.getElementById('pkg-name').value.trim();
+  if (!name) return alert('Введіть назву комплекту');
+  var components = getPkgComponents('pkg-components');
+  if (components.length === 0) return alert('Додайте хоча б один компонент');
+  var total = 0;
+  components.forEach(function(c) { total += c.price; });
+  var db = getDB();
+  if (!db.packagingKits) db.packagingKits = [];
+  db.packagingKits.push({ id: uid(), name: name, components: components, totalCost: Math.round(total * 100) / 100 });
+  saveDB(db);
+  closeModal('add-packaging');
+  document.getElementById('pkg-name').value = '';
+  document.getElementById('pkg-components').innerHTML = '';
+  document.getElementById('pkg-total-cost').textContent = '0.00';
+  renderPage('materials');
+}
+
+function editPackagingKit(id) {
+  var db = getDB();
+  var kit = (db.packagingKits || []).find(function(k) { return k.id === id; });
+  if (!kit) return;
+  document.getElementById('epkg-id').value = id;
+  document.getElementById('epkg-name').value = kit.name;
+  var container = document.getElementById('epkg-components');
+  container.innerHTML = '';
+  (kit.components || []).forEach(function(c) {
+    addPkgComponent('epkg-components');
+    var last = container.lastElementChild;
+    last.querySelector('.pkg-comp-name').value = c.name;
+    last.querySelector('.pkg-comp-price').value = c.price;
+  });
+  recalcPkgTotal('epkg-components');
+  openModal('edit-packaging');
+}
+
+function updatePackagingKit() {
+  var id = document.getElementById('epkg-id').value;
+  var name = document.getElementById('epkg-name').value.trim();
+  if (!name) return alert('Введіть назву комплекту');
+  var components = getPkgComponents('epkg-components');
+  if (components.length === 0) return alert('Додайте хоча б один компонент');
+  var total = 0;
+  components.forEach(function(c) { total += c.price; });
+  var db = getDB();
+  var kit = (db.packagingKits || []).find(function(k) { return k.id === id; });
+  if (!kit) return;
+  kit.name = name;
+  kit.components = components;
+  kit.totalCost = Math.round(total * 100) / 100;
+  saveDB(db);
+  closeModal('edit-packaging');
+  renderPage('materials');
+}
+
+function deletePackagingKit(id) {
+  if (!confirm('Видалити комплект пакування?')) return;
+  var db = getDB();
+  db.packagingKits = (db.packagingKits || []).filter(function(k) { return k.id !== id; });
+  // Clear kit reference from products that use it
+  db.products.forEach(function(p) {
+    if (p.packagingKitId === id) {
+      p.packagingKitId = null;
+      p.packagingCost = 0;
+    }
+  });
+  saveDB(db);
+  renderPage('materials');
+}
+
+function renderPackagingKits() {
+  var db = getDB();
+  var tb = document.getElementById('packaging-kits-table');
+  if (!tb) return;
+  var kits = db.packagingKits || [];
+  tb.innerHTML = kits.map(function(k) {
+    var compsStr = (k.components || []).map(function(c) { return esc(c.name) + ' (' + fmt(c.price) + ' грн)'; }).join(' + ');
+    return '<tr>' +
+      '<td data-label="Назва"><strong>' + esc(k.name) + '</strong></td>' +
+      '<td data-label="Компоненти"><span style="font-size:13px;">' + compsStr + '</span></td>' +
+      '<td data-label="Вартість"><strong>' + fmt(k.totalCost) + ' грн</strong></td>' +
+      '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editPackagingKit(\'' + k.id + '\')">✏️</button> <button class="btn btn-danger btn-sm" onclick="deletePackagingKit(\'' + k.id + '\')">🗑</button></td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:24px;">Додайте перший комплект пакування</td></tr>';
+}
+
+function populatePackagingKitSelects() {
+  var db = getDB();
+  var kits = db.packagingKits || [];
+  var opts = '<option value="">— Без пакування —</option>' + kits.map(function(k) {
+    return '<option value="' + k.id + '">' + esc(k.name) + ' (' + fmt(k.totalCost) + ' грн)</option>';
+  }).join('');
+  var el1 = document.getElementById('prod-packaging-kit');
+  var el2 = document.getElementById('eprod-packaging-kit');
+  if (el1) el1.innerHTML = opts;
+  if (el2) el2.innerHTML = opts;
+}
+
+function updatePackagingPreview(prefix) {
+  var kitId = v(prefix + '-packaging-kit');
+  var db = getDB();
+  var kit = (db.packagingKits || []).find(function(k) { return k.id === kitId; });
+  var cost = kit ? kit.totalCost : 0;
+  var el = document.getElementById(prefix + '-packaging');
+  if (el) el.value = fmt(cost) + ' грн';
+}
+
+function getSelectedPackagingCost(prefix) {
+  var kitId = v(prefix + '-packaging-kit');
+  var db = getDB();
+  var kit = (db.packagingKits || []).find(function(k) { return k.id === kitId; });
+  return kit ? kit.totalCost : 0;
 }
 
 function renderInvoiceHistory() {
@@ -1609,7 +1826,7 @@ function saveProduct() {
   var db = getDB();
   var p = { id:uid(), sku:v('prod-sku'), name:v('prod-name'), size:v('prod-size'), category:v('prod-category'),
     pages:parseInt(v('prod-pages'))||0, sellPrice:n('prod-price'), workerRate:n('prod-rate'),
-    workerRateType: v('prod-rate-type'), packagingCost: n('prod-packaging'),
+    workerRateType: v('prod-rate-type'), packagingKitId: v('prod-packaging-kit'), packagingCost: getSelectedPackagingCost('prod'),
     templateCost: n('prod-template-cost'), templateQty: parseInt(v('prod-template-qty'))||0,
     recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0, active:true };
   if(!p.name) return alert('Введіть назву');
@@ -1635,7 +1852,9 @@ function editProduct(id) {
   document.getElementById('eprod-price').value = p.sellPrice;
   document.getElementById('eprod-rate-type').value = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
   document.getElementById('eprod-rate').value = p.workerRate || (db.workerRateDefault||{}).value || 25;
-  document.getElementById('eprod-packaging').value = p.packagingCost || 0;
+  populatePackagingKitSelects();
+  document.getElementById('eprod-packaging-kit').value = p.packagingKitId || '';
+  updatePackagingPreview('eprod');
   document.getElementById('eprod-template-cost').value = p.templateCost || 0;
   document.getElementById('eprod-template-qty').value = p.templateQty || 0;
   var rc = document.getElementById('eprod-recipe');
@@ -1659,7 +1878,7 @@ function updateProduct() {
   p.sku = v('eprod-sku'); p.name = v('eprod-name'); p.size = v('eprod-size');
   p.category = v('eprod-category'); p.pages = parseInt(v('eprod-pages'))||0;
   p.sellPrice = n('eprod-price'); p.workerRate = n('eprod-rate');
-  p.workerRateType = v('eprod-rate-type'); p.packagingCost = n('eprod-packaging');
+  p.workerRateType = v('eprod-rate-type'); p.packagingKitId = v('eprod-packaging-kit'); p.packagingCost = getSelectedPackagingCost('eprod');
   p.templateCost = n('eprod-template-cost'); p.templateQty = parseInt(v('eprod-template-qty'))||0;
   p.recipe = getRecipeFromContainer('eprod-recipe');
   saveDB(db);
@@ -1760,8 +1979,14 @@ function calcCost(product, materials, db) {
   if ((product.pages||0) > 0 && (ps.costPerPageA4||0) > 0) {
     printCost = (product.pages||0) * ps.costPerPageA4;
   }
-  // Packaging
-  var packagingCost = product.packagingCost || 0;
+  // Packaging — use kit price if available (always up-to-date)
+  var packagingCost = 0;
+  if (product.packagingKitId) {
+    var pkgKit = (db.packagingKits || []).find(function(k) { return k.id === product.packagingKitId; });
+    packagingCost = pkgKit ? pkgKit.totalCost : (product.packagingCost || 0);
+  } else {
+    packagingCost = product.packagingCost || 0;
+  }
   // Template amortization
   var templateCost = 0;
   if ((product.templateCost||0) > 0 && (product.templateQty||0) > 0) {
@@ -1949,7 +2174,7 @@ function resetAllCosts() {
     p.pages = 0;
     p.workerRate = 0;
     p.workerRateType = 'percent';
-    p.packagingCost = 0;
+    p.packagingCost = 0; p.packagingKitId = null;
     p.templateCost = 0;
     p.templateQty = 0;
     count++;
