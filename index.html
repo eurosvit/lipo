@@ -476,7 +476,7 @@ a.order-link:hover { text-decoration:underline; }
     <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
   </div>
   <div class="table-wrap" style="margin-top:12px;">
-    <table><thead><tr><th>#</th><th>CRM</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Канал</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th>#</th><th>Статус</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Канал</th><th>Майстер</th><th>Дії</th></tr></thead>
     <tbody id="orders-table"></tbody></table>
   </div>
 </div>
@@ -2661,25 +2661,22 @@ function renderOrders() {
   tb.innerHTML = filtered.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
     var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
-    var crmBadge = o.crmId ? '<span class="badge badge-ok" style="font-size:10px;" title="SalesDrive #'+o.crmId+'">CRM #'+o.crmId+'</span>' : '<span class="text-muted" style="font-size:11px;">ручне</span>';
     var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
     var chColor = getChannelColor(o.channel);
-    var channelBadge = o.channel ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:'+chColor.bg+';color:'+chColor.text+';">'+esc(o.channel)+'</span>' : '<span class="text-muted" style="font-size:11px;">—</span>';
     var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
     return '<tr>'+
-      '<td data-label="№">#'+o.num+'</td>'+
-      '<td data-label="Джерело">'+crmBadge+'</td>'+
+      '<td data-label="№">#'+o.num+(o.crmId?'<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>':'')+'</td>'+
+      '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>'+
       '<td data-label="Дата">'+o.date+'</td>'+
       '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
       '<td data-label="Товари">'+itemsStr+'</td>'+
       '<td data-label="Сума">'+fmt(o.total)+' грн</td>'+
       '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>'+
       '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>'+
-      '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
+  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
 
   // Also render channel manager
   renderChannelManager();
