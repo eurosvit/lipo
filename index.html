@@ -440,7 +440,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
   <div class="section-title">Історія виробництва</div>
   <div class="table-wrap">
-    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>К-сть</th><th>Майстер</th><th>Статус</th></tr></thead>
+    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>К-сть</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="production-history"></tbody></table>
   </div>
 </div>
@@ -2338,14 +2338,18 @@ function populateCompleteProd() {
   var sel = document.getElementById('cp-batch');
   sel.innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    return '<option value="'+b.id+'">'+(p?esc(p.name):'?')+' x '+b.qty+' ('+esc(b.worker)+', '+b.date+')</option>';
-  }).join('');
+    return '<option value="'+b.id+'">'+(p?esc(p.name):'?')+' — '+b.qty+' шт ('+esc(b.worker)+', '+b.date+')</option>';
+  }).join('') || '<option value="">Немає активного виробництва</option>';
   if(active.length>0) {
     document.getElementById('cp-qty').value = active[0].qty;
+    document.getElementById('cp-qty').max = active[0].qty;
   }
   sel.onchange = function() {
     var batch = active.find(function(x){return x.id===sel.value});
-    if(batch) document.getElementById('cp-qty').value = batch.qty;
+    if(batch) {
+      document.getElementById('cp-qty').value = batch.qty;
+      document.getElementById('cp-qty').max = batch.qty;
+    }
   };
 }
 
@@ -2355,14 +2359,22 @@ function completeProduction() {
   var qty = parseInt(document.getElementById('cp-qty').value)||0;
   var batch = db.production.find(function(x){return x.id===batchId});
   if(!batch || qty<=0) return alert('Оберіть партію');
+  if(qty > batch.qty) return alert('Не можна здати більше ніж в роботі ('+batch.qty+' шт)');
   var p = db.products.find(function(x){return x.id===batch.productId});
   if(p) {
     p.stock = (p.stock||0) + qty;
-    p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+    p.inProgress = Math.max(0, (p.inProgress||0) - qty);
   }
-  batch.status = 'completed';
-  batch.completedQty = qty;
-  batch.completedDate = new Date().toISOString().slice(0,10);
+  if(qty < batch.qty) {
+    // Partial completion: create completed record, reduce batch
+    db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10) });
+    batch.qty -= qty;
+  } else {
+    // Full completion
+    batch.status = 'completed';
+    batch.completedQty = qty;
+    batch.completedDate = new Date().toISOString().slice(0,10);
+  }
   saveDB(db);
   closeModal('complete-production');
   renderPage('production');
@@ -2375,26 +2387,96 @@ function renderProduction() {
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
-      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+b.qty+'</td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
+      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть"><strong>'+b.qty+'</strong></td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
       '<td data-label="Статус"><span class="badge badge-warning">В роботі</span></td>'+
-      '<td data-label="Дії"><button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')">Здати</button></td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
+        '<button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')" title="Здати">Здати</button> '+
+        '<button class="btn btn-outline btn-sm" onclick="editProductionBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
+        '<button class="btn btn-danger btn-sm" onclick="deleteProductionBatch(\''+b.id+'\')" title="Видалити">🗑</button>'+
+      '</td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Немає активного виробництва</td></tr>';
 
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
-      '<td data-label="Статус"><span class="badge badge-success">Готово</span></td></tr>';
-  }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
+      '<td data-label="Статус"><span class="badge badge-success">Готово</span></td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
+        '<button class="btn btn-outline btn-sm" onclick="editCompletedBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
+        '<button class="btn btn-danger btn-sm" onclick="deleteCompletedBatch(\''+b.id+'\')" title="Видалити">🗑</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
 }
 
 function quickComplete(batchId) {
   var db = getDB();
   var batch = db.production.find(function(x){return x.id===batchId});
   if(!batch) return;
-  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+batch.qty+' шт</option>';
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  var name = p ? esc(p.name) : '?';
+  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+name+' x '+batch.qty+' ('+esc(batch.worker)+')</option>';
   document.getElementById('cp-qty').value = batch.qty;
   openModal('complete-production');
+}
+
+function editProductionBatch(batchId) {
+  var db = getDB();
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch) return;
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  var newQty = prompt('Кількість в роботі (зараз: '+batch.qty+'):', batch.qty);
+  if(newQty === null) return;
+  newQty = parseInt(newQty)||0;
+  if(newQty <= 0) return alert('Кількість має бути більше 0');
+  var diff = newQty - batch.qty;
+  if(p) p.inProgress = Math.max(0, (p.inProgress||0) + diff);
+  batch.qty = newQty;
+  saveDB(db);
+  renderPage('production');
+}
+
+function deleteProductionBatch(batchId) {
+  if(!confirm('Видалити запис виробництва? (Матеріали не повернуться)')) return;
+  var db = getDB();
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch) return;
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  if(p) p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+  db.production = db.production.filter(function(x){return x.id!==batchId});
+  saveDB(db);
+  renderPage('production');
+}
+
+function editCompletedBatch(batchId) {
+  var db = getDB();
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch) return;
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  var curQty = batch.completedQty || batch.qty;
+  var newQty = prompt('Здано штук (зараз: '+curQty+'):', curQty);
+  if(newQty === null) return;
+  newQty = parseInt(newQty)||0;
+  if(newQty <= 0) return alert('Кількість має бути більше 0');
+  var diff = newQty - curQty;
+  if(p) p.stock = Math.max(0, (p.stock||0) + diff);
+  batch.completedQty = newQty;
+  batch.qty = newQty;
+  saveDB(db);
+  renderPage('production');
+}
+
+function deleteCompletedBatch(batchId) {
+  if(!confirm('Видалити запис з історії? (Кількість на складі зменшиться)')) return;
+  var db = getDB();
+  var batch = db.production.find(function(x){return x.id===batchId});
+  if(!batch) return;
+  var p = db.products.find(function(x){return x.id===batch.productId});
+  var qty = batch.completedQty || batch.qty;
+  if(p) p.stock = Math.max(0, (p.stock||0) - qty);
+  db.production = db.production.filter(function(x){return x.id!==batchId});
+  saveDB(db);
+  renderPage('production');
 }
 
 // ==================== ORDERS ====================
