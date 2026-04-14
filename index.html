@@ -1881,6 +1881,7 @@ function renderProducts() {
     var can = calcCanProduce(p, db.materials);
     var cost = calcCost(p, db.materials);
     var margin = p.sellPrice - cost.total;
+    var marginPct = p.sellPrice > 0 ? Math.round(margin / p.sellPrice * 100) : 0;
     var inactive = p.active===false;
     return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
       '<td><input type="checkbox" class="prod-cb" value="'+p.id+'" onchange="updateProdSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
@@ -1892,7 +1893,7 @@ function renderProducts() {
       '<td data-label="В роботі">'+(p.inProgress||0)+'</td>'+
       '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>'+
       '<td data-label="Ціна продажу">'+fmt(p.sellPrice)+' грн</td>'+
-      '<td data-label="Маржа" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн</td>'+
+      '<td data-label="Маржа" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн <span style="font-size:11px;opacity:0.7;">('+marginPct+'%)</span></td>'+
       '<td data-label="Можна зібрати">'+can+' шт</td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+(p.active===false?
         '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
