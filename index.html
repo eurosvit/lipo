@@ -418,7 +418,16 @@ a.order-link:hover { text-decoration:underline; }
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(false)" title="Деактивувати все що в фільтрі">⏸ Деактив. показані</button>
       <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(true)" title="Активувати все що в фільтрі">▶ Актив. показані</button>
+      <button class="btn btn-outline btn-sm" onclick="toggleProdColSettings()" title="Налаштування стовпчиків">⚙️</button>
     </div>
+  </div>
+  <div id="prod-col-settings" style="display:none;margin-top:8px;padding:16px;background:var(--bg);border-radius:10px;max-width:500px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <strong style="font-size:14px;">Налаштування стовпчиків</strong>
+      <button class="btn btn-outline btn-sm" onclick="resetProdCols()">↩ Скинути</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">Ввімкніть/вимкніть стовпчики та змініть порядок стрілками</p>
+    <div id="prod-col-list"></div>
   </div>
   <div id="prod-bulk-bar" style="display:none;padding:10px 16px;background:#E8F5E9;border-radius:8px;margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap;">
     <span id="prod-selected-count" style="font-weight:600;font-size:13px;"></span>
@@ -427,7 +436,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="clearProdSelection()">Скасувати</button>
   </div>
   <div class="table-wrap">
-    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th class="sortable" onclick="sortProducts('sku')">Артикул <span id="sort-icon-sku"></span></th><th class="sortable" onclick="sortProducts('name')">Назва <span id="sort-icon-name"></span></th><th>Розмір</th><th>Категорія</th><th class="sortable" onclick="sortProducts('stock')">Мій склад <span id="sort-icon-stock"></span></th><th class="sortable" onclick="sortProducts('atWorker')">У майстрів <span id="sort-icon-atWorker"></span></th><th class="sortable" onclick="sortProducts('inProgress')">В роботі <span id="sort-icon-inProgress"></span></th><th class="sortable" onclick="sortProducts('cost')">Собівартість <span id="sort-icon-cost"></span></th><th class="sortable" onclick="sortProducts('sellPrice')">Ціна продажу <span id="sort-icon-sellPrice"></span></th><th class="sortable" onclick="sortProducts('margin')">Маржа <span id="sort-icon-margin"></span></th><th class="sortable" onclick="sortProducts('canProduce')">Можна зібрати <span id="sort-icon-canProduce"></span></th><th>Дії</th></tr></thead>
+    <table><thead><tr id="products-thead"></tr></thead>
     <tbody id="products-table"></tbody></table>
   </div>
 </div>
@@ -2133,6 +2142,94 @@ function populateCategorySelects() {
 
 var _prodSort = { key: null, asc: true };
 
+var _defaultProdCols = [
+  { id:'sku', label:'Артикул', sortable:true, visible:true },
+  { id:'name', label:'Назва', sortable:true, visible:true },
+  { id:'size', label:'Розмір', sortable:false, visible:true },
+  { id:'category', label:'Категорія', sortable:false, visible:true },
+  { id:'stock', label:'Мій склад', sortable:true, visible:true },
+  { id:'atWorker', label:'У майстрів', sortable:true, visible:true },
+  { id:'inProgress', label:'В роботі', sortable:true, visible:true },
+  { id:'cost', label:'Собівартість', sortable:true, visible:true },
+  { id:'sellPrice', label:'Ціна продажу', sortable:true, visible:true },
+  { id:'margin', label:'Маржа', sortable:true, visible:true },
+  { id:'canProduce', label:'Можна зібрати', sortable:true, visible:true }
+];
+
+function getProdCols() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('lipo_prod_cols'));
+    if (saved && saved.length) {
+      // Merge with defaults (add new cols that might not be in saved)
+      var savedIds = saved.map(function(c){return c.id;});
+      _defaultProdCols.forEach(function(d) {
+        if (savedIds.indexOf(d.id)===-1) saved.push({id:d.id,label:d.label,sortable:d.sortable,visible:true});
+      });
+      // Update labels/sortable from defaults
+      return saved.map(function(s) {
+        var def = _defaultProdCols.find(function(d){return d.id===s.id;});
+        return def ? {id:s.id, label:def.label, sortable:def.sortable, visible:s.visible} : s;
+      }).filter(function(s) {
+        return _defaultProdCols.some(function(d){return d.id===s.id;});
+      });
+    }
+  } catch(e){}
+  return _defaultProdCols.map(function(c){return {id:c.id,label:c.label,sortable:c.sortable,visible:c.visible};});
+}
+
+function saveProdCols(cols) {
+  localStorage.setItem('lipo_prod_cols', JSON.stringify(cols));
+}
+
+function toggleProdColSettings() {
+  var el = document.getElementById('prod-col-settings');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+  if (el.style.display==='block') renderProdColSettings();
+}
+
+function renderProdColSettings() {
+  var cols = getProdCols();
+  var html = '';
+  cols.forEach(function(c, i) {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;" data-col-id="'+c.id+'">'+
+      '<input type="checkbox" '+(c.visible?'checked':'')+' onchange="toggleProdCol(\''+c.id+'\',this.checked)" style="width:16px;height:16px;accent-color:var(--primary);">'+
+      '<span style="flex:1;font-size:13px;font-weight:500;">'+c.label+'</span>'+
+      '<button onclick="moveProdCol(\''+c.id+'\',-1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===0?'0.2':'0.7')+';" '+(i===0?'disabled':'')+'>▲</button>'+
+      '<button onclick="moveProdCol(\''+c.id+'\',1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===cols.length-1?'0.2':'0.7')+';" '+(i===cols.length-1?'disabled':'')+'>▼</button>'+
+    '</div>';
+  });
+  document.getElementById('prod-col-list').innerHTML = html;
+}
+
+function toggleProdCol(colId, visible) {
+  var cols = getProdCols();
+  var col = cols.find(function(c){return c.id===colId;});
+  if (col) col.visible = visible;
+  saveProdCols(cols);
+  renderProducts();
+  renderProdColSettings();
+}
+
+function moveProdCol(colId, dir) {
+  var cols = getProdCols();
+  var idx = cols.findIndex(function(c){return c.id===colId;});
+  if (idx===-1) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= cols.length) return;
+  var tmp = cols[idx];
+  cols[idx] = cols[newIdx];
+  cols[newIdx] = tmp;
+  saveProdCols(cols);
+  renderProducts();
+  renderProdColSettings();
+}
+
+function resetProdCols() {
+  localStorage.removeItem('lipo_prod_cols');
+  renderProducts();
+  renderProdColSettings();
+}
+
 function sortProducts(key) {
   if (_prodSort.key === key) {
     _prodSort.asc = !_prodSort.asc;
@@ -2190,6 +2287,10 @@ function renderProducts() {
     }
   });
 
+  // Column config
+  var cols = getProdCols();
+  var visCols = cols.filter(function(c){return c.visible;});
+
   // Sort
   if (_prodSort.key) {
     filtered.sort(function(a, b) {
@@ -2213,7 +2314,33 @@ function renderProducts() {
       return _prodSort.asc ? va - vb : vb - va;
     });
   }
+
+  // Render thead
+  var thead = document.getElementById('products-thead');
+  thead.innerHTML = '<th style="width:36px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProducts(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th>' +
+    visCols.map(function(c) {
+      if (c.sortable) return '<th class="sortable" onclick="sortProducts(\''+c.id+'\')">'+c.label+'</th>';
+      return '<th>'+c.label+'</th>';
+    }).join('') + '<th>Дії</th>';
   updateSortIcons();
+
+  // Cell renderer
+  function cellHtml(colId, p, cost, can, margin, marginPct, atW, inactive) {
+    switch(colId) {
+      case 'sku': return '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>';
+      case 'name': return '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>';
+      case 'size': return '<td data-label="Розмір">'+esc(p.size||'—')+'</td>';
+      case 'category': return '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>';
+      case 'stock': return '<td data-label="Мій склад">'+(p.stock||0)+'</td>';
+      case 'atWorker': return '<td data-label="У майстрів">'+(atW > 0 ? '<span style="color:var(--primary);font-weight:600;">'+atW+'</span>' : '0')+'</td>';
+      case 'inProgress': return '<td data-label="В роботі">'+(p.inProgress||0)+'</td>';
+      case 'cost': return '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>';
+      case 'sellPrice': return '<td data-label="Ціна продажу">'+fmt(p.sellPrice)+' грн</td>';
+      case 'margin': return '<td data-label="Маржа" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн <span style="font-size:11px;opacity:0.7;">('+marginPct+'%)</span></td>';
+      case 'canProduce': return '<td data-label="Можна зібрати">'+can+' шт</td>';
+      default: return '<td>—</td>';
+    }
+  }
 
   var tb = document.getElementById('products-table');
   tb.innerHTML = filtered.map(function(p) {
@@ -2223,25 +2350,16 @@ function renderProducts() {
     var marginPct = p.sellPrice > 0 ? Math.round(margin / p.sellPrice * 100) : 0;
     var inactive = p.active===false;
     var atW = _atWorker[p.id] || 0;
+    var cells = visCols.map(function(c){ return cellHtml(c.id, p, cost, can, margin, marginPct, atW, inactive); }).join('');
     return '<tr style="'+(inactive?'opacity:0.45;background:#f9f9f9;':'')+'">'+
       '<td><input type="checkbox" class="prod-cb" value="'+p.id+'" onchange="updateProdSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
-      '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>'+
-      '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>'+
-      '<td data-label="Розмір">'+esc(p.size||'—')+'</td>'+
-      '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>'+
-      '<td data-label="Мій склад">'+(p.stock||0)+'</td>'+
-      '<td data-label="У майстрів">'+(atW > 0 ? '<span style="color:var(--primary);font-weight:600;">'+atW+'</span>' : '0')+'</td>'+
-      '<td data-label="В роботі">'+(p.inProgress||0)+'</td>'+
-      '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>'+
-      '<td data-label="Ціна продажу">'+fmt(p.sellPrice)+' грн</td>'+
-      '<td data-label="Маржа" class="'+(margin>0?'text-success':'text-danger')+'">'+fmt(margin)+' грн <span style="font-size:11px;opacity:0.7;">('+marginPct+'%)</span></td>'+
-      '<td data-label="Можна зібрати">'+can+' шт</td>'+
+      cells+
       '<td data-label="Дії" style="white-space:nowrap;">'+(p.active===false?
         '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="13" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+  }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
 }
 
 function toggleAllProducts(checked) {
