@@ -138,6 +138,9 @@ th { background:#EDE7F6; color:var(--primary-dark); }
 tr:hover td { background:#F3F0FF; }
 th.sortable { cursor:pointer; user-select:none; }
 th.sortable:hover { color:var(--primary); }
+th.sortable::after { content:'⇅'; font-size:10px; opacity:0.3; margin-left:3px; }
+th.sortable.asc::after { content:'▲'; opacity:0.8; color:var(--primary); }
+th.sortable.desc::after { content:'▼'; opacity:0.8; color:var(--primary); }
 th.sortable span { font-size:10px; }
 a.order-link { color:var(--primary); text-decoration:none; font-size:12px; }
 a.order-link:hover { text-decoration:underline; }
@@ -2131,11 +2134,13 @@ function sortProducts(key) {
 }
 
 function updateSortIcons() {
-  var keys = ['sku','name','stock','inProgress','cost','sellPrice','margin','canProduce'];
-  keys.forEach(function(k) {
-    var el = document.getElementById('sort-icon-'+k);
-    if (el) el.textContent = _prodSort.key===k ? (_prodSort.asc ? '▲' : '▼') : '';
+  document.querySelectorAll('th.sortable').forEach(function(th) {
+    th.classList.remove('asc', 'desc');
   });
+  if (_prodSort.key) {
+    var th = document.querySelector('th.sortable[onclick*="\''+_prodSort.key+'\'"]');
+    if (th) th.classList.add(_prodSort.asc ? 'asc' : 'desc');
+  }
 }
 
 function renderProducts() {
