@@ -371,6 +371,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
   <div style="margin-bottom:12px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
+    <button class="btn btn-outline btn-sm" onclick="resetAllCosts()" style="margin-left:8px;">🧹 Скинути собівартість</button>
     <div id="cat-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="cat-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -1871,6 +1872,25 @@ function bulkSelectedProducts(activate) {
   });
   saveDB(db);
   renderProducts();
+}
+
+function resetAllCosts() {
+  if (!confirm('Скинути собівартість у ВСІХ ігор?\n\nБуде очищено:\n• Рецепти (матеріали)\n• Сторінки друку\n• Ставки майстрів\n\nСобівартість стане 0 грн.\nПотім заповниш через технологічну карту.')) return;
+  var db = getDB();
+  var count = 0;
+  db.products.forEach(function(p) {
+    p.recipe = [];
+    p.pages = 0;
+    p.workerRate = 0;
+    p.workerRateType = 'percent';
+    p.packagingCost = 0;
+    p.templateCost = 0;
+    p.templateQty = 0;
+    count++;
+  });
+  saveDB(db);
+  renderProducts();
+  alert('Готово! Скинуто собівартість у ' + count + ' ігор.');
 }
 
 // ==================== PRODUCTION ====================
