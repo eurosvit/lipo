@@ -107,9 +107,14 @@ textarea { resize:vertical; min-height:60px; }
 /* MODAL */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
 .modal-overlay.show { display:flex; }
-.modal { background:#fff; border-radius:4px; padding:24px; max-width:700px; width:100%; max-height:90vh; overflow-y:auto; }
+.modal { background:#fff; border-radius:12px; padding:0; max-width:700px; width:100%; max-height:90vh; display:flex; flex-direction:column; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:#fff; border-radius:12px 12px 0 0; z-index:1; }
+.modal-header h3 { margin:0; }
+.modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-light); padding:4px 8px; border-radius:6px; line-height:1; }
+.modal-close:hover { background:var(--bg); color:var(--text); }
+.modal-body { padding:24px; overflow-y:auto; flex:1; }
 .modal h3 { margin-bottom:16px; }
-.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; padding:16px 24px; border-top:1px solid var(--border); position:sticky; bottom:0; background:#fff; border-radius:0 0 12px 12px; }
 
 /* FILTER BAR */
 .filter-bar { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; align-items:center; }
@@ -824,20 +829,25 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Add Material -->
 <div class="modal-overlay" id="modal-add-material">
   <div class="modal">
-    <h3>Додати матеріал</h3>
-    <div class="form-group mb-16"><label>Назва</label><input id="mat-name" placeholder="Ліпучка біла 25мм"></div>
-    <div class="form-row">
-      <div class="form-group"><label>Одиниця виміру</label>
-        <select id="mat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select>
+    <div class="modal-header">
+      <h3>Додати матеріал</h3>
+      <button class="modal-close" onclick="closeModal('add-material')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group mb-16"><label>Назва</label><input id="mat-name" placeholder="Ліпучка біла 25мм"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Одиниця виміру</label>
+          <select id="mat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select>
+        </div>
+        <div class="form-group"><label>Поточний залишок</label><input id="mat-qty" type="number" step="0.01" value="0"></div>
       </div>
-      <div class="form-group"><label>Поточний залишок</label><input id="mat-qty" type="number" step="0.01" value="0"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Мінімальний запас</label><input id="mat-min" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Ціна за одиницю, грн</label><input id="mat-price" type="number" step="0.01" value="0"></div>
+      </div>
+      <div class="form-group mb-16"><label>Постачальник</label><input id="mat-supplier" placeholder="Назва або контакт"></div>
+      <div class="form-group"><label>Коментар</label><textarea id="mat-note" placeholder="Додаткова інформація..."></textarea></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Мінімальний запас</label><input id="mat-min" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label>Ціна за одиницю, грн</label><input id="mat-price" type="number" step="0.01" value="0"></div>
-    </div>
-    <div class="form-group mb-16"><label>Постачальник</label><input id="mat-supplier" placeholder="Назва або контакт"></div>
-    <div class="form-group"><label>Коментар</label><textarea id="mat-note" placeholder="Додаткова інформація..."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-material')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveMaterial()">Зберегти</button>
@@ -848,12 +858,17 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Receive Material -->
 <div class="modal-overlay" id="modal-receive-material">
   <div class="modal">
-    <h3>Прихід матеріалів</h3>
-    <div class="form-row">
-      <div class="form-group"><label>Матеріал</label><select id="recv-mat"></select></div>
-      <div class="form-group"><label>Кількість</label><input id="recv-qty" type="number" step="0.01"></div>
+    <div class="modal-header">
+      <h3>Прихід матеріалів</h3>
+      <button class="modal-close" onclick="closeModal('receive-material')">&times;</button>
     </div>
-    <div class="form-group mb-16"><label>Ціна за одиницю (нова)</label><input id="recv-price" type="number" step="0.01" placeholder="Залиште порожнім якщо та сама"></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Матеріал</label><select id="recv-mat"></select></div>
+        <div class="form-group"><label>Кількість</label><input id="recv-qty" type="number" step="0.01"></div>
+      </div>
+      <div class="form-group mb-16"><label>Ціна за одиницю (нова)</label><input id="recv-price" type="number" step="0.01" placeholder="Залиште порожнім якщо та сама"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('receive-material')">Скасувати</button>
       <button class="btn btn-success" onclick="receiveMaterial()">Прийняти</button>
@@ -864,47 +879,52 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Add Product -->
 <div class="modal-overlay" id="modal-add-product">
   <div class="modal">
-    <h3>Додати гру</h3>
-    <div class="form-row">
-      <div class="form-group"><label>Артикул (SKU)</label><input id="prod-sku" placeholder="LP1201SQ"></div>
-      <div class="form-group"><label>Назва гри</label><input id="prod-name" placeholder="Ферма на ліпучках"></div>
+    <div class="modal-header">
+      <h3>Додати гру</h3>
+      <button class="modal-close" onclick="closeModal('add-product')">&times;</button>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Розмір</label><input id="prod-size" placeholder="А4, 21x21 см..."></div>
-      <div class="form-group"><label>Категорія</label><select id="prod-category"><option value="">— Оберіть —</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
-    </div>
-    <div class="section-title">Друк</div>
-    <div class="form-row">
-      <div class="form-group"><label>Сторінок друку А4</label><input id="prod-pages" type="number" step="1" value="0" placeholder="0"></div>
-      <div class="form-group"><label>Вартість друку (авто)</label><input id="prod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
-    </div>
-    <div class="section-title">Робота майстра</div>
-    <div class="form-row">
-      <div class="form-group"><label>Тип ставки</label>
-        <select id="prod-rate-type" onchange="updateRatePreview('prod')">
-          <option value="percent">% від ціни продажу</option>
-          <option value="fixed">Фіксована сума (грн/шт)</option>
-        </select>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Артикул (SKU)</label><input id="prod-sku" placeholder="LP1201SQ"></div>
+        <div class="form-group"><label>Назва гри</label><input id="prod-name" placeholder="Ферма на ліпучках"></div>
       </div>
-      <div class="form-group"><label>Значення</label><input id="prod-rate" type="number" step="0.01" value="25" onchange="updateRatePreview('prod')"></div>
-      <div class="form-group"><label>= Робота, грн</label><input id="prod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Розмір</label><input id="prod-size" placeholder="А4, 21x21 см..."></div>
+        <div class="form-group"><label>Категорія</label><select id="prod-category"><option value="">— Оберіть —</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
+      </div>
+      <div class="section-title">Друк</div>
+      <div class="form-row">
+        <div class="form-group"><label>Сторінок друку А4</label><input id="prod-pages" type="number" step="1" value="0" placeholder="0"></div>
+        <div class="form-group"><label>Вартість друку (авто)</label><input id="prod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Робота майстра</div>
+      <div class="form-row">
+        <div class="form-group"><label>Тип ставки</label>
+          <select id="prod-rate-type" onchange="updateRatePreview('prod')">
+            <option value="percent">% від ціни продажу</option>
+            <option value="fixed">Фіксована сума (грн/шт)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Значення</label><input id="prod-rate" type="number" step="0.01" value="25" onchange="updateRatePreview('prod')"></div>
+        <div class="form-group"><label>= Робота, грн</label><input id="prod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Пакування</div>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість пакування, грн</label><input id="prod-packaging" type="number" step="0.01" value="0"></div>
+      </div>
+      <div class="section-title">Шаблон (одноразова інвестиція)</div>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість шаблону, грн</label><input id="prod-template-cost" type="number" step="0.01" value="0" placeholder="0"></div>
+        <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="prod-template-qty" type="number" step="1" value="0" placeholder="Наприклад: 100"></div>
+        <div class="form-group"><label>= На 1 виріб</label><input id="prod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Склад виробу (на 1 шт)</div>
+      <div id="prod-recipe"></div>
+      <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
     </div>
-    <div class="section-title">Пакування</div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість пакування, грн</label><input id="prod-packaging" type="number" step="0.01" value="0"></div>
-    </div>
-    <div class="section-title">Шаблон (одноразова інвестиція)</div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість шаблону, грн</label><input id="prod-template-cost" type="number" step="0.01" value="0" placeholder="0"></div>
-      <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="prod-template-qty" type="number" step="1" value="0" placeholder="Наприклад: 100"></div>
-      <div class="form-group"><label>= На 1 виріб</label><input id="prod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
-    </div>
-    <div class="section-title">Склад виробу (на 1 шт)</div>
-    <div id="prod-recipe"></div>
-    <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-product')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveProduct()">Зберегти</button>
@@ -915,18 +935,23 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Start Production -->
 <div class="modal-overlay" id="modal-start-production">
   <div class="modal">
-    <h3>Запустити виробництво</h3>
-    <div class="form-row">
-      <div class="form-group" style="position:relative;">
-        <label>Гра</label>
-        <input id="sp-search" type="text" placeholder="Пошук гри..." autocomplete="off" oninput="filterSpProducts()" onfocus="document.getElementById('sp-dropdown').style.display='block'">
-        <input type="hidden" id="sp-product">
-        <div id="sp-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-      </div>
-      <div class="form-group"><label>Кількість</label><input id="sp-qty" type="number" value="1" min="1" onchange="checkCanProduce()"></div>
+    <div class="modal-header">
+      <h3>Запустити виробництво</h3>
+      <button class="modal-close" onclick="closeModal('start-production')">&times;</button>
     </div>
-    <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
-    <div id="sp-info" class="text-muted" style="font-size:13px;"></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="position:relative;">
+          <label>Гра</label>
+          <input id="sp-search" type="text" placeholder="Пошук гри..." autocomplete="off" oninput="filterSpProducts()" onfocus="document.getElementById('sp-dropdown').style.display='block'">
+          <input type="hidden" id="sp-product">
+          <div id="sp-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div class="form-group"><label>Кількість</label><input id="sp-qty" type="number" value="1" min="1" onchange="checkCanProduce()"></div>
+      </div>
+      <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
+      <div id="sp-info" class="text-muted" style="font-size:13px;"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('start-production')">Скасувати</button>
       <button class="btn btn-primary" id="sp-btn" onclick="startProduction()">Запустити</button>
@@ -937,9 +962,14 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Complete Production -->
 <div class="modal-overlay" id="modal-complete-production">
   <div class="modal">
-    <h3>Здати на склад</h3>
-    <div class="form-group mb-16"><label>Виробництво</label><select id="cp-batch"></select></div>
-    <div class="form-group mb-16"><label>Фактично виконано, шт</label><input id="cp-qty" type="number" min="1"></div>
+    <div class="modal-header">
+      <h3>Здати на склад</h3>
+      <button class="modal-close" onclick="closeModal('complete-production')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group mb-16"><label>Виробництво</label><select id="cp-batch"></select></div>
+      <div class="form-group mb-16"><label>Фактично виконано, шт</label><input id="cp-qty" type="number" min="1"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('complete-production')">Скасувати</button>
       <button class="btn btn-success" onclick="completeProduction()">Здати</button>
@@ -950,15 +980,20 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Add Order -->
 <div class="modal-overlay" id="modal-add-order">
   <div class="modal">
-    <h3>Нове замовлення</h3>
-    <div class="form-row">
-      <div class="form-group"><label>Клієнт</label><input id="ord-client" placeholder="Ім'я / телефон"></div>
-      <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
+    <div class="modal-header">
+      <h3>Нове замовлення</h3>
+      <button class="modal-close" onclick="closeModal('add-order')">&times;</button>
     </div>
-    <div class="section-title">Товари</div>
-    <div id="ord-items"></div>
-    <button class="btn btn-outline btn-sm mt-8" onclick="addOrderLine()">+ Додати товар</button>
-    <div id="ord-total" style="margin-top:12px;font-weight:600;font-size:16px;"></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Клієнт</label><input id="ord-client" placeholder="Ім'я / телефон"></div>
+        <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
+      </div>
+      <div class="section-title">Товари</div>
+      <div id="ord-items"></div>
+      <button class="btn btn-outline btn-sm mt-8" onclick="addOrderLine()">+ Додати товар</button>
+      <div id="ord-total" style="margin-top:12px;font-weight:600;font-size:16px;"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-order')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveOrder()">Створити</button>
@@ -969,19 +1004,24 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Edit Material -->
 <div class="modal-overlay" id="modal-edit-material">
   <div class="modal">
-    <h3>Редагувати матеріал</h3>
-    <input type="hidden" id="emat-id">
-    <div class="form-group mb-16"><label>Назва</label><input id="emat-name"></div>
-    <div class="form-row">
-      <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select></div>
-      <div class="form-group"><label>Залишок</label><input id="emat-qty" type="number" step="0.01"></div>
+    <div class="modal-header">
+      <h3>Редагувати матеріал</h3>
+      <button class="modal-close" onclick="closeModal('edit-material')">&times;</button>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Мінімальний запас</label><input id="emat-min" type="number" step="0.01"></div>
-      <div class="form-group"><label>Ціна/од.</label><input id="emat-price" type="number" step="0.01"></div>
+    <div class="modal-body">
+      <input type="hidden" id="emat-id">
+      <div class="form-group mb-16"><label>Назва</label><input id="emat-name"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select></div>
+        <div class="form-group"><label>Залишок</label><input id="emat-qty" type="number" step="0.01"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Мінімальний запас</label><input id="emat-min" type="number" step="0.01"></div>
+        <div class="form-group"><label>Ціна/од.</label><input id="emat-price" type="number" step="0.01"></div>
+      </div>
+      <div class="form-group mb-16"><label>Постачальник</label><input id="emat-supplier"></div>
+      <div class="form-group"><label>Коментар</label><textarea id="emat-note"></textarea></div>
     </div>
-    <div class="form-group mb-16"><label>Постачальник</label><input id="emat-supplier"></div>
-    <div class="form-group"><label>Коментар</label><textarea id="emat-note"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('edit-material')">Скасувати</button>
       <button class="btn btn-primary" onclick="updateMaterial()">Зберегти</button>
@@ -992,48 +1032,53 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Edit Product -->
 <div class="modal-overlay" id="modal-edit-product">
   <div class="modal">
-    <h3>Редагувати гру</h3>
-    <input type="hidden" id="eprod-id">
-    <div class="form-row">
-      <div class="form-group"><label>Артикул (SKU)</label><input id="eprod-sku"></div>
-      <div class="form-group"><label>Назва</label><input id="eprod-name"></div>
+    <div class="modal-header">
+      <h3>Редагувати гру</h3>
+      <button class="modal-close" onclick="closeModal('edit-product')">&times;</button>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Розмір</label><input id="eprod-size"></div>
-      <div class="form-group"><label>Категорія</label><select id="eprod-category"><option value="">— Оберіть —</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
-    </div>
-    <div class="section-title">Друк</div>
-    <div class="form-row">
-      <div class="form-group"><label>Сторінок друку А4</label><input id="eprod-pages" type="number" step="1"></div>
-      <div class="form-group"><label>Вартість друку (авто)</label><input id="eprod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
-    </div>
-    <div class="section-title">Робота майстра</div>
-    <div class="form-row">
-      <div class="form-group"><label>Тип ставки</label>
-        <select id="eprod-rate-type" onchange="updateRatePreview('eprod')">
-          <option value="percent">% від ціни продажу</option>
-          <option value="fixed">Фіксована сума (грн/шт)</option>
-        </select>
+    <div class="modal-body">
+      <input type="hidden" id="eprod-id">
+      <div class="form-row">
+        <div class="form-group"><label>Артикул (SKU)</label><input id="eprod-sku"></div>
+        <div class="form-group"><label>Назва</label><input id="eprod-name"></div>
       </div>
-      <div class="form-group"><label>Значення</label><input id="eprod-rate" type="number" step="0.01" onchange="updateRatePreview('eprod')"></div>
-      <div class="form-group"><label>= Робота, грн</label><input id="eprod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Розмір</label><input id="eprod-size"></div>
+        <div class="form-group"><label>Категорія</label><select id="eprod-category"><option value="">— Оберіть —</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
+      </div>
+      <div class="section-title">Друк</div>
+      <div class="form-row">
+        <div class="form-group"><label>Сторінок друку А4</label><input id="eprod-pages" type="number" step="1"></div>
+        <div class="form-group"><label>Вартість друку (авто)</label><input id="eprod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Робота майстра</div>
+      <div class="form-row">
+        <div class="form-group"><label>Тип ставки</label>
+          <select id="eprod-rate-type" onchange="updateRatePreview('eprod')">
+            <option value="percent">% від ціни продажу</option>
+            <option value="fixed">Фіксована сума (грн/шт)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Значення</label><input id="eprod-rate" type="number" step="0.01" onchange="updateRatePreview('eprod')"></div>
+        <div class="form-group"><label>= Робота, грн</label><input id="eprod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Пакування</div>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість пакування, грн</label><input id="eprod-packaging" type="number" step="0.01"></div>
+      </div>
+      <div class="section-title">Шаблон (одноразова інвестиція)</div>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість шаблону, грн</label><input id="eprod-template-cost" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="eprod-template-qty" type="number" step="1" value="0"></div>
+        <div class="form-group"><label>= На 1 виріб</label><input id="eprod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      </div>
+      <div class="section-title">Склад виробу</div>
+      <div id="eprod-recipe"></div>
+      <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
     </div>
-    <div class="section-title">Пакування</div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість пакування, грн</label><input id="eprod-packaging" type="number" step="0.01"></div>
-    </div>
-    <div class="section-title">Шаблон (одноразова інвестиція)</div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість шаблону, грн</label><input id="eprod-template-cost" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="eprod-template-qty" type="number" step="1" value="0"></div>
-      <div class="form-group"><label>= На 1 виріб</label><input id="eprod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
-    </div>
-    <div class="section-title">Склад виробу</div>
-    <div id="eprod-recipe"></div>
-    <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('edit-product')">Скасувати</button>
       <button class="btn btn-primary" onclick="updateProduct()">Зберегти</button>
@@ -1044,17 +1089,22 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Transfer to Worker -->
 <div class="modal-overlay" id="modal-transfer-to-worker">
   <div class="modal">
-    <h3>Передати майстру</h3>
-    <div class="form-group mb-16"><label>Майстер</label><select id="tw-worker"></select></div>
-    <div class="form-group mb-16"><label>Що передаємо</label>
-      <select id="tw-type" onchange="populateTransferItems()">
-        <option value="material">Матеріал</option>
-        <option value="product">Надруковане / напівфабрикат</option>
-      </select>
+    <div class="modal-header">
+      <h3>Передати майстру</h3>
+      <button class="modal-close" onclick="closeModal('transfer-to-worker')">&times;</button>
     </div>
-    <div class="form-group mb-16"><label>Назва</label><select id="tw-item"></select></div>
-    <div class="form-group mb-16"><label>Кількість</label><input id="tw-qty" type="number" step="0.01" min="0.01" value="1"></div>
-    <div class="form-group"><label>Коментар</label><input id="tw-note" placeholder="Наприклад: надруковані сторінки для Азбуки"></div>
+    <div class="modal-body">
+      <div class="form-group mb-16"><label>Майстер</label><select id="tw-worker"></select></div>
+      <div class="form-group mb-16"><label>Що передаємо</label>
+        <select id="tw-type" onchange="populateTransferItems()">
+          <option value="material">Матеріал</option>
+          <option value="product">Надруковане / напівфабрикат</option>
+        </select>
+      </div>
+      <div class="form-group mb-16"><label>Назва</label><select id="tw-item"></select></div>
+      <div class="form-group mb-16"><label>Кількість</label><input id="tw-qty" type="number" step="0.01" min="0.01" value="1"></div>
+      <div class="form-group"><label>Коментар</label><input id="tw-note" placeholder="Наприклад: надруковані сторінки для Азбуки"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('transfer-to-worker')">Скасувати</button>
       <button class="btn btn-primary" onclick="transferToWorker()">Передати</button>
@@ -1065,43 +1115,48 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Add/Edit Equipment -->
 <div class="modal-overlay" id="modal-add-equipment">
   <div class="modal">
-    <h3 id="eq-modal-title">Додати обладнання</h3>
-    <input type="hidden" id="eq-edit-id" value="">
-    <div class="form-group mb-16"><label>Назва</label><input id="eq-name" placeholder="Наприклад: Принтер Epson L3250"></div>
-    <div class="form-row">
-      <div class="form-group"><label>Категорія</label>
-        <select id="eq-category">
-          <option value="Друк">Друк</option>
-          <option value="Ламінування">Ламінування</option>
-          <option value="Різка">Різка</option>
-          <option value="Інструменти">Інструменти</option>
-          <option value="Інше">Інше</option>
-        </select>
-      </div>
-      <div class="form-group"><label>Дата покупки</label><input id="eq-purchase-date" type="date"></div>
+    <div class="modal-header">
+      <h3 id="eq-modal-title">Додати обладнання</h3>
+      <button class="modal-close" onclick="closeModal('add-equipment')">&times;</button>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість, грн</label><input id="eq-price" type="number" step="0.01" value="0"></div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;font-size:14px;">
-      <input type="checkbox" id="eq-no-service" style="accent-color:var(--primary);width:18px;height:18px;" onchange="toggleEqService()">
-      Не потребує обслуговування (інструмент)
-    </label>
-    <div id="eq-service-fields">
+    <div class="modal-body">
+      <input type="hidden" id="eq-edit-id" value="">
+      <div class="form-group mb-16"><label>Назва</label><input id="eq-name" placeholder="Наприклад: Принтер Epson L3250"></div>
       <div class="form-row">
-        <div class="form-group"><label>Інтервал обслуговування (днів)</label><input id="eq-service-interval" type="number" value="180" min="0"></div>
-        <div class="form-group"><label>Дата останнього обслуговування</label><input id="eq-last-service" type="date"></div>
+        <div class="form-group"><label>Категорія</label>
+          <select id="eq-category">
+            <option value="Друк">Друк</option>
+            <option value="Ламінування">Ламінування</option>
+            <option value="Різка">Різка</option>
+            <option value="Інструменти">Інструменти</option>
+            <option value="Інше">Інше</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Дата покупки</label><input id="eq-purchase-date" type="date"></div>
       </div>
-      <div style="margin-top:8px;padding:12px;background:#F3E5F5;border-radius:8px;">
-        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Витратні матеріали (опційно)</div>
-        <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Вкажіть інтервал — система нагадає коли замінити. Дати оновлюються автоматично при записі обслуговування.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість, грн</label><input id="eq-price" type="number" step="0.01" value="0"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="eq-no-service" style="accent-color:var(--primary);width:18px;height:18px;" onchange="toggleEqService()">
+        Не потребує обслуговування (інструмент)
+      </label>
+      <div id="eq-service-fields">
         <div class="form-row">
-          <div class="form-group"><label>Інтервал заміни ножа (днів)</label><input id="eq-knife-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
-          <div class="form-group"><label>Інтервал заміни килимка (днів)</label><input id="eq-mat-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
+          <div class="form-group"><label>Інтервал обслуговування (днів)</label><input id="eq-service-interval" type="number" value="180" min="0"></div>
+          <div class="form-group"><label>Дата останнього обслуговування</label><input id="eq-last-service" type="date"></div>
+        </div>
+        <div style="margin-top:8px;padding:12px;background:#F3E5F5;border-radius:8px;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Витратні матеріали (опційно)</div>
+          <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Вкажіть інтервал — система нагадає коли замінити. Дати оновлюються автоматично при записі обслуговування.</p>
+          <div class="form-row">
+            <div class="form-group"><label>Інтервал заміни ножа (днів)</label><input id="eq-knife-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
+            <div class="form-group"><label>Інтервал заміни килимка (днів)</label><input id="eq-mat-interval" type="number" value="0" min="0" placeholder="0 = не трекати"></div>
+          </div>
         </div>
       </div>
+      <div class="form-group mb-16"><label>Нотатки</label><textarea id="eq-note" placeholder="Серійний номер, гарантія, деталі..."></textarea></div>
     </div>
-    <div class="form-group mb-16"><label>Нотатки</label><textarea id="eq-note" placeholder="Серійний номер, гарантія, деталі..."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-equipment')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveEquipment()">Зберегти</button>
@@ -1112,39 +1167,44 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Log Service -->
 <div class="modal-overlay" id="modal-log-service">
   <div class="modal">
-    <h3>Записати обслуговування</h3>
-    <div class="form-group mb-16"><label>Обладнання</label><select id="svc-eq-id" style="width:100%;"></select></div>
-    <div class="form-row">
-      <div class="form-group"><label>Дата</label><input id="svc-date" type="date"></div>
-      <div class="form-group"><label>Тип</label>
-        <select id="svc-type" onchange="toggleInkSection()">
-          <option value="Планове обслуговування">Планове обслуговування</option>
-          <option value="Ремонт">Ремонт</option>
-          <option value="Заміна деталей">Заміна деталей</option>
-          <option value="Заміна ножа">Заміна ножа</option>
-          <option value="Заміна килимка">Заміна килимка</option>
-          <option value="Заправка чорнил">Заправка чорнил</option>
-          <option value="Чистка">Чистка</option>
-          <option value="Інше">Інше</option>
-        </select>
+    <div class="modal-header">
+      <h3>Записати обслуговування</h3>
+      <button class="modal-close" onclick="closeModal('log-service')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group mb-16"><label>Обладнання</label><select id="svc-eq-id" style="width:100%;"></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Дата</label><input id="svc-date" type="date"></div>
+        <div class="form-group"><label>Тип</label>
+          <select id="svc-type" onchange="toggleInkSection()">
+            <option value="Планове обслуговування">Планове обслуговування</option>
+            <option value="Ремонт">Ремонт</option>
+            <option value="Заміна деталей">Заміна деталей</option>
+            <option value="Заміна ножа">Заміна ножа</option>
+            <option value="Заміна килимка">Заміна килимка</option>
+            <option value="Заправка чорнил">Заправка чорнил</option>
+            <option value="Чистка">Чистка</option>
+            <option value="Інше">Інше</option>
+          </select>
+        </div>
       </div>
-    </div>
-    <div id="svc-ink-section" style="display:none;margin-bottom:12px;padding:12px;background:#F3E5F5;border-radius:8px;">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Кольори (вкажіть скільки мл долили)</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔵 C (Cyan)</label><input id="svc-ink-c" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔴 M (Magenta)</label><input id="svc-ink-m" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🟡 Y (Yellow)</label><input id="svc-ink-y" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">⚫ BK (Black)</label><input id="svc-ink-bk" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">💧 LC (Light Cyan)</label><input id="svc-ink-lc" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
-        <div class="form-group" style="margin:0;"><label style="font-size:12px;">🩷 LM (Light Magenta)</label><input id="svc-ink-lm" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+      <div id="svc-ink-section" style="display:none;margin-bottom:12px;padding:12px;background:#F3E5F5;border-radius:8px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--primary-dark);">Кольори (вкажіть скільки мл долили)</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔵 C (Cyan)</label><input id="svc-ink-c" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">🔴 M (Magenta)</label><input id="svc-ink-m" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">🟡 Y (Yellow)</label><input id="svc-ink-y" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">⚫ BK (Black)</label><input id="svc-ink-bk" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">💧 LC (Light Cyan)</label><input id="svc-ink-lc" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+          <div class="form-group" style="margin:0;"><label style="font-size:12px;">🩷 LM (Light Magenta)</label><input id="svc-ink-lm" type="number" min="0" value="" placeholder="мл" style="padding:6px 8px;font-size:13px;" oninput="calcInkCost()"></div>
+        </div>
+        <div id="svc-ink-total" style="margin-top:8px;font-size:13px;font-weight:600;color:var(--primary-dark);"></div>
       </div>
-      <div id="svc-ink-total" style="margin-top:8px;font-size:13px;font-weight:600;color:var(--primary-dark);"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
+      </div>
+      <div class="form-group mb-16"><label>Коментар</label><input id="svc-comment" placeholder="Що було зроблено..."></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Вартість, грн</label><input id="svc-cost" type="number" step="0.01" value="0"></div>
-    </div>
-    <div class="form-group mb-16"><label>Коментар</label><input id="svc-comment" placeholder="Що було зроблено..."></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('log-service')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveServiceLog()">Зберегти</button>
@@ -1155,10 +1215,15 @@ a.order-link:hover { text-decoration:underline; }
 <!-- Invoice Parse Modal -->
 <div class="modal-overlay" id="modal-invoice">
   <div class="modal" style="max-width:700px;">
-    <h3>📷 Розпізнавання накладної</h3>
-    <div id="invoice-status" style="margin-bottom:12px;"></div>
-    <div id="invoice-preview" style="max-height:200px;overflow:auto;margin-bottom:12px;text-align:center;"></div>
-    <div id="invoice-items" style="margin-bottom:12px;"></div>
+    <div class="modal-header">
+      <h3>📷 Розпізнавання накладної</h3>
+      <button class="modal-close" onclick="closeModal('invoice')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="invoice-status" style="margin-bottom:12px;"></div>
+      <div id="invoice-preview" style="max-height:200px;overflow:auto;margin-bottom:12px;text-align:center;"></div>
+      <div id="invoice-items" style="margin-bottom:12px;"></div>
+    </div>
     <div class="modal-actions" id="invoice-actions" style="display:none;">
       <button class="btn btn-outline" onclick="closeModal('invoice')">Скасувати</button>
       <button class="btn btn-primary" onclick="applyInvoiceItems()">✅ Додати все</button>
