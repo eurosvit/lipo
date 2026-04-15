@@ -475,6 +475,7 @@ a.order-link:hover { text-decoration:underline; }
   <div id="sync-status" style="margin-top:8px;"></div>
   <div style="margin-top:8px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('channel-manager').style.display=document.getElementById('channel-manager').style.display==='none'?'block':'none'">📢 Канали продажів</button>
+    <button class="btn btn-outline btn-sm" onclick="toggleStatusManager()">🏷 Статуси замовлень</button>
     <div id="channel-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="channel-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -482,13 +483,19 @@ a.order-link:hover { text-decoration:underline; }
         <button class="btn btn-primary btn-sm" onclick="addChannel()">+ Додати</button>
       </div>
     </div>
+    <div id="status-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
+      <p style="font-size:12px;color:var(--text-light);margin:0 0 8px;">Додавайте, редагуйте статуси та їх кольори. Перетягуйте для зміни порядку.</p>
+      <div id="status-list" style="margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="new-status-label" placeholder="Назва статусу" style="flex:1;">
+        <input id="new-status-color" type="color" value="#ffeaa7" style="width:40px;height:32px;padding:0;border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <button class="btn btn-primary btn-sm" onclick="addOrderStatus()">+ Додати</button>
+      </div>
+    </div>
   </div>
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <select id="ord-status-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі статуси</option>
-      <option value="new">🆕 Нові</option>
-      <option value="in_production">🔧 На виробництві</option>
-      <option value="completed">✔ Виконано</option>
     </select>
     <select id="ord-channel-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі канали</option>
@@ -1536,7 +1543,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -2837,8 +2844,9 @@ function saveOrder() {
     if(p) p.stock -= item.qty;
   }
   var total = items.reduce(function(s,i){return s+i.qty*i.price},0);
+  var firstStatus = (db.orderStatuses && db.orderStatuses.length) ? db.orderStatuses[0].id : 'new';
   db.orders.push({ id:uid(), num:db.nextOrderNum++, date:v('ord-date')||new Date().toISOString().slice(0,10),
-    client:v('ord-client'), channel:v('ord-channel'), items:items, total:total, status:'new' });
+    client:v('ord-client'), channel:v('ord-channel'), items:items, total:total, status:firstStatus });
   saveDB(db);
   closeModal('add-order');
   renderPage('orders');
@@ -2933,6 +2941,102 @@ function deleteChannel(name) {
   // Clear channel from orders that use it
   db.orders.forEach(function(o) { if (o.channel === name) o.channel = ''; });
   saveDB(db);
+  renderPage('orders');
+}
+
+// ==================== ORDER STATUSES ====================
+function getOrderStatuses() {
+  var db = getDB();
+  return db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
+}
+
+function toggleStatusManager() {
+  var el = document.getElementById('status-manager');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+  if (el.style.display==='block') renderStatusManager();
+}
+
+function renderStatusManager() {
+  var statuses = getOrderStatuses();
+  var list = document.getElementById('status-list');
+  if (!list) return;
+  list.innerHTML = statuses.map(function(s, i) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;">'+
+      '<input type="color" value="'+s.color+'" onchange="updateStatusColor(\''+s.id+'\',this.value)" style="width:28px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">'+
+      '<span style="flex:1;font-size:13px;font-weight:500;padding:4px 8px;background:'+s.color+';border-radius:6px;">'+esc(s.label)+'</span>'+
+      '<button onclick="renameStatus(\''+s.id+'\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;" title="Перейменувати">✏️</button>'+
+      '<button onclick="moveStatus(\''+s.id+'\',-1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===0?'0.2':'0.7')+';" '+(i===0?'disabled':'')+'>▲</button>'+
+      '<button onclick="moveStatus(\''+s.id+'\',1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===statuses.length-1?'0.2':'0.7')+';" '+(i===statuses.length-1?'disabled':'')+'>▼</button>'+
+      '<button onclick="deleteStatus(\''+s.id+'\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#e74c3c;" title="Видалити">✕</button>'+
+    '</div>';
+  }).join('') || '<p class="text-muted" style="font-size:13px;">Додайте перший статус</p>';
+}
+
+function addOrderStatus() {
+  var label = document.getElementById('new-status-label').value.trim();
+  var color = document.getElementById('new-status-color').value;
+  if (!label) return;
+  var db = getDB();
+  if (!db.orderStatuses) db.orderStatuses = getOrderStatuses();
+  var id = label.toLowerCase().replace(/[^a-zа-яіїєґ0-9]/gi, '_').replace(/_+/g,'_');
+  if (db.orderStatuses.some(function(s){return s.id===id})) id = id + '_' + Date.now();
+  db.orderStatuses.push({ id:id, label:label, color:color });
+  saveDB(db);
+  document.getElementById('new-status-label').value = '';
+  renderStatusManager();
+  renderPage('orders');
+}
+
+function renameStatus(statusId) {
+  var db = getDB();
+  var statuses = db.orderStatuses || getOrderStatuses();
+  var s = statuses.find(function(x){return x.id===statusId});
+  if (!s) return;
+  var newLabel = prompt('Нова назва статусу:', s.label);
+  if (!newLabel || newLabel.trim() === '') return;
+  s.label = newLabel.trim();
+  db.orderStatuses = statuses;
+  saveDB(db);
+  renderStatusManager();
+  renderPage('orders');
+}
+
+function updateStatusColor(statusId, color) {
+  var db = getDB();
+  var statuses = db.orderStatuses || getOrderStatuses();
+  var s = statuses.find(function(x){return x.id===statusId});
+  if (s) { s.color = color; db.orderStatuses = statuses; saveDB(db); renderStatusManager(); renderPage('orders'); }
+}
+
+function moveStatus(statusId, dir) {
+  var db = getDB();
+  var statuses = db.orderStatuses || getOrderStatuses();
+  var idx = statuses.findIndex(function(x){return x.id===statusId});
+  if (idx===-1) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= statuses.length) return;
+  var tmp = statuses[idx]; statuses[idx] = statuses[newIdx]; statuses[newIdx] = tmp;
+  db.orderStatuses = statuses;
+  saveDB(db);
+  renderStatusManager();
+  renderPage('orders');
+}
+
+function deleteStatus(statusId) {
+  var db = getDB();
+  var statuses = db.orderStatuses || getOrderStatuses();
+  var s = statuses.find(function(x){return x.id===statusId});
+  if (!s) return;
+  var usedCount = db.orders.filter(function(o){return o.status===statusId}).length;
+  var msg = 'Видалити статус "'+s.label+'"?';
+  if (usedCount > 0) msg += '\n\n⚠️ '+usedCount+' замовлень з цим статусом будуть скинуті на перший статус.';
+  if (!confirm(msg)) return;
+  statuses = statuses.filter(function(x){return x.id!==statusId});
+  var firstId = statuses.length ? statuses[0].id : 'new';
+  db.orders.forEach(function(o){ if(o.status===statusId) o.status=firstId; });
+  db.orderStatuses = statuses;
+  saveDB(db);
+  renderStatusManager();
   renderPage('orders');
 }
 
@@ -3037,8 +3141,15 @@ function renderOrders() {
   var statusFilter = document.getElementById('ord-status-filter').value;
   var channelFilter = document.getElementById('ord-channel-filter').value;
   var crmOnly = document.getElementById('ord-crm-only').checked;
-  var statusMap = { new:'🆕 Новий', in_production:'🔧 На виробництві', completed:'✔ Виконано' };
-  var statusColors = { new:'#ffeaa7', in_production:'#81ecec', completed:'#55efc4' };
+  var statuses = db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
+  var statusMap = {};
+  var statusColors = {};
+  statuses.forEach(function(s){ statusMap[s.id] = s.label; statusColors[s.id] = s.color; });
+
+  // Populate status filter dynamically
+  var stFilterEl = document.getElementById('ord-status-filter');
+  var curStFilter = stFilterEl.value;
+  stFilterEl.innerHTML = '<option value="">Всі статуси</option>' + statuses.map(function(s){ return '<option value="'+s.id+'" '+(curStFilter===s.id?'selected':'')+'>'+esc(s.label)+'</option>'; }).join('');
 
   // Populate channel filter
   var channels = db.orderChannels || [];
@@ -3098,8 +3209,9 @@ function renderOrders() {
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visOrdCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
 
-  // Also render channel manager
+  // Also render channel & status managers
   renderChannelManager();
+  if (document.getElementById('status-manager').style.display==='block') renderStatusManager();
   // Populate order modal channel dropdown
   populateOrderChannels();
 }
