@@ -713,6 +713,7 @@ async function getSessionUser(req) {
     user.isWorker = true;
     user.ownerId = wl.rows[0].owner_id;
     user.ownerName = wl.rows[0].owner_name;
+    user.linkedWorkerName = wl.rows[0].worker_name || '';
     user.workerPermissions = wl.rows[0].permissions || {};
     user.hasAccess = true; // Workers always have access through owner
   }
@@ -1151,6 +1152,7 @@ const server = http.createServer(async (req, res) => {
         response.isWorker = true;
         response.ownerId = user.ownerId;
         response.ownerName = user.ownerName;
+        response.linkedWorkerName = user.linkedWorkerName;
         response.workerPermissions = user.workerPermissions;
       }
       sendJSON(res, 200, response);

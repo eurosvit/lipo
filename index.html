@@ -2964,6 +2964,10 @@ function renderOrders() {
     if(statusFilter && o.status!==statusFilter) return false;
     if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
+    // Worker sees only their assigned orders
+    if (_currentUser && _currentUser.isWorker && _currentUser.linkedWorkerName) {
+      if ((o.worker||'') !== _currentUser.linkedWorkerName) return false;
+    }
     return true;
   });
 
@@ -3499,51 +3503,94 @@ function dismissAlert(key) {
 // ==================== DASHBOARD ====================
 function renderDashboard() {
   var db = getDB();
-  var alerts = [];
-  var dismissed = JSON.parse(localStorage.getItem('lipo_dismissed_alerts') || '{}');
-  var today = new Date().toISOString().slice(0,10);
-  // Clean old dismissed (older than today)
-  Object.keys(dismissed).forEach(function(k){ if(dismissed[k] !== today) delete dismissed[k]; });
-  localStorage.setItem('lipo_dismissed_alerts', JSON.stringify(dismissed));
+  var isW = _currentUser && _currentUser.isWorker;
+  var wp = isW ? (_currentUser.workerPermissions || {}) : {};
 
-  db.materials.forEach(function(m) {
-    var key = 'mat_'+m.id;
-    if (dismissed[key]) return;
-    if(m.qty<=0) alerts.push({type:'danger', key:key, text:'<strong>'+esc(m.name)+'</strong> — закінчився! '+(m.supplier?'Постачальник: '+esc(m.supplier):'')});
-    else if(m.qty <= m.min) alerts.push({type:'warning', key:key, text:'<strong>'+esc(m.name)+'</strong> — залишок '+fmt(m.qty)+' '+esc(m.unit)+' (мін: '+m.min+'). Пора замовити!'});
-  });
-  document.getElementById('dash-alerts').innerHTML = alerts.map(function(a){
-    return '<div class="alert alert-'+a.type+'" id="alert-'+a.key+'">'+a.text+'<button class="alert-close" onclick="dismissAlert(\''+a.key+'\')" title="Приховати на сьогодні">&times;</button></div>';
-  }).join('');
+  // --- Alerts (only for owner) ---
+  if (!isW) {
+    var alerts = [];
+    var dismissed = JSON.parse(localStorage.getItem('lipo_dismissed_alerts') || '{}');
+    var today = new Date().toISOString().slice(0,10);
+    Object.keys(dismissed).forEach(function(k){ if(dismissed[k] !== today) delete dismissed[k]; });
+    localStorage.setItem('lipo_dismissed_alerts', JSON.stringify(dismissed));
+    db.materials.forEach(function(m) {
+      var key = 'mat_'+m.id;
+      if (dismissed[key]) return;
+      if(m.qty<=0) alerts.push({type:'danger', key:key, text:'<strong>'+esc(m.name)+'</strong> — закінчився! '+(m.supplier?'Постачальник: '+esc(m.supplier):'')});
+      else if(m.qty <= m.min) alerts.push({type:'warning', key:key, text:'<strong>'+esc(m.name)+'</strong> — залишок '+fmt(m.qty)+' '+esc(m.unit)+' (мін: '+m.min+'). Пора замовити!'});
+    });
+    document.getElementById('dash-alerts').innerHTML = alerts.map(function(a){
+      return '<div class="alert alert-'+a.type+'" id="alert-'+a.key+'">'+a.text+'<button class="alert-close" onclick="dismissAlert(\''+a.key+'\')" title="Приховати на сьогодні">&times;</button></div>';
+    }).join('');
+  } else {
+    document.getElementById('dash-alerts').innerHTML = '';
+  }
 
+  // --- Cards ---
   var totalStock = db.products.reduce(function(s,p){return s+(p.stock||0)},0);
   var totalInProgress = db.products.reduce(function(s,p){return s+(p.inProgress||0)},0);
-  var lowMats = db.materials.filter(function(m){return m.qty<=m.min}).length;
-  var totalStockValue = db.products.reduce(function(s,p){return s+(p.stock||0)*p.sellPrice},0);
   var thisMonth = new Date().toISOString().slice(0,7);
-  var monthOrders = db.orders.filter(function(o){return o.date.indexOf(thisMonth)===0});
-  var monthRevenue = monthOrders.reduce(function(s,o){return s+o.total},0);
+  var wName = isW ? (_currentUser.linkedWorkerName || '') : '';
+  var monthOrders = db.orders.filter(function(o){
+    if (o.date.indexOf(thisMonth)!==0) return false;
+    if (isW && wName && (o.worker||'') !== wName) return false;
+    return true;
+  });
 
-  document.getElementById('dash-cards').innerHTML =
-    '<div class="card success"><div class="card-label">На складі готового</div><div class="card-value">'+totalStock+' шт</div><div class="card-sub">'+fmt(totalStockValue)+' грн</div></div>'+
-    '<div class="card"><div class="card-label">В виробництві</div><div class="card-value">'+totalInProgress+' шт</div></div>'+
-    '<div class="card '+(lowMats>0?'danger':'success')+'"><div class="card-label">Матеріали</div><div class="card-value">'+lowMats+'</div><div class="card-sub">'+(lowMats>0?'потребують замовлення':'все в нормі')+'</div></div>'+
-    '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div><div class="card-sub">'+fmt(monthRevenue)+' грн</div></div>'+
-    '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
+  if (isW) {
+    // Worker dashboard — only relevant cards
+    var cardsHtml = '';
+    if (wp.production) cardsHtml += '<div class="card"><div class="card-label">В виробництві</div><div class="card-value">'+totalInProgress+' шт</div></div>';
+    if (wp.workerStock) {
+      var wsTotal = (db.workerStock||[]).reduce(function(s,ws){return s+(ws.qty||0)},0);
+      cardsHtml += '<div class="card success"><div class="card-label">У мене на складі</div><div class="card-value">'+wsTotal+' шт</div></div>';
+    }
+    if (wp.orders) cardsHtml += '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div></div>';
+    cardsHtml += '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
+    document.getElementById('dash-cards').innerHTML = cardsHtml;
+  } else {
+    // Owner dashboard — full cards
+    var lowMats = db.materials.filter(function(m){return m.qty<=m.min}).length;
+    var totalStockValue = db.products.reduce(function(s,p){return s+(p.stock||0)*p.sellPrice},0);
+    var monthRevenue = monthOrders.reduce(function(s,o){return s+o.total},0);
+    document.getElementById('dash-cards').innerHTML =
+      '<div class="card success"><div class="card-label">На складі готового</div><div class="card-value">'+totalStock+' шт</div><div class="card-sub">'+fmt(totalStockValue)+' грн</div></div>'+
+      '<div class="card"><div class="card-label">В виробництві</div><div class="card-value">'+totalInProgress+' шт</div></div>'+
+      '<div class="card '+(lowMats>0?'danger':'success')+'"><div class="card-label">Матеріали</div><div class="card-value">'+lowMats+'</div><div class="card-sub">'+(lowMats>0?'потребують замовлення':'все в нормі')+'</div></div>'+
+      '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div><div class="card-sub">'+fmt(monthRevenue)+' грн</div></div>'+
+      '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
+  }
 
-  var critMats = db.materials.filter(function(m){return m.qty<=m.min*1.5}).sort(function(a,b){return a.qty/Math.max(a.min,0.01) - b.qty/Math.max(b.min,0.01)});
-  document.getElementById('dash-materials').innerHTML = critMats.map(function(m) {
-    var status = m.qty<=0 ? '<span class="badge badge-danger">Немає!</span>' : m.qty<=m.min ? '<span class="badge badge-warning">Замовити!</span>' : '<span class="badge badge-ok">Мало</span>';
-    var usedIn = db.products.filter(function(p){return (p.recipe||[]).some(function(r){return r.materialId===m.id})});
-    var enough = usedIn.map(function(p){
-      var r = p.recipe.find(function(r){return r.materialId===m.id});
-      return r ? esc(p.name)+': '+Math.floor(m.qty/r.qty)+' шт' : '';
-    }).filter(Boolean).join(', ');
-    return '<tr><td data-label="Матеріал">'+esc(m.name)+'</td><td data-label="Залишок">'+fmt(m.qty)+' '+esc(m.unit)+'</td><td data-label="Мінімум">'+fmt(m.min)+' '+esc(m.unit)+'</td><td data-label="Статус">'+status+'</td><td data-label="Вистачить на" class="text-muted" style="font-size:12px;">'+(enough||'—')+'</td></tr>';
-  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px;">Все в нормі</td></tr>';
+  // --- Materials table (only for owner or if worker has materials permission) ---
+  if (!isW || wp.materials) {
+    var critMats = db.materials.filter(function(m){return m.qty<=m.min*1.5}).sort(function(a,b){return a.qty/Math.max(a.min,0.01) - b.qty/Math.max(b.min,0.01)});
+    document.getElementById('dash-materials').innerHTML = critMats.map(function(m) {
+      var status = m.qty<=0 ? '<span class="badge badge-danger">Немає!</span>' : m.qty<=m.min ? '<span class="badge badge-warning">Замовити!</span>' : '<span class="badge badge-ok">Мало</span>';
+      var usedIn = db.products.filter(function(p){return (p.recipe||[]).some(function(r){return r.materialId===m.id})});
+      var enough = usedIn.map(function(p){
+        var r = p.recipe.find(function(r){return r.materialId===m.id});
+        return r ? esc(p.name)+': '+Math.floor(m.qty/r.qty)+' шт' : '';
+      }).filter(Boolean).join(', ');
+      return '<tr><td data-label="Матеріал">'+esc(m.name)+'</td><td data-label="Залишок">'+fmt(m.qty)+' '+esc(m.unit)+'</td><td data-label="Мінімум">'+fmt(m.min)+' '+esc(m.unit)+'</td><td data-label="Статус">'+status+'</td><td data-label="Вистачить на" class="text-muted" style="font-size:12px;">'+(enough||'—')+'</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px;">Все в нормі</td></tr>';
+    document.getElementById('dash-materials').closest('.card-section') && (document.getElementById('dash-materials').parentNode.parentNode.style.display = '');
+  } else {
+    // Hide materials section for worker
+    var matTable = document.getElementById('dash-materials');
+    if (matTable) {
+      matTable.innerHTML = '';
+      var matSection = matTable.parentNode.parentNode;
+      if (matSection) matSection.style.display = 'none';
+    }
+  }
 
+  // --- Products table ---
   var dashProds = db.products.filter(function(p){return (p.stock||0)>0 || (p.inProgress||0)>0});
   document.getElementById('dash-products').innerHTML = dashProds.map(function(p) {
+    if (isW) {
+      // Worker sees no cost info
+      return '<tr><td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td><td data-label="Гра"><strong>'+esc(p.name)+'</strong></td><td data-label="Категорія">'+esc(p.category||'—')+'</td><td data-label="На складі">'+(p.stock||0)+'</td><td data-label="В роботі">'+(p.inProgress||0)+'</td></tr>';
+    }
     var can = calcCanProduce(p, db.materials);
     return '<tr><td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td><td data-label="Гра"><strong>'+esc(p.name)+'</strong></td><td data-label="Категорія">'+esc(p.category||'—')+'</td><td data-label="На складі">'+(p.stock||0)+'</td><td data-label="В роботі">'+(p.inProgress||0)+'</td><td data-label="Можна зібрати">'+can+' шт</td></tr>';
   }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Склад порожній</td></tr>';
