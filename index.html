@@ -1458,6 +1458,9 @@ a.order-link:hover { text-decoration:underline; }
       <span style="font-size:14px;color:var(--primary-dark);">✓ Зарплати та звіти</span>
     </div>
 
+    <!-- Worker surcharge banner -->
+    <div id="worker-surcharge-banner" style="display:none;background:#FFF3E0;padding:12px 40px;text-align:center;font-size:14px;color:#E65100;border-bottom:1px solid #FFE0B2;"></div>
+
     <!-- Plan cards -->
     <div style="padding:32px 40px 24px;">
       <div id="payment-plans" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
@@ -1466,9 +1469,9 @@ a.order-link:hover { text-decoration:underline; }
         <div class="payment-plan-card" onclick="selectPlan(this,'month1')" style="border:2px solid var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;background:#fff;">
           <input type="radio" name="plan" value="month1" style="display:none;">
           <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">1 місяць</div>
-          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">250</div>
+          <div class="pp-price" style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">250</div>
           <div style="font-size:16px;color:var(--text-light);margin-bottom:16px;">грн / місяць</div>
-          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Щомісячна оплата<br>Без зобов'язань</div>
+          <div class="pp-detail" style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Щомісячна оплата<br>Без зобов'язань</div>
         </div>
 
         <!-- Plan 6 months (popular) -->
@@ -1476,10 +1479,10 @@ a.order-link:hover { text-decoration:underline; }
           <input type="radio" name="plan" value="month6" style="display:none;">
           <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;">⭐ ПОПУЛЯРНИЙ</div>
           <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">6 місяців</div>
-          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">208</div>
+          <div class="pp-price" style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">208</div>
           <div style="font-size:16px;color:var(--text-light);margin-bottom:4px;">грн / місяць</div>
-          <div style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 17%</div>
-          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">1 250 грн</strong><br><s style="color:#ccc;">1 500 грн</s></div>
+          <div class="pp-save" style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 17%</div>
+          <div class="pp-detail" style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">1 250 грн</strong><br><s style="color:#ccc;">1 500 грн</s></div>
         </div>
 
         <!-- Plan 12 months -->
@@ -1487,10 +1490,10 @@ a.order-link:hover { text-decoration:underline; }
           <input type="radio" name="plan" value="month12" style="display:none;">
           <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--success),#43A047);color:#fff;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;">💰 НАЙВИГІДНІШИЙ</div>
           <div style="font-size:14px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">12 місяців</div>
-          <div style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">183</div>
+          <div class="pp-price" style="font-size:42px;font-weight:800;color:var(--primary);line-height:1;">183</div>
           <div style="font-size:16px;color:var(--text-light);margin-bottom:4px;">грн / місяць</div>
-          <div style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 27%</div>
-          <div style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">2 200 грн</strong><br><s style="color:#ccc;">3 000 грн</s></div>
+          <div class="pp-save" style="display:inline-block;background:#E8F5E9;color:var(--success);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;margin-bottom:12px;">Економія 27%</div>
+          <div class="pp-detail" style="font-size:13px;color:var(--text-light);padding-top:12px;border-top:1px solid var(--border);">Разом: <strong style="color:var(--text);">2 200 грн</strong><br><s style="color:#ccc;">3 000 грн</s></div>
         </div>
 
       </div>
@@ -6120,15 +6123,71 @@ function openPaymentModal() {
     c.querySelector('input').checked = false;
   });
   document.getElementById('account-panel').classList.remove('show');
+  // Update prices dynamically based on connected workers
+  updatePaymentPrices();
   openModal('payment');
+}
+
+function updatePaymentPrices() {
+  var wc = (_currentUser && _currentUser.connectedWorkersCount) || 0;
+  var surcharge1 = wc * 100;  // per month
+  var surcharge6 = wc * 100 * 6;
+  var surcharge12 = wc * 100 * 12;
+
+  var base1 = 250, base6 = 1250, base12 = 2200;
+  var total1 = base1 + surcharge1;
+  var total6 = base6 + surcharge6;
+  var total12 = base12 + surcharge12;
+  var perMonth6 = Math.round(total6 / 6);
+  var perMonth12 = Math.round(total12 / 12);
+
+  // Worker surcharge banner
+  var bannerEl = document.getElementById('worker-surcharge-banner');
+  if (bannerEl) {
+    if (wc > 0) {
+      bannerEl.innerHTML = '👩‍🔧 Підключено майстрів: <b>' + wc + '</b> — +' + (wc * 100) + ' грн/міс до вартості';
+      bannerEl.style.display = 'block';
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  }
+
+  // Update card prices
+  var cards = document.querySelectorAll('.payment-plan-card');
+  cards.forEach(function(card) {
+    var input = card.querySelector('input[name="plan"]');
+    if (!input) return;
+    var val = input.value;
+    if (val === 'month1') {
+      card.querySelector('.pp-price').textContent = total1;
+      card.querySelector('.pp-detail').innerHTML = wc > 0
+        ? 'Базова: 250 грн<br>+' + surcharge1 + ' грн за ' + wc + ' майстр.'
+        : 'Щомісячна оплата<br>Без зобов\'язань';
+    } else if (val === 'month6') {
+      card.querySelector('.pp-price').textContent = perMonth6;
+      var save6 = Math.round((1 - total6 / (total1 * 6)) * 100);
+      card.querySelector('.pp-save').textContent = 'Економія ' + save6 + '%';
+      card.querySelector('.pp-detail').innerHTML = 'Разом: <strong style="color:var(--text);">' + total6.toLocaleString('uk-UA') + ' грн</strong><br><s style="color:#ccc;">' + (total1 * 6).toLocaleString('uk-UA') + ' грн</s>';
+    } else if (val === 'month12') {
+      card.querySelector('.pp-price').textContent = perMonth12;
+      var save12 = Math.round((1 - total12 / (total1 * 12)) * 100);
+      card.querySelector('.pp-save').textContent = 'Економія ' + save12 + '%';
+      card.querySelector('.pp-detail').innerHTML = 'Разом: <strong style="color:var(--text);">' + total12.toLocaleString('uk-UA') + ' грн</strong><br><s style="color:#ccc;">' + (total1 * 12).toLocaleString('uk-UA') + ' грн</s>';
+    }
+  });
+
+  // Store totals for selectPlan button text
+  window._planTotals = {
+    month1: total1, month6: total6, month12: total12
+  };
 }
 
 function selectPlan(el, plan) {
   _selectedPlan = plan;
   var btn = document.getElementById('pay-btn');
   btn.disabled = false;
-  var prices = { month1: '250 грн — Оплатити', month6: '1 250 грн — Оплатити', month12: '2 200 грн — Оплатити' };
-  btn.textContent = prices[plan] || 'Оплатити';
+  var totals = window._planTotals || { month1: 250, month6: 1250, month12: 2200 };
+  btn.textContent = totals[plan].toLocaleString('uk-UA') + ' грн — Оплатити';
   document.querySelectorAll('.payment-plan-card').forEach(function(c) {
     var isPopular = !!c.querySelector('input[value="month6"]');
     c.style.borderColor = 'var(--border)';

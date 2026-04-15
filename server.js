@@ -27,6 +27,7 @@ const PLANS = {
   month6:  { name: '6 місяців', months: 6,  price: 1250, label: '1250 грн (≈208 грн/міс)' },
   month12: { name: '12 місяців', months: 12, price: 2200, label: '2200 грн (≈183 грн/міс)' }
 };
+const WORKER_SURCHARGE_PER_MONTH = 100; // +100 грн/міс за кожного підключеного майстра
 
 // ==================== FILES ====================
 const FILES = {
@@ -1235,6 +1236,10 @@ const server = http.createServer(async (req, res) => {
         response.linkedWorkerName = user.linkedWorkerName;
         response.workerPermissions = user.workerPermissions;
         response.ownerHasAccess = user.ownerHasAccess !== false;
+      } else if (pool) {
+        // Count connected workers for dynamic pricing
+        const wCount = await pool.query("SELECT COUNT(*) as cnt FROM worker_links WHERE owner_id = $1", [user.id]);
+        response.connectedWorkersCount = parseInt(wCount.rows[0].cnt) || 0;
       }
       sendJSON(res, 200, response);
       return;
@@ -1833,10 +1838,20 @@ const server = http.createServer(async (req, res) => {
       const plan = PLANS[body.plan];
       if (!plan) { sendJSON(res, 400, { error: 'Невірний тариф' }); return; }
 
+      // Count connected workers for surcharge
+      let workerCount = 0;
+      if (pool) {
+        const wc = await pool.query("SELECT COUNT(*) as cnt FROM worker_links WHERE owner_id = $1", [user.id]);
+        workerCount = parseInt(wc.rows[0].cnt) || 0;
+      }
+      const workerSurcharge = workerCount * WORKER_SURCHARGE_PER_MONTH * plan.months;
+
       const orderId = `LIPO_${user.id}_${Date.now()}`;
       const orderDate = Math.floor(Date.now() / 1000);
-      const productName = `LipoLand підписка: ${plan.name}`;
-      const productPrice = plan.price;
+      const productName = workerCount > 0
+        ? `LipoLand підписка: ${plan.name} + ${workerCount} майстр.`
+        : `LipoLand підписка: ${plan.name}`;
+      const productPrice = plan.price + workerSurcharge;
 
       // WayForPay signature: merchantAccount;merchantDomainName;orderReference;orderDate;amount;currency;productName;productCount;productPrice
       const signString = [
