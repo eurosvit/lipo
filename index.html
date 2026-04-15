@@ -525,7 +525,7 @@ a.order-link:hover { text-decoration:underline; }
     </select>
   </div>
   <div id="ws-cards" class="cards" style="margin-top:12px;"></div>
-  <div class="section-title">Що знаходиться у майстрів</div>
+  <div class="section-title" id="ws-table-title">Що знаходиться у майстрів</div>
   <div class="table-wrap">
     <table><thead><tr><th>Майстер</th><th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата передачі</th><th>Коментар</th><th>Дії</th></tr></thead>
     <tbody id="ws-table"></tbody></table>
@@ -534,6 +534,14 @@ a.order-link:hover { text-decoration:underline; }
   <div class="table-wrap">
     <table><thead><tr><th>Дата</th><th>Майстер</th><th>Тип</th><th>Назва</th><th>К-сть</th><th>Дія</th><th>Коментар</th></tr></thead>
     <tbody id="ws-history"></tbody></table>
+  </div>
+  <div id="ws-owner-stock" style="display:none;margin-top:24px;">
+    <div class="section-title" id="ws-owner-stock-title">На загальному складі</div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Ці матеріали знаходяться у керівника. Якщо щось потрібно — попросіть передати вам.</p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Матеріал</th><th>Залишок</th><th>Статус</th></tr></thead>
+      <tbody id="ws-owner-materials"></tbody></table>
+    </div>
   </div>
 </div>
 
@@ -1505,13 +1513,13 @@ a.order-link:hover { text-decoration:underline; }
       document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
         var page = btn.getAttribute('data-page');
         if (navMap[page] === false) btn.style.display = 'none';
-        if (page === 'worker-stock') btn.innerHTML = '📦 Мій склад';
+        if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
       });
       // Also hide in mobile nav
       document.querySelectorAll('.mobile-nav button[data-page]').forEach(function(btn) {
         var page = btn.getAttribute('data-page');
         if (navMap[page] === false) btn.style.display = 'none';
-        if (page === 'worker-stock') btn.textContent = '📦 Мій склад';
+        if (page === 'worker-stock') btn.textContent = '📦 Мої матеріали';
       });
       // Show worker banner instantly
       var banner = document.getElementById('worker-banner');
@@ -3385,33 +3393,44 @@ function returnFromWorker(stockId) {
 function renderWorkerStock() {
   var db = getDB();
   var isW = _currentUser && _currentUser.isWorker;
-  // Update titles for worker view
+  var wName = isW ? (_currentUser.linkedWorkerName || '') : '';
   var wsPage = document.getElementById('worker-stock');
-  wsPage.querySelector('h2').textContent = isW ? 'Мій склад' : 'Склад майстрів';
+
+  // Update titles
+  wsPage.querySelector('h2').textContent = isW ? 'Мої матеріали' : 'Склад майстрів';
   wsPage.querySelector('p').textContent = isW
-    ? 'Тут відображаються матеріали та товари, передані вам для роботи.'
+    ? 'Матеріали та товари, передані вам для роботи. При запуску виробництва вони списуються автоматично.'
     : 'Передавайте матеріали майстрам для роботи. При запуску виробництва матеріали списуються звідси (окрім паперу — він зі складу).';
+
   // Hide transfer button and filter for worker
   var transferBtn = wsPage.querySelector('.btn-primary');
   if (transferBtn) transferBtn.style.display = isW ? 'none' : '';
   var wsFilter = document.getElementById('ws-worker-filter');
   if (wsFilter) wsFilter.parentNode.style.display = isW ? 'none' : '';
+  // Update section titles
+  var tableTitle = document.getElementById('ws-table-title');
+  if (tableTitle) tableTitle.textContent = isW ? 'Що у мене є' : 'Що знаходиться у майстрів';
 
   var stock = db.workerStock || [];
   var history = db.workerStockHistory || [];
   var filterWorker = document.getElementById('ws-worker-filter').value;
 
-  // Populate filter
-  var sel = document.getElementById('ws-worker-filter');
-  var curVal = sel.value;
-  var workerSet = {};
-  stock.forEach(function(s){ workerSet[s.worker]=true; });
-  sel.innerHTML = '<option value="">Всі майстри</option>' + Object.keys(workerSet).map(function(w){ return '<option value="'+esc(w)+'" '+(w===curVal?'selected':'')+'>'+esc(w)+'</option>'; }).join('');
+  // For worker — auto-filter by their name
+  if (isW && wName) filterWorker = wName;
+
+  // Populate filter (owner only)
+  if (!isW) {
+    var sel = document.getElementById('ws-worker-filter');
+    var curVal = sel.value;
+    var workerSet = {};
+    stock.forEach(function(s){ workerSet[s.worker]=true; });
+    sel.innerHTML = '<option value="">Всі майстри</option>' + Object.keys(workerSet).map(function(w){ return '<option value="'+esc(w)+'" '+(w===curVal?'selected':'')+'>'+esc(w)+'</option>'; }).join('');
+  }
 
   var filtered = stock;
   if (filterWorker) filtered = filtered.filter(function(s){ return s.worker===filterWorker; });
 
-  // Summary cards per worker
+  // Summary cards
   var byWorker = {};
   filtered.forEach(function(s){
     if (!byWorker[s.worker]) byWorker[s.worker] = { materials:0, products:0, items:[] };
@@ -3421,41 +3440,106 @@ function renderWorkerStock() {
   });
 
   var cardsHtml = '';
-  Object.keys(byWorker).forEach(function(w){
-    var d = byWorker[w];
-    cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+d.items.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">Матеріалів: '+fmt(d.materials)+' | Напівфабрикатів: '+fmt(d.products)+'</div></div>';
-  });
-  document.getElementById('ws-cards').innerHTML = cardsHtml || '<div class="text-muted">Нічого не передано майстрам</div>';
+  if (isW) {
+    // Worker sees simple summary of their stock
+    var myItems = filtered;
+    var matCount = myItems.filter(function(s){return s.type==='material'}).length;
+    var prodCount = myItems.filter(function(s){return s.type!=='material'}).length;
+    if (myItems.length) {
+      cardsHtml += '<div class="card"><div class="card-label">У мене</div><div class="card-value">'+myItems.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">'+(matCount?'Матеріалів: '+matCount:'')+(matCount&&prodCount?' | ':'')+(prodCount?'Товарів: '+prodCount:'')+'</div></div>';
+    }
+  } else {
+    Object.keys(byWorker).forEach(function(w){
+      var d = byWorker[w];
+      cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+d.items.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">Матеріалів: '+fmt(d.materials)+' | Напівфабрикатів: '+fmt(d.products)+'</div></div>';
+    });
+  }
+  document.getElementById('ws-cards').innerHTML = cardsHtml || '<div class="text-muted">'+(isW?'Вам ще нічого не передано':'Нічого не передано майстрам')+'</div>';
 
-  // Table
+  // Table — worker view without "Майстер" and "Дії" columns
   var typeLabels = { material:'📦 Матеріал', product:'🎮 Напівфабрикат' };
-  document.getElementById('ws-table').innerHTML = filtered.map(function(s){
-    return '<tr>'+
-      '<td data-label="Майстер"><strong>'+esc(s.worker)+'</strong></td>'+
-      '<td data-label="Тип">'+(typeLabels[s.type]||s.type)+'</td>'+
-      '<td data-label="Назва">'+esc(s.itemName)+'</td>'+
-      '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
-      '<td data-label="Дата">'+s.date+'</td>'+
-      '<td data-label="Коментар"><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
-      '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
-    '</tr>';
-  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Нічого не передано</td></tr>';
+  if (isW) {
+    document.getElementById('ws-table').innerHTML = filtered.map(function(s){
+      return '<tr>'+
+        '<td data-label="Тип">'+(typeLabels[s.type]||s.type)+'</td>'+
+        '<td data-label="Назва"><strong>'+esc(s.itemName)+'</strong></td>'+
+        '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
+        '<td data-label="Дата">'+s.date+'</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:40px;">Вам ще нічого не передано</td></tr>';
+    // Update thead for worker
+    var thead = document.querySelector('#worker-stock #ws-table').closest('table').querySelector('thead tr');
+    if (thead) thead.innerHTML = '<th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата передачі</th>';
+  } else {
+    document.getElementById('ws-table').innerHTML = filtered.map(function(s){
+      return '<tr>'+
+        '<td data-label="Майстер"><strong>'+esc(s.worker)+'</strong></td>'+
+        '<td data-label="Тип">'+(typeLabels[s.type]||s.type)+'</td>'+
+        '<td data-label="Назва">'+esc(s.itemName)+'</td>'+
+        '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
+        '<td data-label="Дата">'+s.date+'</td>'+
+        '<td data-label="Коментар"><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
+        '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Нічого не передано</td></tr>';
+    var thead = document.querySelector('#worker-stock #ws-table').closest('table').querySelector('thead tr');
+    if (thead) thead.innerHTML = '<th>Майстер</th><th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата передачі</th><th>Коментар</th><th>Дії</th>';
+  }
 
   // History
   var filteredHistory = history.slice().reverse();
   if (filterWorker) filteredHistory = filteredHistory.filter(function(h){ return h.worker===filterWorker; });
-  document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
-    var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : '<span class="badge badge-success">← повернуто</span>';
-    return '<tr>'+
-      '<td data-label="Дата">'+h.date+'</td>'+
-      '<td data-label="Майстер">'+esc(h.worker)+'</td>'+
-      '<td data-label="Тип">'+(typeLabels[h.type]||h.type)+'</td>'+
-      '<td data-label="Назва">'+esc(h.itemName)+'</td>'+
-      '<td data-label="К-сть">'+fmt(h.qty)+'</td>'+
-      '<td data-label="Дія">'+actionBadge+'</td>'+
-      '<td data-label="Коментар">'+esc(h.note||'—')+'</td>'+
-    '</tr>';
-  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Історія порожня</td></tr>';
+  if (isW) {
+    document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ отримано</span>' : '<span class="badge badge-success">← повернуто</span>';
+      return '<tr>'+
+        '<td data-label="Дата">'+h.date+'</td>'+
+        '<td data-label="Тип">'+(typeLabels[h.type]||h.type)+'</td>'+
+        '<td data-label="Назва">'+esc(h.itemName)+'</td>'+
+        '<td data-label="К-сть">'+fmt(h.qty)+'</td>'+
+        '<td data-label="Дія">'+actionBadge+'</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px;">Історія порожня</td></tr>';
+    var histThead = document.querySelector('#worker-stock #ws-history').closest('table').querySelector('thead tr');
+    if (histThead) histThead.innerHTML = '<th>Дата</th><th>Тип</th><th>Назва</th><th>К-сть</th><th>Дія</th>';
+  } else {
+    document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : '<span class="badge badge-success">← повернуто</span>';
+      return '<tr>'+
+        '<td data-label="Дата">'+h.date+'</td>'+
+        '<td data-label="Майстер">'+esc(h.worker)+'</td>'+
+        '<td data-label="Тип">'+(typeLabels[h.type]||h.type)+'</td>'+
+        '<td data-label="Назва">'+esc(h.itemName)+'</td>'+
+        '<td data-label="К-сть">'+fmt(h.qty)+'</td>'+
+        '<td data-label="Дія">'+actionBadge+'</td>'+
+        '<td data-label="Коментар">'+esc(h.note||'—')+'</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px;">Історія порожня</td></tr>';
+    var histThead = document.querySelector('#worker-stock #ws-history').closest('table').querySelector('thead tr');
+    if (histThead) histThead.innerHTML = '<th>Дата</th><th>Майстер</th><th>Тип</th><th>Назва</th><th>К-сть</th><th>Дія</th><th>Коментар</th>';
+  }
+
+  // Owner's materials stock (worker view only)
+  var ownerStockEl = document.getElementById('ws-owner-stock');
+  if (isW && ownerStockEl) {
+    ownerStockEl.style.display = 'block';
+    var ownerName = (_currentUser && _currentUser.ownerName) || 'керівника';
+    document.getElementById('ws-owner-stock-title').textContent = 'На складі у ' + ownerName;
+    var wp = (_currentUser && _currentUser.workerPermissions) || {};
+    var mats = db.materials.filter(function(m){ return m.qty > 0 || m.min > 0; });
+    document.getElementById('ws-owner-materials').innerHTML = mats.map(function(m){
+      var status = m.qty <= 0 ? '<span class="badge badge-danger">Немає</span>'
+        : m.qty <= m.min ? '<span class="badge badge-warning">Мало</span>'
+        : '<span class="badge badge-ok">Є</span>';
+      return '<tr>'+
+        '<td data-label="Матеріал">'+esc(m.name)+'</td>'+
+        '<td data-label="Залишок">'+fmt(m.qty)+' '+esc(m.unit)+'</td>'+
+        '<td data-label="Статус">'+status+'</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:20px;">Склад порожній</td></tr>';
+  } else if (ownerStockEl) {
+    ownerStockEl.style.display = 'none';
+  }
 }
 
 // ==================== SALARY ====================
@@ -4152,7 +4236,7 @@ function applyWorkerPermissions() {
       btn.style.display = 'none';
     }
     // Rename "Майстри" to "Мій склад" for worker
-    if (page === 'worker-stock') btn.innerHTML = '📦 Мій склад';
+    if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
   });
 
   // Hide linked workers card (only for owners)
