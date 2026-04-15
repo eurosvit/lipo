@@ -428,6 +428,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">Ввімкніть/вимкніть стовпчики та змініть порядок стрілками</p>
     <div id="prod-col-list"></div>
+    <button class="btn btn-primary btn-sm" onclick="saveProdColSettings()" style="margin-top:10px;width:100%;">💾 Зберегти</button>
   </div>
   <div id="prod-bulk-bar" style="display:none;padding:10px 16px;background:#E8F5E9;border-radius:8px;margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap;">
     <span id="prod-selected-count" style="font-weight:600;font-size:13px;"></span>
@@ -493,9 +494,19 @@ a.order-link:hover { text-decoration:underline; }
     </select>
     <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
     <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
+    <button class="btn btn-outline btn-sm" onclick="toggleOrdColSettings()" title="Налаштування стовпчиків">⚙️</button>
+  </div>
+  <div id="ord-col-settings" style="display:none;margin-top:8px;padding:16px;background:var(--bg);border-radius:10px;max-width:500px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <strong style="font-size:14px;">Налаштування стовпчиків</strong>
+      <button class="btn btn-outline btn-sm" onclick="resetOrdCols()">↩ Скинути</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">Ввімкніть/вимкніть стовпчики та змініть порядок стрілками</p>
+    <div id="ord-col-list"></div>
+    <button class="btn btn-primary btn-sm" onclick="saveOrdColSettings()" style="margin-top:10px;width:100%;">💾 Зберегти</button>
   </div>
   <div class="table-wrap" style="margin-top:12px;">
-    <table><thead><tr><th>#</th><th>Статус</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Канал</th><th>Майстер</th><th>Дії</th></tr></thead>
+    <table><thead><tr id="orders-thead"></tr></thead>
     <tbody id="orders-table"></tbody></table>
   </div>
 </div>
@@ -2181,14 +2192,19 @@ function saveProdCols(cols) {
   localStorage.setItem('lipo_prod_cols', JSON.stringify(cols));
 }
 
+var _prodColsDraft = null;
+
 function toggleProdColSettings() {
   var el = document.getElementById('prod-col-settings');
   el.style.display = el.style.display==='none' ? 'block' : 'none';
-  if (el.style.display==='block') renderProdColSettings();
+  if (el.style.display==='block') {
+    _prodColsDraft = getProdCols();
+    renderProdColSettings();
+  }
 }
 
 function renderProdColSettings() {
-  var cols = getProdCols();
+  var cols = _prodColsDraft || getProdCols();
   var html = '';
   cols.forEach(function(c, i) {
     html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;" data-col-id="'+c.id+'">'+
@@ -2202,31 +2218,34 @@ function renderProdColSettings() {
 }
 
 function toggleProdCol(colId, visible) {
-  var cols = getProdCols();
-  var col = cols.find(function(c){return c.id===colId;});
+  if (!_prodColsDraft) _prodColsDraft = getProdCols();
+  var col = _prodColsDraft.find(function(c){return c.id===colId;});
   if (col) col.visible = visible;
-  saveProdCols(cols);
-  renderProducts();
   renderProdColSettings();
 }
 
 function moveProdCol(colId, dir) {
-  var cols = getProdCols();
-  var idx = cols.findIndex(function(c){return c.id===colId;});
+  if (!_prodColsDraft) _prodColsDraft = getProdCols();
+  var idx = _prodColsDraft.findIndex(function(c){return c.id===colId;});
   if (idx===-1) return;
   var newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= cols.length) return;
-  var tmp = cols[idx];
-  cols[idx] = cols[newIdx];
-  cols[newIdx] = tmp;
-  saveProdCols(cols);
-  renderProducts();
+  if (newIdx < 0 || newIdx >= _prodColsDraft.length) return;
+  var tmp = _prodColsDraft[idx];
+  _prodColsDraft[idx] = _prodColsDraft[newIdx];
+  _prodColsDraft[newIdx] = tmp;
   renderProdColSettings();
+}
+
+function saveProdColSettings() {
+  if (_prodColsDraft) saveProdCols(_prodColsDraft);
+  _prodColsDraft = null;
+  document.getElementById('prod-col-settings').style.display = 'none';
+  renderProducts();
 }
 
 function resetProdCols() {
   localStorage.removeItem('lipo_prod_cols');
-  renderProducts();
+  _prodColsDraft = getProdCols();
   renderProdColSettings();
 }
 
@@ -2841,6 +2860,91 @@ function populateOrderChannels() {
   }).join('');
 }
 
+// ==================== ORDER COLUMN SETTINGS ====================
+var _defaultOrdCols = [
+  { id:'status', label:'Статус', visible:true },
+  { id:'date', label:'Дата', visible:true },
+  { id:'client', label:'Клієнт', visible:true },
+  { id:'items', label:'Товари', visible:true },
+  { id:'total', label:'Сума', visible:true },
+  { id:'channel', label:'Канал', visible:true },
+  { id:'worker', label:'Майстер', visible:true }
+];
+
+function getOrdCols() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('lipo_ord_cols'));
+    if (saved && saved.length) {
+      var savedIds = saved.map(function(c){return c.id;});
+      _defaultOrdCols.forEach(function(d) {
+        if (savedIds.indexOf(d.id)===-1) saved.push({id:d.id,label:d.label,visible:true});
+      });
+      return saved.map(function(s) {
+        var def = _defaultOrdCols.find(function(d){return d.id===s.id;});
+        return def ? {id:s.id, label:def.label, visible:s.visible} : s;
+      }).filter(function(s) {
+        return _defaultOrdCols.some(function(d){return d.id===s.id;});
+      });
+    }
+  } catch(e){}
+  return _defaultOrdCols.map(function(c){return {id:c.id,label:c.label,visible:c.visible};});
+}
+
+function saveOrdCols(cols) { localStorage.setItem('lipo_ord_cols', JSON.stringify(cols)); }
+
+var _ordColsDraft = null;
+
+function toggleOrdColSettings() {
+  var el = document.getElementById('ord-col-settings');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+  if (el.style.display==='block') {
+    _ordColsDraft = getOrdCols();
+    renderOrdColSettings();
+  }
+}
+
+function renderOrdColSettings() {
+  var cols = _ordColsDraft || getOrdCols();
+  document.getElementById('ord-col-list').innerHTML = cols.map(function(c, i) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;">'+
+      '<input type="checkbox" '+(c.visible?'checked':'')+' onchange="toggleOrdCol(\''+c.id+'\',this.checked)" style="width:16px;height:16px;accent-color:var(--primary);">'+
+      '<span style="flex:1;font-size:13px;font-weight:500;">'+c.label+'</span>'+
+      '<button onclick="moveOrdCol(\''+c.id+'\',-1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===0?'0.2':'0.7')+';" '+(i===0?'disabled':'')+'>▲</button>'+
+      '<button onclick="moveOrdCol(\''+c.id+'\',1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===cols.length-1?'0.2':'0.7')+';" '+(i===cols.length-1?'disabled':'')+'>▼</button>'+
+    '</div>';
+  }).join('');
+}
+
+function toggleOrdCol(colId, visible) {
+  if (!_ordColsDraft) _ordColsDraft = getOrdCols();
+  var col = _ordColsDraft.find(function(c){return c.id===colId;});
+  if (col) col.visible = visible;
+  renderOrdColSettings();
+}
+
+function moveOrdCol(colId, dir) {
+  if (!_ordColsDraft) _ordColsDraft = getOrdCols();
+  var idx = _ordColsDraft.findIndex(function(c){return c.id===colId;});
+  if (idx===-1) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _ordColsDraft.length) return;
+  var tmp = _ordColsDraft[idx]; _ordColsDraft[idx] = _ordColsDraft[newIdx]; _ordColsDraft[newIdx] = tmp;
+  renderOrdColSettings();
+}
+
+function saveOrdColSettings() {
+  if (_ordColsDraft) saveOrdCols(_ordColsDraft);
+  _ordColsDraft = null;
+  document.getElementById('ord-col-settings').style.display = 'none';
+  renderOrders();
+}
+
+function resetOrdCols() {
+  localStorage.removeItem('lipo_ord_cols');
+  _ordColsDraft = getOrdCols();
+  renderOrdColSettings();
+}
+
 function renderOrders() {
   var db = getDB();
   var tb = document.getElementById('orders-table');
@@ -2865,7 +2969,29 @@ function renderOrders() {
 
   document.getElementById('ord-count').textContent = 'Показано: '+filtered.length+' з '+db.orders.length;
 
+  // Column config
+  var ordCols = getOrdCols();
+  var visOrdCols = ordCols.filter(function(c){return c.visible;});
+
+  // Render thead
+  var thead = document.getElementById('orders-thead');
+  thead.innerHTML = '<th>#</th>' + visOrdCols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('') + '<th>Дії</th>';
+
   var channelOpts = '<option value="">—</option>' + channels.map(function(ch){ return '<option value="'+esc(ch)+'">'+esc(ch)+'</option>'; }).join('');
+
+  // Cell renderer
+  function ordCell(colId, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr) {
+    switch(colId) {
+      case 'status': return '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+(statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>';
+      case 'date': return '<td data-label="Дата">'+o.date+'</td>';
+      case 'client': return '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>';
+      case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
+      case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
+      case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
+      case 'worker': return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
+      default: return '<td>—</td>';
+    }
+  }
 
   tb.innerHTML = filtered.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
@@ -2873,19 +2999,14 @@ function renderOrders() {
     var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
     var chColor = getChannelColor(o.channel);
     var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
+    var cells = visOrdCols.map(function(c){ return ordCell(c.id, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr); }).join('');
     return '<tr>'+
       '<td data-label="№">#'+o.num+(o.crmId?'<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>':'')+'</td>'+
-      '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+( statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>'+
-      '<td data-label="Дата">'+o.date+'</td>'+
-      '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>'+
-      '<td data-label="Товари">'+itemsStr+'</td>'+
-      '<td data-label="Сума">'+fmt(o.total)+' грн</td>'+
-      '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>'+
-      '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>'+
+      cells+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
+  }).join('') || '<tr><td colspan="'+(visOrdCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
 
   // Also render channel manager
   renderChannelManager();
