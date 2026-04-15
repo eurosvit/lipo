@@ -291,7 +291,7 @@ a.order-link:hover { text-decoration:underline; }
           <div class="account-info-row"><span class="label">Роль</span><span class="value" id="acc-role">—</span></div>
         </div>
         <div class="account-actions">
-          <button onclick="openPaymentModal()" style="color:var(--primary);font-weight:600;">💳 Оплатити підписку</button>
+          <button id="acc-pay-btn" onclick="openPaymentModal()" style="color:var(--primary);font-weight:600;">💳 Оплатити підписку</button>
           <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="display:block;padding:8px 16px;font-size:14px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);transition:background .2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">💬 Спільнота в Telegram</a>
           <button onclick="window.location.href='/api/auth/logout'" class="logout">🚪 Вийти</button>
         </div>
@@ -5544,6 +5544,13 @@ function loadAccount() {
         ownerName: u.ownerName || ''
       }));
       document.getElementById('acc-role').textContent = 'Майстер у ' + (u.ownerName || '—');
+      // Hide payment button and subscription info for workers
+      var payBtn = document.getElementById('acc-pay-btn');
+      if (payBtn) payBtn.style.display = 'none';
+      var statusEl = document.getElementById('acc-status');
+      if (statusEl) statusEl.textContent = u.ownerHasAccess !== false ? 'Активний' : 'Обмежено';
+      var untilEl = document.getElementById('acc-until');
+      if (untilEl) untilEl.textContent = 'Доступ через ' + (u.ownerName || '—');
       applyWorkerPermissions();
     } else {
       localStorage.removeItem('lipo_worker_role');
@@ -5612,13 +5619,18 @@ function updateNotifications() {
     }
   });
 
-  // Trial ending soon
-  if (_currentUser && _currentUser.trialEndsAt && !_currentUser.subscriptionEndsAt && _currentUser.role !== 'admin') {
+  // Trial ending soon (not for workers — they don't have their own subscription)
+  if (_currentUser && !_currentUser.isWorker && _currentUser.trialEndsAt && !_currentUser.subscriptionEndsAt && _currentUser.role !== 'admin') {
     var trialDays = Math.ceil((new Date(_currentUser.trialEndsAt) - new Date()) / (1000*60*60*24));
     var warnDays = _currentUser.promoUsed ? 10 : 7;
     if (trialDays <= warnDays && trialDays > 0) {
       notifs.push({ id:'trial_'+trialDays, type:'info', icon:'⏰', text:'Пробний період закінчується через <b>'+trialDays+' дн.</b> <a href="#" onclick="openPaymentModal();return false;" style="color:var(--primary);">Оберіть тариф →</a>' });
     }
+  }
+
+  // Worker: owner's access blocked
+  if (_currentUser && _currentUser.isWorker && _currentUser.ownerHasAccess === false) {
+    notifs.push({ id:'worker_blocked', type:'warning', icon:'⚠️', text:'Ваш доступ тимчасово обмежено — керівник (<b>'+esc(_currentUser.ownerName||'')+'</b>) ще не оновив підписку. Коли оплата буде здійснена, доступ відновиться автоматично.' });
   }
 
   // Count unread

@@ -644,6 +644,52 @@ function sendMaterialAlertEmail(name, email, materials) {
   return sendEmail(email, subject, html);
 }
 
+function sendWorkerWelcomeEmail(workerName, workerEmail, ownerName) {
+  const subject = `👋 Вітаємо в LipoLand, ${workerName}!`;
+  const html = emailTemplate(`
+    <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Вітаємо в LipoLand! 👋</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${workerName}</strong>! Вас підключено як майстра до кабінету <strong>${ownerName}</strong>.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Вам не потрібно оплачувати підписку — доступ надає ваш керівник.
+    </p>
+    <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
+      <h3 style="color:#4A148C;margin:0 0 12px;font-size:16px;">📋 Що ви можете робити:</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;font-size:14px;">📋</td><td style="padding:6px 8px;font-size:14px;">Переглядати призначені <strong>замовлення</strong></td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">🔧</td><td style="padding:6px 8px;font-size:14px;">Бачити своє <strong>виробництво</strong></td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">📦</td><td style="padding:6px 8px;font-size:14px;">Контролювати <strong>свій склад</strong></td></tr>
+        <tr><td style="padding:6px 0;font-size:14px;">💰</td><td style="padding:6px 8px;font-size:14px;">Бачити <strong>нарахування ЗП</strong> та історію виплат</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">Перейти до кабінету →</a>
+    </div>
+    <p style="color:#757575;font-size:13px;text-align:center;margin:16px 0 0;">
+      Набір доступних вкладок залежить від налаштувань, які встановлює ваш керівник.
+    </p>
+  `);
+  return sendEmail(workerEmail, subject, html);
+}
+
+function sendWorkerAccessBlockedEmail(workerName, workerEmail, ownerName) {
+  const subject = `⚠️ Доступ до LipoLand тимчасово обмежено`;
+  const html = emailTemplate(`
+    <h2 style="color:#F9A825;margin:0 0 16px;font-size:22px;">⚠️ Доступ тимчасово обмежено</h2>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Привіт, <strong>${workerName}</strong>! Ваш доступ до LipoLand тимчасово обмежено.
+    </p>
+    <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
+      Це не помилка — просто <strong>${ownerName}</strong> ще не оновила підписку. Коли оплата буде здійснена, ваш доступ відновиться автоматично.
+    </p>
+    <p style="color:#757575;font-size:14px;line-height:1.6;margin:16px 0 0;">
+      Всі ваші дані збережено — нічого не загубиться 💜
+    </p>
+  `);
+  return sendEmail(workerEmail, subject, html);
+}
+
 function sendWorkerInviteEmail(workerEmail, ownerName) {
   const subject = `🤝 ${ownerName} запрошує вас до LipoLand`;
   const html = emailTemplate(`
@@ -715,7 +761,15 @@ async function getSessionUser(req) {
     user.ownerName = wl.rows[0].owner_name;
     user.linkedWorkerName = wl.rows[0].worker_name || '';
     user.workerPermissions = wl.rows[0].permissions || {};
-    user.hasAccess = true; // Workers always have access through owner
+    // Worker access depends on owner's subscription
+    const owner = await pool.query("SELECT * FROM users WHERE id = $1", [user.ownerId]);
+    if (owner.rows.length) {
+      user.hasAccess = checkAccess(owner.rows[0]);
+      user.ownerHasAccess = user.hasAccess;
+    } else {
+      user.hasAccess = false;
+      user.ownerHasAccess = false;
+    }
   }
   return user;
 }
@@ -958,8 +1012,19 @@ const server = http.createServer(async (req, res) => {
 
       const userId = generateId();
       const hash = await bcrypt.hash(password, 10);
-      const trialEnds = new Date(Date.now() + (TRIAL_DAYS + bonusDays) * 24 * 60 * 60 * 1000);
       const role = email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'user';
+
+      // Check for pending worker invites BEFORE creating user
+      const pendingInvites = await pool.query(
+        "SELECT * FROM worker_invites WHERE email = $1 AND status = 'pending'",
+        [email.toLowerCase()]
+      );
+      const isWorkerRegistration = pendingInvites.rows.length > 0;
+
+      // Workers don't get trial — their access is through the owner
+      const trialEnds = isWorkerRegistration
+        ? new Date(0) // no trial for workers
+        : new Date(Date.now() + (TRIAL_DAYS + bonusDays) * 24 * 60 * 60 * 1000);
 
       await pool.query(
         `INSERT INTO users (id, email, name, password_hash, role, trial_ends_at, promo_used)
@@ -967,20 +1032,20 @@ const server = http.createServer(async (req, res) => {
         [userId, email.toLowerCase(), name, hash, role, trialEnds, promo || null]
       );
 
-      // Check for pending worker invites for this email
-      if (pool) {
-        const invites = await pool.query(
-          "SELECT * FROM worker_invites WHERE email = $1 AND status = 'pending'",
-          [email.toLowerCase()]
+      // Link worker invites
+      let ownerName = '';
+      for (const inv of pendingInvites.rows) {
+        const linkId = generateId();
+        await pool.query(
+          `INSERT INTO worker_links (id, owner_id, worker_id, worker_name, permissions) VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (owner_id, worker_id) DO NOTHING`,
+          [linkId, inv.owner_id, userId, name, JSON.stringify(inv.permissions)]
         );
-        for (const inv of invites.rows) {
-          const linkId = generateId();
-          await pool.query(
-            `INSERT INTO worker_links (id, owner_id, worker_id, worker_name, permissions) VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (owner_id, worker_id) DO NOTHING`,
-            [linkId, inv.owner_id, userId, name, JSON.stringify(inv.permissions)]
-          );
-          await pool.query("UPDATE worker_invites SET status = 'accepted' WHERE id = $1", [inv.id]);
+        await pool.query("UPDATE worker_invites SET status = 'accepted' WHERE id = $1", [inv.id]);
+        // Get owner name for welcome email
+        if (!ownerName) {
+          const ow = await pool.query("SELECT name FROM users WHERE id = $1", [inv.owner_id]);
+          if (ow.rows.length) ownerName = ow.rows[0].name || '';
         }
       }
 
@@ -991,23 +1056,38 @@ const server = http.createServer(async (req, res) => {
       );
 
       await createSession(res, userId);
-      // Send welcome email (async, don't wait)
-      if (bonusDays > 0 && promo) {
+
+      // Send different welcome emails for workers vs regular users
+      if (isWorkerRegistration) {
+        sendWorkerWelcomeEmail(name, email.toLowerCase(), ownerName).catch(() => {});
+        // Notify owner that worker joined
+        for (const inv of pendingInvites.rows) {
+          const ow = await pool.query("SELECT email, name FROM users WHERE id = $1", [inv.owner_id]);
+          if (ow.rows.length && RESEND_API_KEY) {
+            sendEmail(ow.rows[0].email, '✅ Майстер ' + name + ' приєднався!', emailTemplate(`
+              <h2 style="color:#4A148C;margin:0 0 16px;">✅ Майстер приєднався!</h2>
+              <p style="color:#2d2d2d;font-size:15px;line-height:1.6;"><strong>${name}</strong> (${email}) зареєструвався і тепер підключений до вашого кабінету.</p>
+              <p style="color:#2d2d2d;font-size:15px;">Ви можете налаштувати дозволи в розділі <strong>Налаштування → Підключені майстри</strong>.</p>
+              <div style="text-align:center;margin:24px 0;">
+                <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;">Відкрити кабінет →</a>
+              </div>
+            `)).catch(() => {});
+          }
+        }
+      } else if (bonusDays > 0 && promo) {
         sendPromoWelcomeEmail(name, email.toLowerCase(), TRIAL_DAYS + bonusDays, promo.toUpperCase(), bonusDays).catch(() => {});
       } else {
         sendWelcomeEmail(name, email.toLowerCase(), TRIAL_DAYS + bonusDays).catch(() => {});
       }
       // Notify admin about new registration
       if (RESEND_API_KEY && ADMIN_EMAIL) {
-        sendEmail(ADMIN_EMAIL, '🆕 Новий користувач: ' + name, emailTemplate(`
+        sendEmail(ADMIN_EMAIL, '🆕 Новий користувач: ' + name + (isWorkerRegistration ? ' (майстер)' : ''), emailTemplate(`
           <h2 style="color:#4A148C;margin:0 0 16px;">🆕 Нова реєстрація</h2>
           <p><strong>Ім'я:</strong> ${name}</p>
           <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Тип:</strong> ${isWorkerRegistration ? '👩‍🔧 Майстер (у ' + ownerName + ')' : '👤 Звичайний користувач'}</p>
           <p><strong>Промокод:</strong> ${promo || '—'}</p>
           <p><strong>Дата:</strong> ${new Date().toLocaleString('uk-UA')}</p>
-          <div style="text-align:center;margin:24px 0;">
-            <a href="${BASE_URL}/app" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;">Відкрити адмін-панель →</a>
-          </div>
         `)).catch(() => {});
       }
       sendJSON(res, 200, { ok: true, isNewUser: true });
@@ -1154,6 +1234,7 @@ const server = http.createServer(async (req, res) => {
         response.ownerName = user.ownerName;
         response.linkedWorkerName = user.linkedWorkerName;
         response.workerPermissions = user.workerPermissions;
+        response.ownerHasAccess = user.ownerHasAccess !== false;
       }
       sendJSON(res, 200, response);
       return;
@@ -1989,11 +2070,12 @@ async function logEmailSent(userId, emailType) {
 async function checkTrialReminders() {
   if (!pool || !RESEND_API_KEY) return;
   try {
-    // === ONBOARDING EMAIL SERIES (content, no upgrade push) ===
+    // === ONBOARDING EMAIL SERIES (content, no upgrade push) — exclude workers ===
     const onboardUsers = await pool.query(`
       SELECT u.id, u.name, u.email, u.created_at, u.promo_used FROM users u
       WHERE u.role != 'admin'
         AND u.created_at > NOW() - INTERVAL '60 days'
+        AND u.id NOT IN (SELECT worker_id FROM worker_links)
     `);
     for (const u of onboardUsers.rows) {
       const daysSinceReg = Math.floor((Date.now() - new Date(u.created_at)) / (1000*60*60*24));
@@ -2013,7 +2095,7 @@ async function checkTrialReminders() {
       }
     }
 
-    // === TRIAL REMINDERS ===
+    // === TRIAL REMINDERS — exclude workers ===
     // Regular users: 7, 3, 1 days before end
     // Promo users: 10, 5, 3, 1 days before end (no earlier upgrade push)
     const trialUsers = await pool.query(`
@@ -2022,6 +2104,7 @@ async function checkTrialReminders() {
         AND (u.subscription_ends_at IS NULL OR u.subscription_ends_at < NOW())
         AND u.trial_ends_at > NOW()
         AND u.trial_ends_at <= NOW() + INTERVAL '10 days'
+        AND u.id NOT IN (SELECT worker_id FROM worker_links)
     `);
     for (const u of trialUsers.rows) {
       const days = Math.ceil((new Date(u.trial_ends_at) - new Date()) / (1000*60*60*24));
@@ -2037,13 +2120,14 @@ async function checkTrialReminders() {
       }
     }
 
-    // === TRIAL EXPIRED (today) ===
+    // === TRIAL EXPIRED (today) — exclude workers ===
     const expired = await pool.query(`
       SELECT u.id, u.name, u.email FROM users u
       WHERE u.role != 'admin'
         AND (u.subscription_ends_at IS NULL OR u.subscription_ends_at < NOW())
         AND u.trial_ends_at <= NOW()
         AND u.trial_ends_at > NOW() - INTERVAL '1 day'
+        AND u.id NOT IN (SELECT worker_id FROM worker_links)
     `);
     for (const u of expired.rows) {
       if (await wasEmailSentToday(u.id, 'trial_expired')) continue;
