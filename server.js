@@ -909,6 +909,24 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- EMAIL: Test send ----
+    if (req.method === 'GET' && url === '/api/email-test') {
+      const to = query.get('to');
+      if (!to) { sendJSON(res, 400, { error: 'Вкажіть ?to=email' }); return; }
+      if (!RESEND_API_KEY) { sendJSON(res, 500, { error: 'RESEND_API_KEY не налаштований' }); return; }
+      try {
+        const result = await sendEmail(to, '✅ Тестовий лист LipoLand', emailTemplate(`
+          <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">Тестовий лист</h2>
+          <p style="color:#2d2d2d;font-size:15px;">Якщо ви бачите цей лист — email працює коректно! 🎉</p>
+          <p style="color:#757575;font-size:13px;">Відправлено: ${new Date().toISOString()}</p>
+        `));
+        sendJSON(res, 200, { ok: true, result: result || 'sent' });
+      } catch(e) {
+        sendJSON(res, 500, { error: e.message });
+      }
+      return;
+    }
+
     // ---- AUTH: Register ----
     if (req.method === 'POST' && url === '/api/auth/register') {
       if (!pool) { sendJSON(res, 400, { error: 'Auth not available locally' }); return; }
