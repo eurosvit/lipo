@@ -299,6 +299,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
   </div>
 </nav>
+<div id="worker-banner" style="display:none;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;margin:0 20px;margin-top:8px;padding:12px 20px;border-radius:10px;font-size:14px;"></div>
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu" onclick="if(event.target===this)closeMobileMenu()">
@@ -1470,7 +1471,7 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <script>
-// Instantly restore last viewed page (no flash)
+// Instantly restore last viewed page + worker nav (no flash)
 (function(){
   var sp = localStorage.getItem('lipo_current_page');
   if (sp) {
@@ -1483,6 +1484,43 @@ a.order-link:hover { text-decoration:underline; }
     var btn = document.querySelector('.nav-links button[data-page="dashboard"]');
     if (btn) btn.classList.add('active');
   }
+  // Instantly hide nav for worker role
+  try {
+    var wr = JSON.parse(localStorage.getItem('lipo_worker_role') || 'null');
+    if (wr && wr.isWorker) {
+      var p = wr.permissions || {};
+      var navMap = {
+        'dashboard': p.dashboard !== false,
+        'materials': p.materials === true,
+        'products': false,
+        'production': p.production === true,
+        'orders': p.orders === true,
+        'worker-stock': p.workerStock === true,
+        'salary': p.salary === true,
+        'costs': p.costs === true,
+        'equipment': p.equipment === true,
+        'analytics': false,
+        'settings': p.settings === true
+      };
+      document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
+        var page = btn.getAttribute('data-page');
+        if (navMap[page] === false) btn.style.display = 'none';
+        if (page === 'worker-stock') btn.innerHTML = '📦 Мій склад';
+      });
+      // Also hide in mobile nav
+      document.querySelectorAll('.mobile-nav button[data-page]').forEach(function(btn) {
+        var page = btn.getAttribute('data-page');
+        if (navMap[page] === false) btn.style.display = 'none';
+        if (page === 'worker-stock') btn.textContent = '📦 Мій склад';
+      });
+      // Show worker banner instantly
+      var banner = document.getElementById('worker-banner');
+      if (banner && wr.ownerName) {
+        banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + wr.ownerName + '</b>';
+        banner.style.display = 'block';
+      }
+    }
+  } catch(e){}
 })();
 
 // ==================== DATA LAYER ====================
@@ -4110,12 +4148,12 @@ function applyWorkerPermissions() {
   var lwCard = document.getElementById('linked-workers-card');
   if (lwCard) lwCard.style.display = 'none';
 
-  // Show worker info banner
-  var banner = document.createElement('div');
-  banner.className = 'alert';
-  banner.style.cssText = 'background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;margin:0 20px;margin-top:8px;';
-  banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>';
-  document.querySelector('.nav').insertAdjacentElement('afterend', banner);
+  // Update worker info banner (already in DOM)
+  var banner = document.getElementById('worker-banner');
+  if (banner) {
+    banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>';
+    banner.style.display = 'block';
+  }
 
   // If costs hidden, also hide cost columns in products table
   if (!p.costs && !p.sellPrices) {
@@ -5485,10 +5523,18 @@ function loadAccount() {
     var mobileAdminNav = document.getElementById('mobile-nav-admin');
     if (mobileAdminNav) mobileAdminNav.style.display = u.role === 'admin' ? '' : 'none';
 
-    // Worker role info
+    // Worker role info — save to localStorage for instant nav on reload
     if (u.isWorker) {
+      localStorage.setItem('lipo_worker_role', JSON.stringify({
+        isWorker: true,
+        permissions: u.workerPermissions || {},
+        linkedWorkerName: u.linkedWorkerName || '',
+        ownerName: u.ownerName || ''
+      }));
       document.getElementById('acc-role').textContent = 'Майстер у ' + (u.ownerName || '—');
       applyWorkerPermissions();
+    } else {
+      localStorage.removeItem('lipo_worker_role');
     }
   }).catch(function(){});
 }
