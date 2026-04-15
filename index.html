@@ -523,7 +523,10 @@ a.order-link:hover { text-decoration:underline; }
 <div id="worker-stock" class="page">
   <div class="flex-between">
     <h2>Склад майстрів</h2>
-    <button class="btn btn-primary" onclick="openModal('transfer-to-worker')">📦 Передати майстру</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="openModal('transfer-to-worker')">📦 Передати майстру</button>
+      <button id="ws-worker-add-btn" class="btn btn-primary" onclick="openWorkerAddStockModal()" style="display:none;">+ Додати залишки</button>
+    </div>
   </div>
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Передавайте матеріали майстрам для роботи. При запуску виробництва матеріали списуються звідси (окрім паперу — він зі складу).</p>
   <div class="filter-bar">
@@ -1287,6 +1290,33 @@ a.order-link:hover { text-decoration:underline; }
     </div>
   </div>
 </div>
+
+<!-- Worker Add Own Stock Modal -->
+<div class="modal-overlay" id="modal-worker-add-stock">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>+ Додати залишки</h3>
+      <button class="modal-close" onclick="closeModal('worker-add-stock')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-light);margin:0 0 12px;">Вкажіть матеріали або товари які у вас є. Керівник побачить ці зміни.</p>
+      <div class="form-group mb-16"><label>Що додаємо</label>
+        <select id="was-type" onchange="populateWorkerAddItems()">
+          <option value="material">Матеріал</option>
+          <option value="product">Товар / напівфабрикат</option>
+        </select>
+      </div>
+      <div class="form-group mb-16"><label>Назва</label><select id="was-item"></select></div>
+      <div class="form-group mb-16"><label>Кількість</label><input id="was-qty" type="number" step="0.01" min="0.01" value="1"></div>
+      <div class="form-group"><label>Коментар</label><input id="was-note" placeholder="Наприклад: залишки з минулого разу"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('worker-add-stock')">Скасувати</button>
+      <button class="btn btn-primary" onclick="workerAddStock()">Додати</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- Add/Edit Equipment -->
 <div class="modal-overlay" id="modal-add-equipment">
@@ -3474,6 +3504,85 @@ function transferToWorker() {
   renderPage('worker-stock');
 }
 
+// Worker adds own stock
+function openWorkerAddStockModal() {
+  document.getElementById('was-qty').value = 1;
+  document.getElementById('was-note').value = '';
+  document.getElementById('was-type').value = 'material';
+  populateWorkerAddItems();
+  openModal('worker-add-stock');
+}
+
+function populateWorkerAddItems() {
+  var db = getDB();
+  var type = document.getElementById('was-type').value;
+  var sel = document.getElementById('was-item');
+  if (type === 'material') {
+    sel.innerHTML = db.materials.map(function(m){ return '<option value="'+m.id+'">'+esc(m.name)+' ('+esc(m.unit)+')</option>'; }).join('');
+  } else {
+    sel.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p){ return '<option value="'+p.id+'">'+(p.sku?esc(p.sku)+' — ':'')+esc(p.name)+'</option>'; }).join('');
+  }
+}
+
+function workerAddStock() {
+  if (!_currentUser || !_currentUser.isWorker) return;
+  var wName = _currentUser.linkedWorkerName || _currentUser.name || '';
+  if (!wName) return alert('Не вдалося визначити ваше ім\'я');
+
+  var db = getDB();
+  if (!db.workerStock) db.workerStock = [];
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+
+  var type = document.getElementById('was-type').value;
+  var itemId = document.getElementById('was-item').value;
+  var qty = parseFloat(document.getElementById('was-qty').value) || 0;
+  var note = document.getElementById('was-note').value.trim();
+  if (!itemId || qty <= 0) return alert('Вкажіть позицію та кількість');
+
+  var itemName = '';
+  if (type === 'material') {
+    var mat = db.materials.find(function(m){return m.id===itemId});
+    if (mat) itemName = mat.name;
+  } else {
+    var prod = db.products.find(function(p){return p.id===itemId});
+    if (prod) itemName = (prod.sku ? prod.sku + ' — ' : '') + prod.name;
+  }
+  if (!itemName) return;
+
+  // Merge if already exists
+  var existing = db.workerStock.find(function(s){ return s.worker===wName && s.itemId===itemId && s.type===type; });
+  if (existing) {
+    existing.qty += qty;
+    existing.note = note || existing.note;
+  } else {
+    db.workerStock.push({ id:uid(), worker:wName, type:type, itemId:itemId, itemName:itemName, qty:qty, date:new Date().toISOString().slice(0,10), note:note||'додано майстром' });
+  }
+
+  db.workerStockHistory.push({ id:uid(), worker:wName, type:type, itemId:itemId, itemName:itemName, qty:qty, action:'додано', date:new Date().toISOString().slice(0,10), note:note||'додано майстром' });
+
+  saveDB(db);
+  closeModal('worker-add-stock');
+  renderPage('worker-stock');
+}
+
+function workerEditQty(stockId) {
+  var db = getDB();
+  var item = (db.workerStock||[]).find(function(s){return s.id===stockId});
+  if (!item) return;
+  var newQty = prompt('Скільки зараз "'+item.itemName+'"?', item.qty);
+  if (newQty === null) return;
+  newQty = parseFloat(newQty);
+  if (isNaN(newQty) || newQty < 0) return alert('Вкажіть коректну кількість');
+  var diff = newQty - item.qty;
+  item.qty = newQty;
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  db.workerStockHistory.push({ id:uid(), worker:item.worker, type:item.type, itemId:item.itemId, itemName:item.itemName, qty:Math.abs(diff), action:diff>=0?'додано':'списано', date:new Date().toISOString().slice(0,10), note:'коригування майстром (було '+(item.qty-diff)+' → стало '+newQty+')' });
+  // Remove if zero
+  if (newQty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id!==stockId});
+  saveDB(db);
+  renderPage('worker-stock');
+}
+
 function returnFromWorker(stockId) {
   var db = getDB();
   if (!db.workerStock) return;
@@ -3514,9 +3623,11 @@ function renderWorkerStock() {
     ? 'Матеріали та товари, передані вам для роботи. При запуску виробництва вони списуються автоматично.'
     : 'Передавайте матеріали майстрам для роботи. При запуску виробництва матеріали списуються звідси (окрім паперу — він зі складу).';
 
-  // Hide transfer button and filter for worker
-  var transferBtn = wsPage.querySelector('.btn-primary');
+  // Toggle buttons for worker/owner
+  var transferBtn = wsPage.querySelector('button[onclick*="transfer-to-worker"]');
   if (transferBtn) transferBtn.style.display = isW ? 'none' : '';
+  var workerAddBtn = document.getElementById('ws-worker-add-btn');
+  if (workerAddBtn) workerAddBtn.style.display = isW ? '' : 'none';
   var wsFilter = document.getElementById('ws-worker-filter');
   if (wsFilter) wsFilter.parentNode.style.display = isW ? 'none' : '';
   // Update section titles
@@ -3577,11 +3688,12 @@ function renderWorkerStock() {
         '<td data-label="Назва"><strong>'+esc(s.itemName)+'</strong></td>'+
         '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
         '<td data-label="Дата">'+s.date+'</td>'+
+        '<td data-label=""><button class="btn btn-outline btn-sm" onclick="workerEditQty(\''+s.id+'\')" title="Змінити кількість">✏️</button></td>'+
       '</tr>';
-    }).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:40px;">Вам ще нічого не передано</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px;">Вам ще нічого не передано</td></tr>';
     // Update thead for worker
     var thead = document.querySelector('#worker-stock #ws-table').closest('table').querySelector('thead tr');
-    if (thead) thead.innerHTML = '<th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата передачі</th>';
+    if (thead) thead.innerHTML = '<th>Тип</th><th>Назва</th><th>Кількість</th><th>Дата</th><th></th>';
   } else {
     document.getElementById('ws-table').innerHTML = filtered.map(function(s){
       return '<tr>'+
@@ -3603,7 +3715,7 @@ function renderWorkerStock() {
   if (filterWorker) filteredHistory = filteredHistory.filter(function(h){ return h.worker===filterWorker; });
   if (isW) {
     document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
-      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ отримано</span>' : '<span class="badge badge-success">← повернуто</span>';
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ отримано</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано</span>' : '<span class="badge badge-success">← повернуто</span>';
       return '<tr>'+
         '<td data-label="Дата">'+h.date+'</td>'+
         '<td data-label="Тип">'+(typeLabels[h.type]||h.type)+'</td>'+
@@ -3616,7 +3728,7 @@ function renderWorkerStock() {
     if (histThead) histThead.innerHTML = '<th>Дата</th><th>Тип</th><th>Назва</th><th>К-сть</th><th>Дія</th>';
   } else {
     document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
-      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : '<span class="badge badge-success">← повернуто</span>';
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано (майстер)</span>' : '<span class="badge badge-success">← повернуто</span>';
       return '<tr>'+
         '<td data-label="Дата">'+h.date+'</td>'+
         '<td data-label="Майстер">'+esc(h.worker)+'</td>'+
