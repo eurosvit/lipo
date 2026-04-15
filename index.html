@@ -3306,6 +3306,19 @@ function returnFromWorker(stockId) {
 
 function renderWorkerStock() {
   var db = getDB();
+  var isW = _currentUser && _currentUser.isWorker;
+  // Update titles for worker view
+  var wsPage = document.getElementById('worker-stock');
+  wsPage.querySelector('h2').textContent = isW ? 'Мій склад' : 'Склад майстрів';
+  wsPage.querySelector('p').textContent = isW
+    ? 'Тут відображаються матеріали та товари, передані вам для роботи.'
+    : 'Передавайте матеріали майстрам для роботи. При запуску виробництва матеріали списуються звідси (окрім паперу — він зі складу).';
+  // Hide transfer button and filter for worker
+  var transferBtn = wsPage.querySelector('.btn-primary');
+  if (transferBtn) transferBtn.style.display = isW ? 'none' : '';
+  var wsFilter = document.getElementById('ws-worker-filter');
+  if (wsFilter) wsFilter.parentNode.style.display = isW ? 'none' : '';
+
   var stock = db.workerStock || [];
   var history = db.workerStockHistory || [];
   var filterWorker = document.getElementById('ws-worker-filter').value;
@@ -3907,6 +3920,8 @@ function applyWorkerPermissions() {
     if (navMap[page] === false) {
       btn.style.display = 'none';
     }
+    // Rename "Майстри" to "Мій склад" for worker
+    if (page === 'worker-stock') btn.innerHTML = '📦 Мій склад';
   });
 
   // Hide linked workers card (only for owners)
