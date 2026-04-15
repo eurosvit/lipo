@@ -539,8 +539,8 @@ a.order-link:hover { text-decoration:underline; }
 <!-- ========== SALARY ========== -->
 <div id="salary" class="page">
   <div class="flex-between">
-    <h2>Нарахування ЗП</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <h2 id="salary-title">Нарахування ЗП</h2>
+    <div id="salary-filters" style="display:flex;gap:8px;flex-wrap:wrap;">
       <select id="salary-month" onchange="renderSalary()" style="padding:8px 12px;">
         <option value="">Всі місяці</option>
       </select>
@@ -549,11 +549,42 @@ a.order-link:hover { text-decoration:underline; }
       </select>
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Автоматичний розрахунок зарплати майстрів на основі зданого виробництва та ставок.</p>
+  <p id="salary-desc" style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Автоматичний розрахунок зарплати майстрів на основі зданого виробництва та ставок.</p>
   <div id="salary-cards" class="cards" style="margin-top:16px;"></div>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th></tr></thead>
+    <table><thead><tr id="salary-thead"><th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th></tr></thead>
     <tbody id="salary-table"></tbody></table>
+  </div>
+  <div style="margin-top:24px;">
+    <div class="flex-between">
+      <h3>Історія виплат</h3>
+      <button id="salary-pay-btn" class="btn btn-primary btn-sm" onclick="openPaySalaryModal()">💸 Виплатити</button>
+    </div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table><thead><tr><th>Дата</th><th id="pay-hist-worker-th">Майстер</th><th>Сума</th><th>Коментар</th><th id="pay-hist-actions-th">Дії</th></tr></thead>
+      <tbody id="salary-payments-table"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- Pay Salary Modal -->
+<div id="pay-salary-modal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header"><h3>💸 Виплата зарплати</h3><button class="modal-close" onclick="closeModal('pay-salary-modal')">&times;</button></div>
+    <div class="modal-body">
+      <label>Майстер</label>
+      <select id="pay-salary-worker" onchange="updatePaySalaryHint()" style="width:100%;padding:8px 12px;margin-bottom:12px;"></select>
+      <label>Сума (грн)</label>
+      <input type="number" id="pay-salary-amount" style="width:100%;padding:8px 12px;margin-bottom:12px;" placeholder="0">
+      <p id="pay-salary-hint" style="font-size:12px;color:var(--text-light);margin:-8px 0 12px;"></p>
+      <label>Коментар (необов'язково)</label>
+      <input type="text" id="pay-salary-note" style="width:100%;padding:8px 12px;margin-bottom:12px;" placeholder="Наприклад: за березень">
+      <label>Дата</label>
+      <input type="date" id="pay-salary-date" style="width:100%;padding:8px 12px;margin-bottom:12px;">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveSalaryPayment()">💸 Виплатити</button>
+    </div>
   </div>
 </div>
 
@@ -1459,7 +1490,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -3381,29 +3412,89 @@ function renderWorkerStock() {
 }
 
 // ==================== SALARY ====================
+function calcWorkerEarnings(db, workerName) {
+  // Calculate total earned (all time) for a worker
+  var completed = db.production.filter(function(x){return x.status==='completed' && x.worker===workerName});
+  var total = 0;
+  completed.forEach(function(b){
+    var p = db.products.find(function(x){return x.id===b.productId});
+    if (!p) return;
+    var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+    var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+    var rate = rType==='percent' ? Math.round(p.sellPrice*rVal/100) : rVal;
+    total += rate * (b.completedQty||b.qty);
+  });
+  return total;
+}
+
+function calcWorkerInProgress(db, workerName) {
+  // Calculate earnings from active production
+  var active = db.production.filter(function(x){return x.status==='active' && x.worker===workerName});
+  var total = 0;
+  active.forEach(function(b){
+    var p = db.products.find(function(x){return x.id===b.productId});
+    if (!p) return;
+    var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+    var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+    var rate = rType==='percent' ? Math.round(p.sellPrice*rVal/100) : rVal;
+    total += rate * b.qty;
+  });
+  return total;
+}
+
+function calcWorkerPaid(db, workerName) {
+  return (db.salaryPayments||[]).filter(function(p){return p.worker===workerName}).reduce(function(s,p){return s+(p.amount||0)},0);
+}
+
 function renderSalary() {
   var db = getDB();
+  var isW = _currentUser && _currentUser.isWorker;
+  var wName = isW ? (_currentUser.linkedWorkerName || '') : '';
+
+  // Adapt UI for worker
+  if (isW) {
+    document.getElementById('salary-title').textContent = 'Моя зарплата';
+    document.getElementById('salary-desc').textContent = 'Ваш заробіток на основі зданого виробництва.';
+    document.getElementById('salary-filters').style.display = 'none';
+    document.getElementById('salary-pay-btn').style.display = 'none';
+    document.getElementById('pay-hist-worker-th').style.display = 'none';
+    document.getElementById('pay-hist-actions-th').style.display = 'none';
+  } else {
+    document.getElementById('salary-title').textContent = 'Нарахування ЗП';
+    document.getElementById('salary-desc').textContent = 'Автоматичний розрахунок зарплати майстрів на основі зданого виробництва та ставок.';
+    document.getElementById('salary-filters').style.display = '';
+    document.getElementById('salary-pay-btn').style.display = '';
+    document.getElementById('pay-hist-worker-th').style.display = '';
+    document.getElementById('pay-hist-actions-th').style.display = '';
+  }
+
   var completed = db.production.filter(function(x){return x.status==='completed'});
+  if (isW && wName) completed = completed.filter(function(b){return b.worker===wName});
+
   var months = [];
   var monthSet = {};
   completed.forEach(function(b){ var m=(b.completedDate||b.date).slice(0,7); if(!monthSet[m]){monthSet[m]=true;months.push(m);} });
   months.sort().reverse();
-  var workers = [];
-  var wSet = {};
-  completed.forEach(function(b){ if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);} });
 
-  var selM = document.getElementById('salary-month');
-  var selW = document.getElementById('salary-worker');
-  var curM = selM.value;
-  var curW = selW.value;
-  selM.innerHTML = '<option value="">Всі місяці</option>' + months.map(function(m){return '<option value="'+m+'" '+(m===curM?'selected':'')+'>'+m+'</option>';}).join('');
-  selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(w)+'</option>';}).join('');
-
-  var filtered = completed;
-  if(curM) filtered = filtered.filter(function(b){return (b.completedDate||b.date).indexOf(curM)===0});
-  if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
+  if (!isW) {
+    var workers = [];
+    var wSet = {};
+    completed.forEach(function(b){ if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);} });
+    var selM = document.getElementById('salary-month');
+    var selW = document.getElementById('salary-worker');
+    var curM = selM.value;
+    var curW = selW.value;
+    selM.innerHTML = '<option value="">Всі місяці</option>' + months.map(function(m){return '<option value="'+m+'" '+(m===curM?'selected':'')+'>'+m+'</option>';}).join('');
+    selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    var filtered = completed;
+    if(curM) filtered = filtered.filter(function(b){return (b.completedDate||b.date).indexOf(curM)===0});
+    if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
+  } else {
+    var filtered = completed;
+  }
 
   var totalSalary = 0;
+  var colCount = isW ? 5 : 6;
   var rows = filtered.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     var rate = 0;
@@ -3416,35 +3507,125 @@ function renderSalary() {
     }
     var earned = rate * (b.completedQty||b.qty);
     totalSalary += earned;
+    if (isW) {
+      return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
+        '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
+    }
     return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
       '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
   });
 
-  document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
+  // Update thead
+  var thead = document.getElementById('salary-thead');
+  if (isW) {
+    thead.innerHTML = '<th>Дата</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th>';
+  } else {
+    thead.innerHTML = '<th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th>';
+  }
 
-  var byWorker = {};
-  filtered.forEach(function(b) {
-    var p = db.products.find(function(x){return x.id===b.productId});
-    var sRate = 0;
-    if (p) {
-      var sType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
-      var sVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
-      sRate = sType==='percent' ? Math.round(p.sellPrice*sVal/100) : sVal;
-    }
-    var earned = sRate * (b.completedQty||b.qty);
-    var pcs = b.completedQty||b.qty;
-    if(!byWorker[b.worker]) byWorker[b.worker] = {earned:0, pcs:0};
-    byWorker[b.worker].earned += earned;
-    byWorker[b.worker].pcs += pcs;
-  });
+  document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="'+colCount+'" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
 
+  // Cards
   var cardsHtml = '';
-  Object.keys(byWorker).forEach(function(w){
-    var d = byWorker[w];
-    cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+fmt(d.earned)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">'+d.pcs+' виробів</div></div>';
-  });
-  if(totalSalary>0) cardsHtml += '<div class="card success"><div class="card-label">Всього</div><div class="card-value">'+fmt(totalSalary)+' <span style="font-size:16px;">грн</span></div></div>';
+  if (isW && wName) {
+    var totalEarned = calcWorkerEarnings(db, wName);
+    var totalPaid = calcWorkerPaid(db, wName);
+    var inProgress = calcWorkerInProgress(db, wName);
+    var balance = totalEarned - totalPaid;
+    cardsHtml += '<div class="card '+(balance>0?'warning':'success')+'"><div class="card-label">До виплати</div><div class="card-value">'+fmt(balance)+' <span style="font-size:16px;">грн</span></div></div>';
+    cardsHtml += '<div class="card"><div class="card-label">В роботі</div><div class="card-value">'+fmt(inProgress)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">очікується після здачі</div></div>';
+    cardsHtml += '<div class="card success"><div class="card-label">Всього зароблено</div><div class="card-value">'+fmt(totalEarned)+' <span style="font-size:16px;">грн</span></div></div>';
+    cardsHtml += '<div class="card"><div class="card-label">Виплачено</div><div class="card-value">'+fmt(totalPaid)+' <span style="font-size:16px;">грн</span></div></div>';
+  } else {
+    var byWorker = {};
+    filtered.forEach(function(b) {
+      var p = db.products.find(function(x){return x.id===b.productId});
+      var sRate = 0;
+      if (p) {
+        var sType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+        var sVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+        sRate = sType==='percent' ? Math.round(p.sellPrice*sVal/100) : sVal;
+      }
+      var earned = sRate * (b.completedQty||b.qty);
+      var pcs = b.completedQty||b.qty;
+      if(!byWorker[b.worker]) byWorker[b.worker] = {earned:0, pcs:0, paid:0, balance:0};
+      byWorker[b.worker].earned += earned;
+      byWorker[b.worker].pcs += pcs;
+    });
+    // Add paid info
+    Object.keys(byWorker).forEach(function(w){
+      byWorker[w].paid = calcWorkerPaid(db, w);
+      byWorker[w].balance = byWorker[w].earned - byWorker[w].paid;
+    });
+    Object.keys(byWorker).forEach(function(w){
+      var d = byWorker[w];
+      cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+fmt(d.earned)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">'+d.pcs+' виробів'+(d.paid>0 ? ' · виплачено '+fmt(d.paid)+' грн' : '')+(d.balance>0 ? ' · <strong style="color:var(--warning);">борг '+fmt(d.balance)+' грн</strong>' : '')+'</div></div>';
+    });
+    if(totalSalary>0) cardsHtml += '<div class="card success"><div class="card-label">Всього нараховано</div><div class="card-value">'+fmt(totalSalary)+' <span style="font-size:16px;">грн</span></div></div>';
+  }
   document.getElementById('salary-cards').innerHTML = cardsHtml;
+
+  // Payment history
+  renderSalaryPayments(db, isW, wName);
+}
+
+function renderSalaryPayments(db, isW, wName) {
+  var payments = (db.salaryPayments||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'')});
+  if (isW && wName) payments = payments.filter(function(p){return p.worker===wName});
+
+  document.getElementById('salary-payments-table').innerHTML = payments.map(function(p){
+    var workerTd = isW ? '' : '<td data-label="Майстер">'+esc(p.worker)+'</td>';
+    var actionsTd = isW ? '' : '<td><button class="btn btn-danger btn-sm" onclick="deleteSalaryPayment(\''+p.id+'\')">🗑</button></td>';
+    return '<tr><td data-label="Дата">'+esc(p.date)+'</td>'+workerTd+'<td data-label="Сума"><strong>'+fmt(p.amount)+' грн</strong></td><td data-label="Коментар">'+esc(p.note||'—')+'</td>'+actionsTd+'</tr>';
+  }).join('') || '<tr><td colspan="'+(isW?3:5)+'" class="text-muted" style="text-align:center;padding:30px;">Виплат ще не було</td></tr>';
+}
+
+function openPaySalaryModal() {
+  var db = getDB();
+  var workers = [];
+  var wSet = {};
+  db.production.filter(function(x){return x.status==='completed'}).forEach(function(b){
+    if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);}
+  });
+  document.getElementById('pay-salary-worker').innerHTML = workers.map(function(w){return '<option value="'+esc(w)+'">'+esc(w)+'</option>';}).join('');
+  document.getElementById('pay-salary-amount').value = '';
+  document.getElementById('pay-salary-note').value = '';
+  document.getElementById('pay-salary-date').value = new Date().toISOString().slice(0,10);
+  updatePaySalaryHint();
+  openModal('pay-salary-modal');
+}
+
+function updatePaySalaryHint() {
+  var db = getDB();
+  var w = document.getElementById('pay-salary-worker').value;
+  if (!w) { document.getElementById('pay-salary-hint').textContent = ''; return; }
+  var earned = calcWorkerEarnings(db, w);
+  var paid = calcWorkerPaid(db, w);
+  var balance = earned - paid;
+  document.getElementById('pay-salary-hint').innerHTML = 'Нараховано: '+fmt(earned)+' грн · Виплачено: '+fmt(paid)+' грн · <strong>Борг: '+fmt(balance)+' грн</strong>';
+  document.getElementById('pay-salary-amount').value = balance > 0 ? balance : '';
+}
+
+function saveSalaryPayment() {
+  var worker = document.getElementById('pay-salary-worker').value;
+  var amount = parseFloat(document.getElementById('pay-salary-amount').value);
+  var note = document.getElementById('pay-salary-note').value.trim();
+  var date = document.getElementById('pay-salary-date').value;
+  if (!worker || !amount || amount <= 0) { alert('Вкажіть майстра та суму'); return; }
+  var db = getDB();
+  if (!db.salaryPayments) db.salaryPayments = [];
+  db.salaryPayments.push({ id:uid(), worker:worker, amount:amount, note:note, date:date });
+  saveDB(db);
+  closeModal('pay-salary-modal');
+  renderSalary();
+}
+
+function deleteSalaryPayment(payId) {
+  if (!confirm('Видалити цю виплату?')) return;
+  var db = getDB();
+  db.salaryPayments = (db.salaryPayments||[]).filter(function(p){return p.id!==payId});
+  saveDB(db);
+  renderSalary();
 }
 
 // ==================== COSTS ====================
@@ -3912,6 +4093,7 @@ function applyWorkerPermissions() {
     'salary': p.salary === true,
     'costs': p.costs === true,
     'equipment': p.equipment === true,
+    'analytics': false, // workers don't see analytics
     'settings': p.settings === true
   };
 
