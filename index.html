@@ -1547,6 +1547,15 @@ function saveDB(db) {
   if (typeof updateNotifications === 'function') updateNotifications();
 }
 
+function getAllWorkerNames() {
+  var db = getDB();
+  var names = (db.workers || []).slice();
+  _linkedWorkerNames.forEach(function(n) {
+    if (n && names.indexOf(n) === -1) names.push(n);
+  });
+  return names;
+}
+
 // Load data from server on startup
 fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
   var prevUser = localStorage.getItem('lipo_current_user');
@@ -2514,7 +2523,7 @@ function populateStartProd() {
   document.getElementById('sp-info').innerHTML = '';
   filterSpProducts();
   var sw = document.getElementById('sp-worker');
-  sw.innerHTML = db.workers.map(function(w){return '<option>'+esc(w)+'</option>';}).join('');
+  sw.innerHTML = getAllWorkerNames().map(function(w){return '<option>'+esc(w)+'</option>';}).join('');
 }
 
 function filterSpProducts() {
@@ -3069,7 +3078,7 @@ function renderOrders() {
   tb.innerHTML = filtered.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
     var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
-    var workerOpts = '<option value="">— не призначено —</option>'+db.workers.map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    var workerOpts = '<option value="">— не призначено —</option>'+getAllWorkerNames().map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
     var chColor = getChannelColor(o.channel);
     var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
     var cells = visOrdCols.map(function(c){ return ordCell(c.id, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr); }).join('');
@@ -3288,7 +3297,7 @@ function syncSalesDrive() {
 function populateTransferModal() {
   var db = getDB();
   var sel = document.getElementById('tw-worker');
-  sel.innerHTML = db.workers.map(function(w){ return '<option value="'+esc(w)+'">'+esc(w)+'</option>'; }).join('');
+  sel.innerHTML = getAllWorkerNames().map(function(w){ return '<option value="'+esc(w)+'">'+esc(w)+'</option>'; }).join('');
   document.getElementById('tw-note').value = '';
   document.getElementById('tw-qty').value = 1;
   populateTransferItems();
@@ -4014,6 +4023,8 @@ function saveDefaultRate() {
 function loadLinkedWorkers() {
   fetch('/api/workers').then(function(r){ return r.json(); }).then(function(data){
     if (data.error) return;
+    // Save linked worker names for use in dropdowns
+    _linkedWorkerNames = (data.workers || []).map(function(w){ return w.worker_name || w.user_name || ''; }).filter(Boolean);
     renderLinkedWorkers(data.workers || [], data.pendingInvites || []);
   }).catch(function(){});
 }
@@ -5484,6 +5495,7 @@ function adminDeleteUser(userId, name) {
 
 // ==================== ACCOUNT & NOTIFICATIONS ====================
 var _currentUser = null;
+var _linkedWorkerNames = []; // names of workers connected via CRM
 
 function loadAccount() {
   fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
