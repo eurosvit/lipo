@@ -799,7 +799,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
   <div class="card" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
     <div class="section-title" style="margin-top:0;">👩‍🔧 Підключені майстри <span class="badge badge-ok" style="font-size:10px;">+100 грн/місяць за місце</span></div>
-    <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите.</p>
+    <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите. Ім'я можна змінити в будь-який момент (✏️) — це прізвисько бачите <b>тільки ви</b>.</p>
     <div style="background:#F3E5F5;border-left:3px solid var(--primary);padding:10px 12px;border-radius:6px;font-size:13px;color:#4A148C;margin-bottom:16px;">💡 <b>Як це оплачується:</b> кожен підключений майстер додає 100 грн/міс до підписки. Доплату не знімаємо одразу — до кінця вашої поточної підписки майстер працює безкоштовно. Нова вартість застосується при наступному продовженні.</div>
     <div id="linked-workers-list" class="mb-16"></div>
     <div id="pending-invites-list" class="mb-16"></div>
@@ -4958,9 +4958,20 @@ function renderLinkedWorkers(workers, invites) {
         return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;min-width:170px;">'+
           '<input type="checkbox" '+checked+' onchange="updateWorkerPerm(\''+w.id+'\',\''+key+'\',this.checked)"> '+permLabels[key]+'</label>';
       }).join('');
+      var realName = w.worker_name || w.user_name || '—';
+      var displayName = w.owner_alias || realName;
+      var hasAlias = !!(w.owner_alias && w.owner_alias !== realName);
+      var aliasHint = hasAlias
+        ? '<div style="font-size:11px;color:var(--text-light);margin-top:2px;">👤 Справжнє ім\'я: <em>'+esc(realName)+'</em> · вона не бачить цього прізвиська</div>'
+        : '';
       return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-          '<div><strong>'+ esc(w.worker_name || w.user_name || '—') +'</strong> <span class="text-muted" style="font-size:12px;">'+esc(w.email)+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap;">'+
+          '<div style="flex:1;min-width:200px;">'+
+            '<strong>'+ esc(displayName) +'</strong> '+
+            '<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" title="Перейменувати (лише для вас)" onclick="renameLinkedWorker(\''+w.id+'\',\''+esc(displayName).replace(/\x27/g,"\\\x27")+'\')">✏️</button> '+
+            '<span class="text-muted" style="font-size:12px;">'+esc(w.email)+'</span>'+
+            aliasHint +
+          '</div>'+
           '<button class="btn btn-danger btn-sm" onclick="removeLinkedWorker(\''+w.id+'\')">✕ Відключити</button>'+
         '</div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;">'+permHtml+'</div>'+
@@ -5031,6 +5042,19 @@ function removeLinkedWorker(linkId) {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ linkId: linkId })
   }).then(function(){ loadLinkedWorkers(); loadAccount(); }).catch(function(){});
+}
+
+function renameLinkedWorker(linkId, currentName) {
+  var newName = prompt('Нове ім\'я для майстра (бачите лише ви — вона ні):', currentName || '');
+  if (newName === null) return; // cancelled
+  newName = newName.trim();
+  fetch('/api/workers/rename', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ linkId: linkId, name: newName })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (data && data.error) { alert(data.error); return; }
+    loadLinkedWorkers();
+  }).catch(function(){ alert('Помилка з\'єднання'); });
 }
 
 function cancelInvite(inviteId) {

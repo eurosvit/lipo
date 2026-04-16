@@ -119,6 +119,9 @@ async function initDB() {
       UNIQUE(owner_id, worker_id)
     )
   `);
+  // owner_alias: private display name for the master, visible ONLY to the owner
+  // (separate from worker_name which is used as a data-filter label the worker sees)
+  await pool.query(`ALTER TABLE worker_links ADD COLUMN IF NOT EXISTS owner_alias TEXT DEFAULT ''`).catch(()=>{});
 
   // Notification preferences
   await pool.query(`
@@ -1779,7 +1782,7 @@ const server = http.createServer(async (req, res) => {
       if (user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
 
       const links = await pool.query(
-        `SELECT wl.id, wl.worker_id, wl.worker_name, wl.permissions, wl.created_at, u.email, u.name as user_name
+        `SELECT wl.id, wl.worker_id, wl.worker_name, wl.owner_alias, wl.permissions, wl.created_at, u.email, u.name as user_name
          FROM worker_links wl JOIN users u ON wl.worker_id = u.id WHERE wl.owner_id = $1 ORDER BY wl.created_at`,
         [user.id]
       );
@@ -1801,6 +1804,25 @@ const server = http.createServer(async (req, res) => {
       await pool.query(
         `UPDATE worker_links SET permissions = $1 WHERE id = $2 AND owner_id = $3`,
         [JSON.stringify(permissions), linkId, user.id]
+      );
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- WORKERS: Rename worker (owner-side alias only; worker does NOT see this) ----
+    // IMPORTANT: we update owner_alias, NOT worker_name. worker_name is used as a
+    // data-filter label that the worker sees in her own session — changing it would
+    // break her visibility of existing orders/productions.
+    if (req.method === 'POST' && url === '/api/workers/rename') {
+      const user = await getSessionUser(req);
+      if (!user || user.isWorker) { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { linkId, name } = body;
+      if (!linkId) { sendJSON(res, 400, { error: 'Missing linkId' }); return; }
+      const newName = (name || '').trim().slice(0, 80);
+      await pool.query(
+        `UPDATE worker_links SET owner_alias = $1 WHERE id = $2 AND owner_id = $3`,
+        [newName, linkId, user.id]
       );
       sendJSON(res, 200, { ok: true });
       return;
