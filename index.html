@@ -1281,7 +1281,12 @@ a.order-link:hover { text-decoration:underline; }
           <option value="product">Надруковане / напівфабрикат</option>
         </select>
       </div>
-      <div class="form-group mb-16"><label>Назва</label><select id="tw-item"></select></div>
+      <div class="form-group mb-16" style="position:relative;">
+        <label>Назва</label>
+        <input id="tw-search" type="text" placeholder="Пошук..." autocomplete="off" oninput="filterTwItems()" onfocus="filterTwItems();document.getElementById('tw-dropdown').style.display='block'">
+        <input type="hidden" id="tw-item">
+        <div id="tw-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>
       <div class="form-group mb-16"><label>Кількість</label><input id="tw-qty" type="number" step="0.01" min="0.01" value="1"></div>
       <div class="form-group"><label>Коментар</label><input id="tw-note" placeholder="Наприклад: надруковані сторінки для Азбуки"></div>
     </div>
@@ -3458,15 +3463,48 @@ function populateTransferModal() {
 }
 
 function populateTransferItems() {
+  // Reset selection when type changes
+  document.getElementById('tw-search').value = '';
+  document.getElementById('tw-item').value = '';
+  filterTwItems();
+}
+
+function filterTwItems() {
   var db = getDB();
   var type = document.getElementById('tw-type').value;
-  var sel = document.getElementById('tw-item');
+  var q = (document.getElementById('tw-search').value || '').toLowerCase();
+  var items;
   if (type === 'material') {
-    sel.innerHTML = db.materials.map(function(m){ return '<option value="'+m.id+'">'+esc(m.name)+' ('+fmt(m.qty)+' '+esc(m.unit)+')</option>'; }).join('');
+    items = db.materials.map(function(m){
+      return { id:m.id, label: m.name + ' ('+fmt(m.qty)+' '+(m.unit||'')+')', search: (m.name||'').toLowerCase() };
+    });
   } else {
-    sel.innerHTML = db.products.filter(function(p){return p.active!==false}).map(function(p){ return '<option value="'+p.id+'">'+esc(p.sku)+' — '+esc(p.name)+'</option>'; }).join('');
+    items = db.products.filter(function(p){return p.active!==false}).map(function(p){
+      var label = (p.sku ? p.sku + ' — ' : '') + p.name;
+      return { id:p.id, label: label, search: label.toLowerCase() };
+    });
   }
+  if (q) items = items.filter(function(it){ return it.search.indexOf(q) !== -1; });
+  var dd = document.getElementById('tw-dropdown');
+  dd.innerHTML = items.map(function(it){
+    return '<div onclick="selectTwItem(\''+it.id+'\',\''+esc(it.label).replace(/'/g,"\\'")+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'#fff\'">'+esc(it.label)+'</div>';
+  }).join('') || '<div style="padding:12px;color:var(--text-light);font-size:13px;text-align:center;">Нічого не знайдено</div>';
+  dd.style.display = 'block';
 }
+
+function selectTwItem(id, label) {
+  document.getElementById('tw-item').value = id;
+  document.getElementById('tw-search').value = label;
+  document.getElementById('tw-dropdown').style.display = 'none';
+}
+
+// Close tw-dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('tw-dropdown');
+  if (dd && !e.target.closest('#tw-search') && !e.target.closest('#tw-dropdown')) {
+    dd.style.display = 'none';
+  }
+});
 
 function transferToWorker() {
   var db = getDB();
