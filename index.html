@@ -528,7 +528,7 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення (зберігається між сесіями). Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
+  <p style="font-size:13px;color:var(--text-light);margin:8px 0;">Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення (зберігається між сесіями). Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
   <div id="sync-status" style="margin-top:8px;"></div>
   <div style="margin-top:8px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('channel-manager').style.display=document.getElementById('channel-manager').style.display==='none'?'block':'none'">📢 Канали продажів</button>
@@ -4226,8 +4226,11 @@ function renderOrders() {
   var pageEnd = pageSize === 'all' ? totalFiltered : Math.min(totalFiltered, pageStart + pageSize);
   var pageItems = pageSize === 'all' ? filtered : filtered.slice(pageStart, pageEnd);
 
+  // Total sum across the filtered set (not just current page)
+  var totalSum = filtered.reduce(function(s, o){ return s + (Number(o.total)||0); }, 0);
+  var sumStr = fmt(totalSum) + ' грн';
   document.getElementById('ord-count').textContent = totalFiltered
-    ? 'Показано: '+(pageStart+1)+'–'+pageEnd+' з '+totalFiltered+(totalFiltered!==db.orders.length?' (всього '+db.orders.length+')':'')
+    ? 'Показано: '+(pageStart+1)+'–'+pageEnd+' з '+totalFiltered+(totalFiltered!==db.orders.length?' (всього '+db.orders.length+')':'')+' на '+sumStr
     : 'Показано: 0 з '+db.orders.length;
 
   // Column config
