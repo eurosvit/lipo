@@ -525,6 +525,7 @@ a.order-link:hover { text-decoration:underline; }
         <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(90)" title="Останні 90 днів">90д</button>
       </div>
       <button class="btn btn-success" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
+      <button class="btn btn-outline" onclick="manualRefreshNpTracking()" id="np-refresh-btn" title="Оновити статуси посилок Нової Пошти за ТТН">📍 Трекінг НП</button>
       <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
     </div>
   </div>
@@ -4243,6 +4244,8 @@ function setOrdPage(p) {
 
 function renderOrders() {
   initSyncDateInput();
+  // Фонове оновлення трекінгу НП (не частіше 1/10хв на сесію, не блокує рендер)
+  try { maybeAutoRefreshNpTracking(); } catch(e){}
   var db = getDB();
   var tb = document.getElementById('orders-table');
   var statusFilter = document.getElementById('ord-status-filter').value;
@@ -4334,7 +4337,23 @@ function renderOrders() {
         var sum = orderDeliverySummary(o);
         return '<td data-label="Доставка" style="font-size:12px;">'+(sum||'<span class="text-muted">—</span>')+'</td>';
       }
-      case 'ttn': return '<td data-label="ТТН" style="font-family:monospace;font-size:12px;">'+(o.ttn?esc(o.ttn):'<span class="text-muted">—</span>')+'</td>';
+      case 'ttn': {
+        if (!o.ttn) return '<td data-label="ТТН"><span class="text-muted">—</span></td>';
+        var ttnHtml = '<span style="font-family:monospace;font-size:12px;">'+esc(o.ttn)+'</span>';
+        var tr = o.tracking;
+        if (tr && tr.statusCode) {
+          var vis = statusToVisualNP(tr.statusCode);
+          var label = vis ? (vis.emoji+' '+vis.label) : ('📍 '+esc(String(tr.status||'').slice(0,30)));
+          var bgc = vis ? vis.bg : '#F5F5F5';
+          var col = vis ? vis.color : '#616161';
+          var tip = String(tr.status||'');
+          if (tr.cityRecipient) tip += ' — ' + tr.cityRecipient + (tr.warehouseRecipient ? ', '+tr.warehouseRecipient : '');
+          if (tr.actualDeliveryDate) tip += ' • Вручено: '+tr.actualDeliveryDate;
+          else if (tr.scheduledDeliveryDate) tip += ' • Очік. доставка: '+tr.scheduledDeliveryDate;
+          ttnHtml += '<br><span style="display:inline-block;margin-top:3px;padding:2px 7px;font-size:10px;font-weight:600;border-radius:4px;background:'+bgc+';color:'+col+';" title="'+esc(tip)+'">'+label+'</span>';
+        }
+        return '<td data-label="ТТН">'+ttnHtml+'</td>';
+      }
       case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
       case 'worker': return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
       default: return '<td>—</td>';
@@ -4546,6 +4565,129 @@ function initSyncDateInput() {
   var d = new Date();
   d.setDate(d.getDate() - 30);
   el.value = d.toISOString().slice(0,10);
+}
+
+// ==================== NOVA POSHTA TRACKING ====================
+// Mapping status code → visual bucket (колір/емодзі/лейбл)
+// Ref: https://devcenter.novaposhta.ua/docs/services/...
+function statusToVisualNP(statusCode) {
+  var sc = parseInt(statusCode, 10) || 0;
+  if (sc === 9 || sc === 10 || sc === 11) return { emoji:'✅', color:'#2E7D32', bg:'#E8F5E9', label:'Вручено' };
+  if (sc === 7 || sc === 8)               return { emoji:'📮', color:'#E65100', bg:'#FFF3E0', label:'У відділенні' };
+  if (sc === 5 || sc === 6)               return { emoji:'🚚', color:'#1565C0', bg:'#E3F2FD', label:'У дорозі' };
+  if (sc === 4)                           return { emoji:'📦', color:'#1565C0', bg:'#E3F2FD', label:'Прийнято' };
+  if (sc === 1 || sc === 2 || sc === 3)   return { emoji:'🏷', color:'#616161', bg:'#F5F5F5', label:'Створено' };
+  if (sc === 102 || sc === 103)           return { emoji:'↩', color:'#C62828', bg:'#FFEBEE', label:'Повернення' };
+  if (sc === 111 || sc === 14)            return { emoji:'❌', color:'#C62828', bg:'#FFEBEE', label:'Скасовано' };
+  return null;
+}
+
+// True для ТТН що схожа на Нову Пошту (14 цифр). Для orders без явного carrier
+// ми все одно пробуємо трекати, якщо формат підходить.
+function ttnLooksLikeNP(ttn) {
+  return /^\d{14}$/.test(String(ttn||'').trim());
+}
+
+// Батчингом тягнемо статуси НП для замовлень з TTN (carrier='nova' або формат схожий).
+// opts.force=true — ігнорує 30-хв throttle
+function trackNpOrders(opts) {
+  opts = opts || {};
+  var db = getDB();
+  var list = db.orders || [];
+  var nowMs = Date.now();
+  var THROTTLE_MS = 30*60*1000;      // 30 хв — не чіпаємо те що оновлено нещодавно
+  var DELIVERED_HOLD_MS = 24*60*60*1000; // вручене — не частіше 1 раз на добу
+
+  var needFetch = [];
+  list.forEach(function(o){
+    if (!o.ttn) return;
+    var isNp = (o.carrier === 'nova') || (!o.carrier && ttnLooksLikeNP(o.ttn));
+    if (!isNp) return;
+    var tr = o.tracking;
+    if (!opts.force && tr && tr.updatedAt) {
+      var updMs = Date.parse(tr.updatedAt) || 0;
+      var isDelivered = tr.statusCode === 9 || tr.statusCode === 10 || tr.statusCode === 11;
+      var hold = isDelivered ? DELIVERED_HOLD_MS : THROTTLE_MS;
+      if (nowMs - updMs < hold) return;
+    }
+    needFetch.push(o.ttn);
+  });
+
+  if (!needFetch.length) return Promise.resolve({ updated:0, skipped:list.length });
+
+  // батч по 100 ТТН на запит
+  var chunks = [];
+  for (var i=0; i<needFetch.length; i+=100) chunks.push(needFetch.slice(i, i+100));
+  var updated = 0;
+
+  function runChunk(idx) {
+    if (idx >= chunks.length) return Promise.resolve();
+    return fetch('/api/np/track', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ttns: chunks[idx] })
+    }).then(function(r){
+      return r.text().then(function(txt){
+        var body;
+        try { body = JSON.parse(txt); } catch(e){ body = {error: 'non-JSON ('+r.status+')'}; }
+        return { status: r.status, body: body };
+      });
+    }).then(function(wrap){
+      if (wrap.status === 501) { var e = new Error('not-configured'); e.code='not-configured'; throw e; }
+      if (wrap.status !== 200)  throw new Error(wrap.body.error || ('HTTP '+wrap.status));
+      var db2 = getDB();
+      var results = wrap.body.results || {};
+      (db2.orders||[]).forEach(function(o){
+        if (!o.ttn || !results[o.ttn]) return;
+        o.tracking = results[o.ttn];
+        updated++;
+      });
+      saveDB(db2);
+      return runChunk(idx+1);
+    });
+  }
+  return runChunk(0).then(function(){ return { updated: updated }; });
+}
+
+// Авто-оновлення при відкритті сторінки (не частіше 1 раз на 10 хв в межах сесії)
+var _lastNpAutoRefresh = 0;
+function maybeAutoRefreshNpTracking() {
+  if (Date.now() - _lastNpAutoRefresh < 10*60*1000) return;
+  _lastNpAutoRefresh = Date.now();
+  trackNpOrders().then(function(r){
+    if (r.updated > 0) {
+      var ordersTab = document.getElementById('orders');
+      if (ordersTab && ordersTab.classList.contains('active')) renderOrders();
+    }
+  }).catch(function(e){
+    if (e.code === 'not-configured') {
+      console.info('[lipo] NP tracking disabled (NP_API_KEY not set on server)');
+    } else {
+      console.warn('[lipo] NP tracking auto-refresh failed:', e.message);
+    }
+  });
+}
+
+// Ручне оновлення статусів
+function manualRefreshNpTracking() {
+  var btn = document.getElementById('np-refresh-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  var orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Оновлення...';
+  trackNpOrders({force:true}).then(function(r){
+    btn.innerHTML = r.updated > 0 ? ('✓ Оновлено '+r.updated) : '✓ Актуально';
+    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 2500);
+    renderOrders();
+  }).catch(function(e){
+    if (e.code === 'not-configured') {
+      btn.innerHTML = '⚠ Трекінг НП не налаштовано';
+      btn.title = 'Адміністратор має задати NP_API_KEY на сервері';
+    } else {
+      btn.innerHTML = '❌ ' + (e.message || 'помилка');
+    }
+    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 4000);
+  });
 }
 
 function syncSalesDrive() {
