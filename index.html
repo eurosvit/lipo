@@ -7714,9 +7714,16 @@ function renderAdminUsers(users) {
       '<td style="font-size:12px;">' + lastLogin + '</td>' +
       '<td style="white-space:nowrap;">';
     if (u.role !== 'admin') {
-      html += '<button class="btn btn-sm" onclick="adminExtendTrial(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;">+Тріал</button>';
-      html += '<button class="btn btn-sm" onclick="adminSetPro(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;background:var(--success);color:#fff;">PRO</button>';
-      html += '<button class="btn btn-sm" onclick="adminDeleteUser(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;background:#F44336;color:#fff;">🗑</button>';
+      var isPureWorker = isActiveWorker && !hasOwnPro;
+      if (isPureWorker) {
+        // Для чистого майстра тріал/PRO не впливають на доступ — ховаємо
+        html += '<span style="font-size:11px;color:#999;font-style:italic;margin-right:6px;" title="Доступ майстра — через підписку власника. Для відокремлення — див. процедуру \'майстер→власник\' у підтримці.">керує власник</span>';
+        html += '<button class="btn btn-sm" onclick="adminDeleteUser(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;background:#F44336;color:#fff;" title="⚠ Видалить акаунт і розірве звʼязок з власницею">🗑</button>';
+      } else {
+        html += '<button class="btn btn-sm" onclick="adminExtendTrial(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;">+Тріал</button>';
+        html += '<button class="btn btn-sm" onclick="adminSetPro(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;background:var(--success);color:#fff;">PRO</button>';
+        html += '<button class="btn btn-sm" onclick="adminDeleteUser(\'' + u.id + '\',\'' + esc(u.name||u.email) + '\')" style="font-size:11px;padding:4px 8px;margin:2px;background:#F44336;color:#fff;">🗑</button>';
+      }
     }
     html += '</td></tr>';
   });
