@@ -1747,6 +1747,8 @@ const server = http.createServer(async (req, res) => {
             sendJSON(res, 502, { error: 'НП повернула не-JSON відповідь (HTTP ' + npRes.statusCode + ')' });
             return;
           }
+          console.log('[NP] response: success=%s dataLen=%d errors=%j',
+            parsed.success, (parsed.data||[]).length, parsed.errors || []);
           if (!parsed.success) {
             console.warn('[NP] success=false errors=%j', parsed.errors);
             sendJSON(res, 502, { error: 'НП: ' + (Array.isArray(parsed.errors) ? parsed.errors.join('; ') : 'невідома помилка') });

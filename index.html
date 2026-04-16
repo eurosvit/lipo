@@ -4582,38 +4582,47 @@ function statusToVisualNP(statusCode) {
   return null;
 }
 
-// True для ТТН що схожа на Нову Пошту (14 цифр). Для orders без явного carrier
-// ми все одно пробуємо трекати, якщо формат підходить.
+// True для ТТН що схожа на Нову Пошту (13-14 цифр).
 function ttnLooksLikeNP(ttn) {
-  return /^\d{14}$/.test(String(ttn||'').trim());
+  return /^\d{13,14}$/.test(String(ttn||'').trim());
 }
 
-// Батчингом тягнемо статуси НП для замовлень з TTN (carrier='nova' або формат схожий).
-// opts.force=true — ігнорує 30-хв throttle
+// Батчингом тягнемо статуси НП для замовлень з TTN.
+// opts.force=true — ігнорує throttle І фільтр carrier (пробуємо ВСЕ з ТТН)
 function trackNpOrders(opts) {
   opts = opts || {};
   var db = getDB();
   var list = db.orders || [];
   var nowMs = Date.now();
-  var THROTTLE_MS = 30*60*1000;      // 30 хв — не чіпаємо те що оновлено нещодавно
-  var DELIVERED_HOLD_MS = 24*60*60*1000; // вручене — не частіше 1 раз на добу
+  var THROTTLE_MS = 30*60*1000;
+  var DELIVERED_HOLD_MS = 24*60*60*1000;
 
   var needFetch = [];
+  var skippedNoTtn = 0;
+  var skippedNotNp = 0;
+  var skippedThrottle = 0;
   list.forEach(function(o){
-    if (!o.ttn) return;
-    var isNp = (o.carrier === 'nova') || (!o.carrier && ttnLooksLikeNP(o.ttn));
-    if (!isNp) return;
+    if (!o.ttn) { skippedNoTtn++; return; }
+    // У force-режимі (ручна кнопка) пробуємо всі ТТН без фільтрів.
+    // В авто-режимі — тільки carrier='nova' або числовий формат НП.
+    if (!opts.force) {
+      var isNp = (o.carrier === 'nova') || (!o.carrier && ttnLooksLikeNP(o.ttn));
+      if (!isNp) { skippedNotNp++; return; }
+    }
     var tr = o.tracking;
     if (!opts.force && tr && tr.updatedAt) {
       var updMs = Date.parse(tr.updatedAt) || 0;
       var isDelivered = tr.statusCode === 9 || tr.statusCode === 10 || tr.statusCode === 11;
       var hold = isDelivered ? DELIVERED_HOLD_MS : THROTTLE_MS;
-      if (nowMs - updMs < hold) return;
+      if (nowMs - updMs < hold) { skippedThrottle++; return; }
     }
     needFetch.push(o.ttn);
   });
 
-  if (!needFetch.length) return Promise.resolve({ updated:0, skipped:list.length });
+  console.log('[lipo] NP track: toFetch=%d, noTTN=%d, notNP=%d, throttled=%d, force=%s',
+    needFetch.length, skippedNoTtn, skippedNotNp, skippedThrottle, !!opts.force);
+
+  if (!needFetch.length) return Promise.resolve({ updated:0, sent:0, total:list.length });
 
   // батч по 100 ТТН на запит
   var chunks = [];
@@ -4646,7 +4655,7 @@ function trackNpOrders(opts) {
       return runChunk(idx+1);
     });
   }
-  return runChunk(0).then(function(){ return { updated: updated }; });
+  return runChunk(0).then(function(){ return { updated: updated, sent: needFetch.length, total: list.length }; });
 }
 
 // Авто-оновлення при відкритті сторінки (не частіше 1 раз на 10 хв в межах сесії)
@@ -4671,21 +4680,37 @@ function maybeAutoRefreshNpTracking() {
 // Ручне оновлення статусів
 function manualRefreshNpTracking() {
   var btn = document.getElementById('np-refresh-btn');
+  var statusEl = document.getElementById('sync-status');
   if (!btn) return;
   btn.disabled = true;
   var orig = btn.innerHTML;
   btn.innerHTML = '⏳ Оновлення...';
+  if (statusEl) statusEl.innerHTML = '<span class="text-muted">📍 Запитую статуси НП...</span>';
   trackNpOrders({force:true}).then(function(r){
-    btn.innerHTML = r.updated > 0 ? ('✓ Оновлено '+r.updated) : '✓ Актуально';
-    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 2500);
+    var msg = '';
+    if (r.updated > 0) {
+      msg = '✅ Трекінг НП: оновлено <b>'+r.updated+'</b> з '+r.sent+' ТТН';
+      btn.innerHTML = '✓ Оновлено '+r.updated;
+    } else if (r.sent > 0) {
+      msg = '⚠ Трекінг НП: відправлено '+r.sent+' ТТН, але НП не повернула статусів. Перевірте що ТТН дійсні.';
+      btn.innerHTML = '⚠ 0 результатів';
+    } else {
+      msg = 'ℹ Трекінг НП: не знайдено замовлень з ТТН для перевірки (всього замовлень: '+r.total+')';
+      btn.innerHTML = '✓ Немає ТТН';
+    }
+    if (statusEl) statusEl.innerHTML = '<span style="font-size:13px;">'+msg+'</span>';
+    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 3000);
     renderOrders();
   }).catch(function(e){
+    var msg = '';
     if (e.code === 'not-configured') {
-      btn.innerHTML = '⚠ Трекінг НП не налаштовано';
-      btn.title = 'Адміністратор має задати NP_API_KEY на сервері';
+      msg = '⚠ <b>Трекінг НП не налаштовано</b>: NP_API_KEY не задано на сервері';
+      btn.innerHTML = '⚠ Не налаштовано';
     } else {
-      btn.innerHTML = '❌ ' + (e.message || 'помилка');
+      msg = '❌ <b>Помилка трекінгу НП</b>: ' + esc(e.message || 'невідома помилка');
+      btn.innerHTML = '❌ Помилка';
     }
+    if (statusEl) statusEl.innerHTML = '<span class="text-danger" style="font-size:13px;">'+msg+'</span>';
     setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 4000);
   });
 }
