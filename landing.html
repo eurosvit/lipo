@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LipoLand — Система управління для майстрів ліпучок</title>
+<title>LipoLand — CRM для майстрів дитячих книжок на ліпучках</title>
+<meta name="description" content="Перша в Україні спеціалізована CRM для майстринь ліпучок. Склад, собівартість, замовлення, P&L аналітика, трекінг НП — все в одній системі.">
 <link rel="icon" href="/favicon.png" type="image/png">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -42,22 +43,48 @@ a { text-decoration:none; color:inherit; }
 .hero::before { content:''; position:absolute; top:-200px; right:-200px; width:500px; height:500px; border-radius:50%; background:var(--yellow); opacity:0.08; }
 .hero::after { content:''; position:absolute; bottom:-150px; left:-100px; width:400px; height:400px; border-radius:50%; background:var(--teal); opacity:0.08; }
 .hero-badge { display:inline-block; padding:8px 20px; background:linear-gradient(135deg,rgba(201,27,110,0.1),rgba(76,188,190,0.1)); border-radius:50px; font-weight:700; font-size:14px; color:var(--pink); margin-bottom:24px; }
-.hero h1 { font-size:52px; font-weight:900; line-height:1.15; max-width:700px; margin:0 auto 20px; }
+.hero h1 { font-size:52px; font-weight:900; line-height:1.15; max-width:750px; margin:0 auto 20px; }
 .hero h1 span { background:linear-gradient(135deg,var(--pink),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-.hero p { font-size:20px; color:var(--gray); max-width:550px; margin:0 auto 40px; line-height:1.6; }
+.hero p { font-size:20px; color:var(--gray); max-width:580px; margin:0 auto 40px; line-height:1.6; }
 .hero-buttons { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
-.hero-img { margin-top:60px; max-width:900px; margin-left:auto; margin-right:auto; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.12); overflow:hidden; border:1px solid rgba(0,0,0,0.08); }
-.hero-img img { width:100%; display:block; }
+.hero-stats { display:flex; gap:40px; justify-content:center; margin-top:48px; }
+.hero-stat { text-align:center; }
+.hero-stat .num { font-size:32px; font-weight:900; color:var(--pink); }
+.hero-stat .lbl { font-size:14px; color:var(--gray); font-weight:600; }
+
+/* BROWSER MOCKUP */
+.browser-frame { max-width:1000px; margin:60px auto 0; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.1); }
+.browser-bar { background:#f1f1f1; padding:10px 16px; display:flex; align-items:center; gap:8px; }
+.browser-dots { display:flex; gap:6px; }
+.browser-dots span { width:12px; height:12px; border-radius:50%; }
+.browser-dots span:nth-child(1) { background:#FF5F57; }
+.browser-dots span:nth-child(2) { background:#FFBD2E; }
+.browser-dots span:nth-child(3) { background:#27C93F; }
+.browser-url { flex:1; background:#fff; border-radius:6px; padding:5px 12px; font-size:13px; color:var(--gray); margin-left:8px; }
+.browser-body { background:#F8F5FF; }
+.browser-body img { width:100%; display:block; }
 
 /* FEATURES */
 .features { padding:100px 40px; }
 .section-title { text-align:center; margin-bottom:60px; }
 .section-title h2 { font-size:36px; font-weight:800; margin-bottom:12px; }
 .section-title p { font-size:18px; color:var(--gray); }
-.features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:24px; max-width:1100px; margin:0 auto; }
-.feature-card { background:#fff; border-radius:16px; padding:32px; border:1px solid rgba(0,0,0,0.06); transition:all .3s; }
+.features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; max-width:1100px; margin:0 auto; }
+.feature-card { background:#fff; border-radius:16px; padding:32px; border:1px solid rgba(0,0,0,0.06); transition:all .3s; cursor:pointer; position:relative; }
 .feature-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.08); }
 .feature-icon { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:20px; }
+.feature-card h3 { font-size:18px; font-weight:800; margin-bottom:8px; }
+.feature-card > p { font-size:14px; color:var(--gray); line-height:1.6; }
+.feature-expand { font-size:12px; color:var(--pink); font-weight:700; margin-top:12px; display:flex; align-items:center; gap:4px; }
+.feature-expand::after { content:'+'; font-size:16px; transition:transform .3s; }
+.feature-card.open .feature-expand::after { transform:rotate(45deg); }
+.feature-details { max-height:0; overflow:hidden; transition:max-height .4s ease, margin .3s ease; }
+.feature-card.open .feature-details { max-height:400px; margin-top:16px; }
+.feature-details ul { list-style:none; }
+.feature-details li { padding:5px 0; font-size:13px; color:var(--dark); display:flex; align-items:flex-start; gap:8px; line-height:1.5; }
+.feature-details li::before { content:''; width:6px; height:6px; background:var(--teal); border-radius:50%; flex-shrink:0; margin-top:6px; }
+
+/* Icon colors per card */
 .feature-card:nth-child(1) .feature-icon { background:rgba(201,27,110,0.1); }
 .feature-card:nth-child(2) .feature-icon { background:rgba(76,188,190,0.1); }
 .feature-card:nth-child(3) .feature-icon { background:rgba(242,192,49,0.15); }
@@ -67,8 +94,9 @@ a { text-decoration:none; color:inherit; }
 .feature-card:nth-child(7) .feature-icon { background:rgba(242,192,49,0.15); }
 .feature-card:nth-child(8) .feature-icon { background:rgba(232,146,64,0.12); }
 .feature-card:nth-child(9) .feature-icon { background:rgba(201,27,110,0.1); }
-.feature-card h3 { font-size:18px; font-weight:800; margin-bottom:8px; }
-.feature-card p { font-size:14px; color:var(--gray); line-height:1.6; }
+
+/* EXTRA-BADGE on card */
+.card-badge { position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:50px; color:#fff; }
 
 /* PRICING */
 .pricing { padding:100px 40px; background:#fff; }
@@ -85,25 +113,6 @@ a { text-decoration:none; color:inherit; }
 .price-features { list-style:none; text-align:left; margin-bottom:28px; }
 .price-features li { padding:8px 0; font-size:14px; color:var(--dark); display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,0.04); }
 .price-features li::before { content:'✓'; color:var(--teal); font-weight:800; font-size:16px; }
-
-/* CTA */
-.cta { padding:100px 40px; text-align:center; background:linear-gradient(135deg,var(--pink),var(--orange)); color:#fff; }
-.cta h2 { font-size:36px; font-weight:900; margin-bottom:16px; }
-.cta p { font-size:18px; opacity:0.9; margin-bottom:32px; max-width:500px; margin-left:auto; margin-right:auto; }
-.cta .btn { background:#fff; color:var(--pink); font-size:18px; padding:16px 40px; }
-.cta .btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.2); }
-
-/* BROWSER MOCKUP */
-.browser-frame { max-width:1000px; margin:60px auto 0; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.1); }
-.browser-bar { background:#f1f1f1; padding:10px 16px; display:flex; align-items:center; gap:8px; }
-.browser-dots { display:flex; gap:6px; }
-.browser-dots span { width:12px; height:12px; border-radius:50%; }
-.browser-dots span:nth-child(1) { background:#FF5F57; }
-.browser-dots span:nth-child(2) { background:#FFBD2E; }
-.browser-dots span:nth-child(3) { background:#27C93F; }
-.browser-url { flex:1; background:#fff; border-radius:6px; padding:5px 12px; font-size:13px; color:var(--gray); margin-left:8px; }
-.browser-body { background:#F8F5FF; }
-.browser-body img { width:100%; display:block; }
 
 /* HOW IT WORKS */
 .how-it-works { padding:100px 40px; background:#fff; }
@@ -132,11 +141,16 @@ a { text-decoration:none; color:inherit; }
 .faq-item.open .faq-a { max-height:300px; padding-bottom:20px; }
 .faq-a p { font-size:15px; color:var(--gray); line-height:1.7; }
 
+/* CTA */
+.cta { padding:100px 40px; text-align:center; background:linear-gradient(135deg,var(--pink),var(--orange)); color:#fff; }
+.cta h2 { font-size:36px; font-weight:900; margin-bottom:16px; }
+.cta p { font-size:18px; opacity:0.9; margin-bottom:32px; max-width:500px; margin-left:auto; margin-right:auto; }
+.cta .btn { background:#fff; color:var(--pink); font-size:18px; padding:16px 40px; }
+.cta .btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.2); }
+
 /* FOOTER */
 .footer { padding:40px; text-align:center; font-size:14px; color:var(--gray); }
 .footer a { color:var(--pink); font-weight:600; }
-.footer-social { margin-bottom:12px; }
-.footer-social a { display:inline-flex; align-items:center; gap:6px; font-size:15px; }
 
 /* MOBILE */
 @media(max-width:768px) {
@@ -145,6 +159,9 @@ a { text-decoration:none; color:inherit; }
   .hero { padding:110px 20px 60px; }
   .hero h1 { font-size:32px; }
   .hero p { font-size:16px; }
+  .hero-stats { gap:20px; }
+  .hero-stat .num { font-size:24px; }
+  .features-grid { grid-template-columns:1fr; }
   .features, .pricing, .cta, .how-it-works, .faq { padding:60px 20px; }
   .section-title h2 { font-size:28px; }
   .price-amount { font-size:36px; }
@@ -162,74 +179,86 @@ a { text-decoration:none; color:inherit; }
   <nav class="header-nav">
     <a href="#features">Можливості</a>
     <a href="#how">Як працює</a>
-    <a href="#faq">FAQ</a>
     <a href="#pricing">Тарифи</a>
+    <a href="#faq">FAQ</a>
     <a href="/auth" class="btn btn-outline" style="padding:8px 20px;font-size:14px;">Увійти</a>
-    <a href="/register" class="btn btn-primary" style="padding:8px 20px;font-size:14px;">Реєстрація</a>
+    <a href="/register" class="btn btn-primary" style="padding:8px 20px;font-size:14px;">Спробувати</a>
   </nav>
 </header>
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">Перша в Україні CRM для майстрів ліпучок</div>
-  <h1>Все виробництво — <span>в одній системі</span></h1>
-  <p>Спеціалізована CRM для майстринь ліпучок: склад, обладнання, собівартість, замовлення та продажі</p>
+  <div class="hero-badge">Перша CRM для українських майстринь ліпучок</div>
+  <h1>Склад, замовлення та прибуток — <span>в одній системі</span></h1>
+  <p>Замість блокнотів, Excel-таблиць та 10 відкритих вкладок. Спеціалізована CRM, яка розуміє вашу специфіку: матеріали, рецептура, собівартість, НП, SalesDrive.</p>
   <div class="hero-buttons">
     <a href="/register" class="btn btn-primary">Почати безкоштовно</a>
-    <a href="#features" class="btn btn-outline">Дізнатись більше</a>
+    <a href="#features" class="btn btn-outline">Що всередині</a>
   </div>
+
+  <!-- BROWSER MOCKUP — Orders with NP tracking -->
   <div class="browser-frame">
     <div class="browser-bar">
       <div class="browser-dots"><span></span><span></span><span></span></div>
-      <div class="browser-url">lipoland.top/app</div>
+      <div class="browser-url">lipoland.top</div>
     </div>
     <div class="browser-body" style="padding:20px;font-family:'Segoe UI',system-ui,sans-serif;">
-      <!-- Mock Dashboard -->
+      <!-- Mock top bar -->
       <div style="background:linear-gradient(135deg,#4A148C,#7B1FA2);padding:8px 16px;border-radius:8px 8px 0 0;display:flex;gap:12px;align-items:center;font-size:12px;">
         <img src="/favicon.png" style="width:20px;height:20px;border-radius:50%;"><span style="color:#fff;font-weight:700;font-size:14px;">LipoLand</span>
-        <span style="color:#fff;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-weight:600;">📊 Дашборд</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📊 Дашборд</span>
         <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📦 Матеріали</span>
         <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">🎮 Продукція</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📋 Замовлення</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">🖨 Обладнання</span>
+        <span style="color:#fff;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-weight:600;">📋 Замовлення</span>
+        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📊 Аналітика</span>
       </div>
       <div style="padding:16px;background:#F8F5FF;">
-        <div style="font-size:18px;font-weight:700;color:#2d2d2d;margin-bottom:12px;">Дашборд</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
-          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #7B1FA2;">
-            <div style="font-size:10px;color:#757575;text-transform:uppercase;">На складі</div>
-            <div style="font-size:22px;font-weight:700;color:#4A148C;">24 шт</div>
-            <div style="font-size:10px;color:#757575;">8 450 грн</div>
-          </div>
-          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;">
-            <div style="font-size:10px;color:#757575;text-transform:uppercase;">В виробництві</div>
-            <div style="font-size:22px;font-weight:700;color:#4A148C;">12 шт</div>
-          </div>
-          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #F9A825;">
-            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Матеріали</div>
-            <div style="font-size:22px;font-weight:700;color:#4A148C;">11</div>
-            <div style="font-size:10px;color:#E65100;">3 потребують замовлення</div>
-          </div>
-          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;border-left:3px solid #2E7D32;">
-            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Замовлення</div>
-            <div style="font-size:22px;font-weight:700;color:#4A148C;">5</div>
-            <div style="font-size:10px;color:#757575;">2 850 грн</div>
-          </div>
-          <div style="background:#fff;border-radius:6px;padding:12px;border:1px solid #E0D8E8;">
-            <div style="font-size:10px;color:#757575;text-transform:uppercase;">Товарів</div>
-            <div style="font-size:22px;font-weight:700;color:#4A148C;">180</div>
+        <!-- Mock summary -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:18px;font-weight:700;color:#2d2d2d;">Замовлення</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:11px;color:#757575;">Показано: 1-25 з 147 на 138 790 грн</span>
+            <span style="background:#2E7D32;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">🔄 Синхронізувати з CRM</span>
+            <span style="background:#fff;border:1px solid #CE93D8;color:#4A148C;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">📍 Трекінг НП</span>
           </div>
         </div>
-        <div style="background:#fff;border-radius:6px;padding:10px 14px;border:1px solid #E0D8E8;font-size:12px;">
-          <div style="font-weight:600;color:#2d2d2d;margin-bottom:8px;">Критичні залишки матеріалів</div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;color:#757575;font-size:11px;font-weight:600;border-bottom:1px solid #E0D8E8;padding-bottom:6px;">
-            <span>Матеріал</span><span>Залишок</span><span>Мінімум</span><span>Статус</span>
+        <!-- Mock orders table -->
+        <div style="background:#fff;border-radius:8px;border:1px solid #E0D8E8;font-size:12px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;background:#F3E5F5;padding:8px 12px;font-weight:700;color:#4A148C;font-size:11px;text-transform:uppercase;">
+            <span>#</span><span>Статус</span><span>Канал</span><span>Клієнт</span><span>Товари</span><span>Сума</span><span>ТТН</span><span>Майстер</span>
           </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;align-items:center;">
-            <span style="font-weight:600;">Папір 180г глянець</span><span>2 упак</span><span>5</span><span style="background:#FFCDD2;color:#C62828;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;display:inline-block;">Замовити!</span>
+          <!-- Order row 1 -->
+          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:600;">#147<br><span style="background:#F3E5F5;color:#6A1B9A;padding:1px 6px;border-radius:3px;font-size:9px;">CRM</span></span>
+            <span><span style="background:#C8E6C9;color:#2E7D32;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Виконано</span></span>
+            <span><span style="background:#E1BEE7;color:#6A1B9A;padding:2px 8px;border-radius:4px;font-size:10px;">ETSY</span></span>
+            <span>Олена Баланюк<br><span style="color:#999;font-size:10px;">380974114036</span></span>
+            <span style="font-size:11px;">Моя перша книжечка Lipoland A5 x1</span>
+            <span style="font-weight:700;">650 грн</span>
+            <span style="font-family:monospace;font-size:10px;">20450501234567<br><span style="background:#E8F5E9;color:#2E7D32;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">✅ Вручено</span></span>
+            <span>Юля</span>
           </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:6px 0;font-size:12px;align-items:center;">
-            <span style="font-weight:600;">Плівка для ламінації</span><span>1 упак</span><span>3</span><span style="background:#FFF9C4;color:#E65100;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;display:inline-block;">Мало</span>
+          <!-- Order row 2 -->
+          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:600;">#146<br><span style="background:#F3E5F5;color:#6A1B9A;padding:1px 6px;border-radius:3px;font-size:9px;">CRM</span></span>
+            <span><span style="background:#FFF9C4;color:#E65100;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Нове</span></span>
+            <span><span style="background:#BBDEFB;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:10px;">Instagram</span></span>
+            <span>Марина Клименко<br><span style="color:#999;font-size:10px;">380509212215</span></span>
+            <span style="font-size:11px;">Альбом Lipoland A5 Пластилин x1</span>
+            <span style="font-weight:700;">320 грн</span>
+            <span style="font-family:monospace;font-size:10px;">20450609876543<br><span style="background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">📮 У відділенні</span></span>
+            <span>Яна</span>
+          </div>
+          <!-- Order row 3 -->
+          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;align-items:center;">
+            <span style="font-weight:600;">#145</span>
+            <span><span style="background:#E3F2FD;color:#1565C0;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Відправлено</span></span>
+            <span><span style="background:#C8E6C9;color:#2E7D32;padding:2px 8px;border-radius:4px;font-size:10px;">Rozetka</span></span>
+            <span>Валентина Житнікова</span>
+            <span style="font-size:11px;">LP1803A5 Візуальний розклад x1</span>
+            <span style="font-weight:700;">500 грн</span>
+            <span style="font-family:monospace;font-size:10px;">20450705554433<br><span style="background:#E3F2FD;color:#1565C0;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">🚚 У дорозі</span></span>
+            <span>Юля</span>
           </div>
         </div>
       </div>
@@ -241,57 +270,163 @@ a { text-decoration:none; color:inherit; }
 <section class="features" id="features">
   <div class="section-title">
     <h2>Все, що потрібно майстрині</h2>
-    <p>Спеціалізовані модулі саме для виробництва ліпучок</p>
+    <p>9 модулів, створених спеціально для виробництва дитячих книжок на ліпучках</p>
   </div>
   <div class="features-grid">
-    <div class="feature-card">
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
       <div class="feature-icon">📦</div>
       <h3>Склад матеріалів</h3>
-      <p>Облік ліпучки, папери, плівки для ламінації, кілець та іншої фурнітури. Автоматичні нагадування коли закінчується</p>
+      <p>Повний облік ліпучки, паперу, плівки, кілець та фурнітури з автосповіщеннями</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Залишки в реальному часі з кольоровими статусами (Ок / Мало / Замовити!)</li>
+          <li>Мінімальний запас — система нагадає коли треба замовити</li>
+          <li>Історія надходжень: дата, постачальник, ціна за одиницю</li>
+          <li>AI-розпізнавання накладних: сфотографуйте чек — дані заповняться самі</li>
+          <li>Автоматичне списання при створенні замовлення за рецептурою</li>
+          <li>Одиниці: шт, м.п., м², аркуш, рулон, упак, кг, г, л, мл, компл</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">🖨</div>
-      <h3>Обладнання</h3>
-      <p>Принтер, ламінатор, різак — все під контролем. Нагадування про планове обслуговування та облік витрат на ремонт</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📊</div>
-      <h3>Собівартість</h3>
-      <p>Автоматичний розрахунок собівартості кожного виробу з урахуванням матеріалів та роботи майстра</p>
-    </div>
-    <div class="feature-card">
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
       <div class="feature-icon">🎮</div>
       <h3>Каталог продукції</h3>
-      <p>Всі ваші ігри з артикулами, рецептурою та цінами. Завжди знаєте скільки готової продукції на складі</p>
+      <p>Рецептура, автоматична собівартість, категорії та облік готової продукції на складі</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Рецепт кожного виробу: скільки ліпучки, паперу, плівки йде на 1 шт</li>
+          <li>Автоматичний розрахунок собівартості за матеріалами + робота</li>
+          <li>Категорії (книжки A4, A5, альбоми, ігри) з фільтрацією</li>
+          <li>Артикули (SKU) для зручного пошуку</li>
+          <li>Актуальний залишок готової продукції на складі</li>
+          <li>Ціна продажу та маржинальність — бачите прибуток на кожному виробі</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card">
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
       <div class="feature-icon">📋</div>
-      <h3>Замовлення</h3>
-      <p>Ведіть замовлення від створення до відправки. Статуси, історія, контроль на кожному етапі</p>
+      <h3>Замовлення та продажі</h3>
+      <p>Повний цикл: від нового замовлення до вручення клієнту з контролем оплати</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Власні статуси з кольорами: Нове → В роботі → Відправлено → Виконано</li>
+          <li>Канали продажів: ETSY, Instagram, Rozetka, Prom або ваші</li>
+          <li>Спосіб оплати: передоплата, післяплата, IBAN, готівка</li>
+          <li>Контроль оплати: не оплачено / часткова / оплачено</li>
+          <li>Призначення майстра (хто робить) з підказкою складу</li>
+          <li>Пагінація, фільтри, налаштування видимих колонок</li>
+          <li>Підрахунок суми: «Показано 1–25 з 147 на 138 790 грн»</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">🔔</div>
-      <h3>Сповіщення</h3>
-      <p>Автоматичні нагадування коли матеріали закінчуються, обладнання потребує обслуговування або товар на складі на нулі</p>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
+      <div class="feature-icon">📊</div>
+      <h3>P&L Аналітика</h3>
+      <p>Виручка, собівартість, витрати, податки — чистий прибуток по місяцях</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Повний P&L звіт: Виручка → COGS → Валовий прибуток → OpEx → EBIT → Податки → Чистий прибуток</li>
+          <li>Розбивка по місяцях за обраний період</li>
+          <li>Категорії витрат: оренда, реклама, пакування, доставка замовлень</li>
+          <li>Автоматичний облік витрат на доставку (напр. ETSY) прямо з замовлення</li>
+          <li>Податки: ЄП 3 група (5%), 2 група (фікс), або ручне введення</li>
+          <li>Картки-підсумки: виручка, прибуток, маржинальність</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card" style="border:2px dashed var(--teal);position:relative;">
-      <div style="position:absolute;top:12px;right:12px;background:var(--teal);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;">Додатково</div>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
+      <div class="feature-icon">🚚</div>
+      <h3>Трекінг Нова Пошта</h3>
+      <p>Статус кожної посилки прямо в замовленні — без переключення на сайт НП</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Вводите ТТН вручну — система тягне статус з API Нової Пошти</li>
+          <li>Кольорові бейджі: 🏷 Створено → 🚚 У дорозі → 📮 У відділенні → ✅ Вручено</li>
+          <li>Авто-оновлення при відкритті сторінки замовлень</li>
+          <li>Кнопка «📍 Трекінг НП» для примусового оновлення всіх ТТН</li>
+          <li>При наведенні — деталі: місто, відділення, очікувана дата</li>
+          <li>Батчинг до 100 ТТН за 1 запит — швидко навіть для великих обсягів</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
+      <div class="feature-icon">🖨</div>
+      <h3>Обладнання</h3>
+      <p>Принтер, ламінатор, різак — нагадування про обслуговування та облік витрат</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Карточка обладнання: модель, дата покупки, гарантія</li>
+          <li>Планове обслуговування з інтервалом у днях</li>
+          <li>Заміна ножа для різака: кожні N днів з нагадуванням</li>
+          <li>Статуси: OK / Скоро обслуговування / Прострочено</li>
+          <li>Історія ремонтів та витрат</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')" style="border:2px solid var(--teal);">
+      <div class="card-badge" style="background:var(--teal);">Модуль</div>
       <div class="feature-icon">👷</div>
-      <h3>Модуль "Майстри"</h3>
-      <p>Передача матеріалів майстрам, облік роботи та розрахунок зарплати. +100 грн/міс за кожного майстра</p>
+      <h3>Майстри та команда</h3>
+      <p>Передача матеріалів, облік складу майстра, контроль виконання замовлень</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Запрошення майстра за email — вона отримує свій вхід у систему</li>
+          <li>Передача матеріалів та готової продукції: зі складу власника → на склад майстра</li>
+          <li>Облік залишків на складі майстра окремо</li>
+          <li>Призначення майстра на замовлення → підказка з якого складу списувати</li>
+          <li>Доступ майстра через підписку власника</li>
+          <li>+100 грн/міс за кожне додаткове місце</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card" style="border:2px dashed var(--yellow);position:relative;opacity:0.85;">
-      <div style="position:absolute;top:12px;right:12px;background:var(--yellow);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;">Скоро</div>
-      <div class="feature-icon">📮</div>
-      <h3>ТТН Нова Пошта</h3>
-      <p>Формування та друк ТТН прямо з системи. Без переключення між вкладками — все в одному місці</p>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
+      <div class="feature-icon">🔄</div>
+      <h3>SalesDrive CRM</h3>
+      <p>Автоматичний імпорт замовлень з SalesDrive — завжди актуальний список</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Одноразове налаштування: домен + API-ключ SalesDrive</li>
+          <li>Синхронізація замовлень за обраний період (до 90 днів)</li>
+          <li>Автоматична фільтрація: тільки товари з «Lipoland» у назві</li>
+          <li>Автоматичне оновлення існуючих замовлень + створення нових</li>
+          <li>Дані клієнта, товари, доставка, оплата — все підтягується</li>
+          <li>Пагінація з паузами: не блокує API ліміт SalesDrive (10 запитів/хв)</li>
+        </ul>
+      </div>
     </div>
-    <div class="feature-card" style="border:2px dashed var(--yellow);position:relative;opacity:0.85;">
-      <div style="position:absolute;top:12px;right:12px;background:var(--yellow);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;">Скоро</div>
-      <div class="feature-icon">🧾</div>
-      <h3>Чеки та фіскалізація</h3>
-      <p>Видача чеків клієнтам відповідно до вимог законодавства. Інтеграція з Checkbox або pRRO</p>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')">
+      <div class="feature-icon">🔔</div>
+      <h3>Розумні сповіщення</h3>
+      <p>Telegram-бот та внутрішні нагадування — нічого не пропустите</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Матеріал нижче мінімуму → сповіщення з назвою та залишком</li>
+          <li>Продукція на нулі → нагадування поповнити</li>
+          <li>Обладнання потребує обслуговування → завчасне попередження</li>
+          <li>Telegram-бот: отримуйте нагадування прямо в месенджер</li>
+          <li>Дзвіночок у системі з лічильником непрочитаних</li>
+        </ul>
+      </div>
     </div>
+
   </div>
 </section>
 
@@ -299,66 +434,25 @@ a { text-decoration:none; color:inherit; }
 <section class="how-it-works" id="how">
   <div class="section-title">
     <h2>Як це працює</h2>
-    <p>Три простих кроки до порядку у виробництві</p>
+    <p>Три кроки — і ваше виробництво під контролем</p>
   </div>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
       <h3>Зареєструйтесь</h3>
-      <p>Створіть акаунт за 30 секунд. Перший місяць безкоштовно — жодних зобов'язань</p>
+      <p>Google-акаунт або email. 30 днів безкоштовно — без картки, без зобов'язань, повний доступ до всього</p>
       <span class="step-arrow">→</span>
     </div>
     <div class="step">
       <div class="step-num">2</div>
       <h3>Внесіть свої дані</h3>
-      <p>Додайте матеріали, обладнання та продукцію. Система одразу почне рахувати собівартість</p>
+      <p>Матеріали, продукцію, рецептуру. Підключіть SalesDrive для авто-імпорту замовлень. Система одразу рахує собівартість</p>
       <span class="step-arrow">→</span>
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <h3>Контролюйте все</h3>
-      <p>Отримуйте сповіщення, слідкуйте за залишками та приймайте рішення на основі даних</p>
-    </div>
-  </div>
-</section>
-
-<!-- FAQ -->
-<section class="faq" id="faq">
-  <div class="section-title">
-    <h2>Часті запитання</h2>
-  </div>
-  <div class="faq-list">
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що таке LipoLand CRM?</div>
-      <div class="faq-a"><p>LipoLand — це перша в Україні спеціалізована система управління для майстринь, які виробляють книжки та ігри на ліпучках. Ми розуміємо вашу специфіку: облік паперу, плівки для ламінації, кілець, фурнітури — все це вже є в системі.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи потрібні технічні знання для роботи?</div>
-      <div class="faq-a"><p>Ні, система максимально проста та зрозуміла. Якщо ви вмієте користуватися Instagram — ви впораєтесь з LipoLand. Все працює у браузері, нічого не треба встановлювати.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що входить у безкоштовний період?</div>
-      <div class="faq-a"><p>Абсолютно все! 30 днів повного доступу до всіх модулів: склад, обладнання, собівартість, замовлення. Без обмежень і без прив'язки картки.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як зберігаються мої дані?</div>
-      <div class="faq-a"><p>Ваші дані зберігаються у захищеній базі даних на серверах в Європі (Франкфурт). Щоденне резервне копіювання. Ви завжди можете експортувати всі свої дані.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи можна скасувати підписку?</div>
-      <div class="faq-a"><p>Так, в будь-який момент. Доступ зберігається до кінця оплаченого періоду. Ваші дані залишаються ще 30 днів після закінчення підписки.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи працює LipoLand на телефоні або планшеті?</div>
-      <div class="faq-a"><p>Так! LipoLand повністю адаптована для мобільних пристроїв. Ви можете працювати з телефона, планшета або ноутбука — у звичайному браузері (Chrome, Safari тощо). Не потрібно нічого встановлювати — просто відкрийте lipoland.top і увійдіть у свій акаунт.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я працюю сама, без майстрів. Мені підійде?</div>
-      <div class="faq-a"><p>Саме для вас це і створено! Більшість наших користувачів працюють самостійно. Модуль "Майстри" — це окрема опція для тих, хто має команду.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як з вами зв'язатися?</div>
-      <div class="faq-a"><p>Пишіть на <a href="mailto:hello@lipoland.top" style="color:var(--pink);">hello@lipoland.top</a> або приєднуйтесь до <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="color:var(--pink);">спільноти в Telegram</a> — відповідаємо протягом робочого дня.</p></div>
+      <h3>Керуйте бізнесом</h3>
+      <p>Замовлення, трекінг НП, P&L аналітика, сповіщення. Приймайте рішення на основі даних, а не інтуїції</p>
     </div>
   </div>
 </section>
@@ -367,7 +461,7 @@ a { text-decoration:none; color:inherit; }
 <section class="pricing" id="pricing">
   <div class="section-title">
     <h2>Прості та зрозумілі тарифи</h2>
-    <p>Перший місяць — безкоштовно. Без обмежень, без картки.</p>
+    <p>Перший місяць — безкоштовно. Всі модулі, без обмежень, без картки.</p>
   </div>
   <div class="pricing-grid">
     <div class="price-card">
@@ -375,9 +469,10 @@ a { text-decoration:none; color:inherit; }
       <div class="price-amount">250<span> грн/міс</span></div>
       <div class="price-per-month">&nbsp;</div>
       <ul class="price-features">
-        <li>Всі модулі системи</li>
+        <li>Всі 9 модулів системи</li>
         <li>Необмежена кількість товарів</li>
-        <li>Облік обладнання</li>
+        <li>SalesDrive + НП трекінг</li>
+        <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
       </ul>
       <a href="/register" class="btn btn-outline" style="width:100%;justify-content:center;">Спробувати безкоштовно</a>
@@ -389,9 +484,10 @@ a { text-decoration:none; color:inherit; }
       <div class="price-per-month">208 грн/міс</div>
       <div class="price-save">Економія 250 грн</div>
       <ul class="price-features">
-        <li>Всі модулі системи</li>
+        <li>Всі 9 модулів системи</li>
         <li>Необмежена кількість товарів</li>
-        <li>Облік обладнання</li>
+        <li>SalesDrive + НП трекінг</li>
+        <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
         <li>Пріоритетна підтримка</li>
       </ul>
@@ -403,9 +499,10 @@ a { text-decoration:none; color:inherit; }
       <div class="price-per-month">183 грн/міс</div>
       <div class="price-save">Економія 800 грн</div>
       <ul class="price-features">
-        <li>Всі модулі системи</li>
+        <li>Всі 9 модулів системи</li>
         <li>Необмежена кількість товарів</li>
-        <li>Облік обладнання</li>
+        <li>SalesDrive + НП трекінг</li>
+        <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
         <li>Пріоритетна підтримка</li>
         <li>Ранній доступ до нових функцій</li>
@@ -415,7 +512,48 @@ a { text-decoration:none; color:inherit; }
   </div>
   <div style="text-align:center;margin-top:24px;">
     <p style="font-size:15px;color:var(--gray);">Маєте промокод? Введіть його при реєстрації та отримайте додаткові безкоштовні місяці</p>
-    <p style="font-size:14px;color:var(--gray);margin-top:8px;">Працюєте з майстрами? Модуль "Майстри" — <strong style="color:var(--teal);">+100 грн/міс</strong> за кожне додаткове місце</p>
+    <p style="font-size:14px;color:var(--gray);margin-top:8px;">Працюєте з майстрами? Модуль «Майстри» — <strong style="color:var(--teal);">+100 грн/міс</strong> за кожне додаткове місце</p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="section-title">
+    <h2>Часті запитання</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що таке LipoLand?</div>
+      <div class="faq-a"><p>LipoLand — перша в Україні спеціалізована CRM для майстринь, які виробляють книжки та ігри на ліпучках (velcro quiet books). Ми розуміємо вашу специфіку: ліпучка, папір, плівка для ламінації, фурнітура, різак, ламінатор — все це вже враховано в системі. Не потрібно адаптувати Excel або якусь загальну CRM — тут все під вас.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Чи потрібні технічні знання?</div>
+      <div class="faq-a"><p>Ні. Якщо ви вмієте користуватися Instagram — ви впораєтесь з LipoLand. Все працює у звичайному браузері (Chrome, Safari), нічого не потрібно встановлювати. Працює на телефоні, планшеті та ноутбуці.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що входить у безкоштовний місяць?</div>
+      <div class="faq-a"><p>Абсолютно все! 30 днів повного доступу до всіх 9 модулів: склад, продукція, замовлення, P&L аналітика, обладнання, сповіщення, SalesDrive, трекінг НП. Без обмежень на кількість товарів чи замовлень, без прив'язки картки.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я користуюсь SalesDrive — чи підійде LipoLand?</div>
+      <div class="faq-a"><p>Саме для вас! LipoLand синхронізує замовлення з SalesDrive автоматично. Ви вводите лише домен та API-ключ — і всі замовлення з товарами Lipoland підтягуються в систему. Далі ви керуєте статусами, призначаєте майстрів, відстежуєте оплату та доставку — все в одному місці.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як працює трекінг Нової Пошти?</div>
+      <div class="faq-a"><p>Ви вводите ТТН у замовлення — система автоматично тягне статус з API Нової Пошти і показує його кольоровим бейджем прямо в таблиці (Створено → У дорозі → У відділенні → Вручено). Оновлюється автоматично при відкритті сторінки або вручну за кнопкою «Трекінг НП». ТТН створюється у вашому кабінеті НП як зазвичай.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я працюю сама, без майстрів. Мені підійде?</div>
+      <div class="faq-a"><p>Саме для вас це і створено! Більшість наших користувачів працюють самостійно. Модуль «Майстри» — це окрема опція для тих, хто має команду. Він доступний за +100 грн/міс за кожного майстра.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як зберігаються мої дані?</div>
+      <div class="faq-a"><p>Дані зберігаються у захищеній базі даних на серверах у Європі. Щоденне резервне копіювання. Ви завжди можете експортувати свої дані. Після закінчення підписки дані зберігаються ще 30 днів.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як з вами зв'язатися?</div>
+      <div class="faq-a"><p>Пишіть на <a href="mailto:hello@lipoland.top" style="color:var(--pink);">hello@lipoland.top</a> або приєднуйтесь до <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="color:var(--pink);">спільноти в Telegram</a> — відповідаємо протягом робочого дня.</p></div>
+    </div>
   </div>
 </section>
 
@@ -423,7 +561,7 @@ a { text-decoration:none; color:inherit; }
 <section class="cta">
   <h2>Готові навести лад у виробництві?</h2>
   <p>Перший місяць безкоштовно. Приєднуйтесь до спільноти майстринь, які вже контролюють свій бізнес</p>
-  <a href="/register" class="btn">Спробувати безкоштовно</a>
+  <a href="/register" class="btn">Почати безкоштовно</a>
 </section>
 
 <!-- FOOTER -->
