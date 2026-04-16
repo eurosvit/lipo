@@ -2005,9 +2005,17 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
   var _savedPage = localStorage.getItem('lipo_current_page') || 'dashboard';
   showPage(_savedPage);
   updateNotifications();
+  // Eagerly load linked workers so dropdowns (Orders/Salary/Production) aren't empty
+  // on first render. Owner-only — workers don't need this.
+  if (!_currentUser || !_currentUser.isWorker) {
+    try { loadLinkedWorkers(); } catch(e) {}
+  }
 }).catch(function(){
   var _savedPage = localStorage.getItem('lipo_current_page') || 'dashboard';
   showPage(_savedPage);
+  if (!_currentUser || !_currentUser.isWorker) {
+    try { loadLinkedWorkers(); } catch(e) {}
+  }
 });
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -5077,7 +5085,7 @@ function saveDefaultRate() {
 
 // ==================== LINKED WORKERS (ONLINE) ====================
 function loadLinkedWorkers() {
-  fetch('/api/workers').then(function(r){ return r.json(); }).then(function(data){
+  return fetch('/api/workers').then(function(r){ return r.json(); }).then(function(data){
     if (data.error) return;
     // Save linked worker names + owner aliases for use in dropdowns/labels
     _linkedWorkerNames = [];
@@ -5089,6 +5097,12 @@ function loadLinkedWorkers() {
       if (w.owner_alias) _workerAliasMap[realName] = w.owner_alias;
     });
     renderLinkedWorkers(data.workers || [], data.pendingInvites || []);
+    // Re-render currently active page so worker dropdowns (Orders, Salary, Production etc.) pick up the names.
+    // Without this, after a fresh page load the dropdowns are empty until the user visits Settings.
+    try {
+      var activePage = document.querySelector('.page.active');
+      if (activePage && activePage.id && typeof renderPage === 'function') renderPage(activePage.id);
+    } catch(e) {}
   }).catch(function(){});
 }
 
