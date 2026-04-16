@@ -1685,16 +1685,22 @@ const server = http.createServer(async (req, res) => {
             const parsed = JSON.parse(proxyBody);
             sendJSON(res, 200, parsed);
           } catch {
-            sendJSON(res, 502, { error: 'Невірна відповідь від CRM' });
+            console.warn('[SalesDrive] Invalid JSON. status=%s path=%s body=%s',
+              proxyRes.statusCode, sdPath, proxyBody.slice(0, 500));
+            const snippet = proxyBody.replace(/\s+/g, ' ').trim().slice(0, 120);
+            sendJSON(res, 502, { error: 'Невірна відповідь від CRM (HTTP ' + proxyRes.statusCode + '): ' + snippet });
           }
         });
       });
       proxyReq.on('error', (err) => {
+        console.warn('[SalesDrive] request error path=%s err=%s', sdPath, err.message);
         sendJSON(res, 502, { error: 'Помилка з\'єднання з CRM: ' + err.message });
       });
-      proxyReq.setTimeout(15000, () => {
+      // 90-day ranges can be slow — give SalesDrive plenty of time.
+      proxyReq.setTimeout(45000, () => {
+        console.warn('[SalesDrive] timeout path=%s', sdPath);
         proxyReq.destroy();
-        sendJSON(res, 504, { error: 'Таймаут з\'єднання з CRM' });
+        sendJSON(res, 504, { error: 'Таймаут з\'єднання з CRM (45с). Спробуйте менший діапазон дат.' });
       });
       proxyReq.end();
       return;
