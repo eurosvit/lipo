@@ -2875,7 +2875,7 @@ function populateStartProd() {
   document.getElementById('sp-info').innerHTML = '';
   filterSpProducts();
   var sw = document.getElementById('sp-worker');
-  sw.innerHTML = getAllWorkerNames().map(function(w){return '<option>'+esc(w)+'</option>';}).join('');
+  sw.innerHTML = getAllWorkerNames().map(function(w){return '<option value="'+esc(w)+'">'+esc(wLabel(w))+'</option>';}).join('');
 }
 
 function filterSpProducts() {
@@ -2993,7 +2993,7 @@ function populateCompleteProd() {
   var sel = document.getElementById('cp-batch');
   sel.innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    return '<option value="'+b.id+'">'+(p?esc(p.name):'?')+' — '+b.qty+' шт ('+esc(b.worker)+', '+b.date+')</option>';
+    return '<option value="'+b.id+'">'+(p?esc(p.name):'?')+' — '+b.qty+' шт ('+esc(wLabel(b.worker))+', '+b.date+')</option>';
   }).join('') || '<option value="">Немає активного виробництва</option>';
   if(active.length>0) {
     document.getElementById('cp-qty').value = active[0].qty;
@@ -3047,7 +3047,7 @@ function renderProduction() {
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
-      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть"><strong>'+b.qty+'</strong></td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
+      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть"><strong>'+b.qty+'</strong></td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
       '<td data-label="Статус"><span class="badge badge-warning">В роботі</span></td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')" title="Здати">Здати</button> '+
@@ -3059,7 +3059,7 @@ function renderProduction() {
 
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td>'+
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
       '<td data-label="Статус"><span class="badge badge-success">Готово</span></td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-outline btn-sm" onclick="editCompletedBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
@@ -3075,7 +3075,7 @@ function quickComplete(batchId) {
   if(!batch) return;
   var p = db.products.find(function(x){return x.id===batch.productId});
   var name = p ? esc(p.name) : '?';
-  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+name+' x '+batch.qty+' ('+esc(batch.worker)+')</option>';
+  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+name+' x '+batch.qty+' ('+esc(wLabel(batch.worker))+')</option>';
   document.getElementById('cp-qty').value = batch.qty;
   openModal('complete-production');
 }
@@ -3550,7 +3550,7 @@ function renderOrders() {
   tb.innerHTML = filtered.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
     var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
-    var workerOpts = '<option value="">— не призначено —</option>'+getAllWorkerNames().map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    var workerOpts = '<option value="">— не призначено —</option>'+getAllWorkerNames().map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(wLabel(w))+'</option>';}).join('');
     var chColor = getChannelColor(o.channel);
     var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
     var cells = visOrdCols.map(function(c){ return ordCell(c.id, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr); }).join('');
@@ -3770,7 +3770,7 @@ function syncSalesDrive() {
 function populateTransferModal() {
   var db = getDB();
   var sel = document.getElementById('tw-worker');
-  sel.innerHTML = getAllWorkerNames().map(function(w){ return '<option value="'+esc(w)+'">'+esc(w)+'</option>'; }).join('');
+  sel.innerHTML = getAllWorkerNames().map(function(w){ return '<option value="'+esc(w)+'">'+esc(wLabel(w))+'</option>'; }).join('');
   document.getElementById('tw-note').value = '';
   document.getElementById('tw-qty').value = 1;
   populateTransferItems();
@@ -4004,7 +4004,7 @@ function renderWorkerStock() {
     var curVal = sel.value;
     var workerSet = {};
     stock.forEach(function(s){ workerSet[s.worker]=true; });
-    sel.innerHTML = '<option value="">Всі майстри</option>' + Object.keys(workerSet).map(function(w){ return '<option value="'+esc(w)+'" '+(w===curVal?'selected':'')+'>'+esc(w)+'</option>'; }).join('');
+    sel.innerHTML = '<option value="">Всі майстри</option>' + Object.keys(workerSet).map(function(w){ return '<option value="'+esc(w)+'" '+(w===curVal?'selected':'')+'>'+esc(wLabel(w))+'</option>'; }).join('');
   }
 
   var filtered = stock;
@@ -4027,7 +4027,7 @@ function renderWorkerStock() {
   } else {
     Object.keys(byWorker).forEach(function(w){
       var d = byWorker[w];
-      cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+d.items.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">Всього матеріалів: '+fmt(d.materials)+'</div></div>';
+      cardsHtml += '<div class="card"><div class="card-label">'+esc(wLabel(w))+'</div><div class="card-value">'+d.items.length+' <span style="font-size:14px;">позицій</span></div><div class="card-sub">Всього матеріалів: '+fmt(d.materials)+'</div></div>';
     });
   }
   document.getElementById('ws-cards').innerHTML = cardsHtml || '<div class="text-muted">'+(isW?'Вам ще не передано матеріалів':'Матеріали ще не передавались майстрам')+'</div>';
@@ -4047,7 +4047,7 @@ function renderWorkerStock() {
   } else {
     document.getElementById('ws-table').innerHTML = filtered.map(function(s){
       return '<tr>'+
-        '<td data-label="Майстер"><strong>'+esc(s.worker)+'</strong></td>'+
+        '<td data-label="Майстер"><strong>'+esc(wLabel(s.worker))+'</strong></td>'+
         '<td data-label="Матеріал">'+esc(s.itemName)+'</td>'+
         '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
         '<td data-label="Дата">'+s.date+'</td>'+
@@ -4079,7 +4079,7 @@ function renderWorkerStock() {
       var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано (майстер)</span>' : '<span class="badge badge-success">← повернуто</span>';
       return '<tr>'+
         '<td data-label="Дата">'+h.date+'</td>'+
-        '<td data-label="Майстер">'+esc(h.worker)+'</td>'+
+        '<td data-label="Майстер">'+esc(wLabel(h.worker))+'</td>'+
         '<td data-label="Матеріал">'+esc(h.itemName)+'</td>'+
         '<td data-label="К-сть">'+fmt(h.qty)+'</td>'+
         '<td data-label="Дія">'+actionBadge+'</td>'+
@@ -4187,7 +4187,7 @@ function renderSalary() {
     var curM = selM.value;
     var curW = selW.value;
     selM.innerHTML = '<option value="">Всі місяці</option>' + months.map(function(m){return '<option value="'+m+'" '+(m===curM?'selected':'')+'>'+m+'</option>';}).join('');
-    selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(w)+'</option>';}).join('');
+    selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(wLabel(w))+'</option>';}).join('');
     var filtered = completed;
     if(curM) filtered = filtered.filter(function(b){return (b.completedDate||b.date).indexOf(curM)===0});
     if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
@@ -4213,7 +4213,7 @@ function renderSalary() {
       return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
         '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
     }
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(b.worker)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
       '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
   });
 
@@ -4261,7 +4261,7 @@ function renderSalary() {
     });
     Object.keys(byWorker).forEach(function(w){
       var d = byWorker[w];
-      cardsHtml += '<div class="card"><div class="card-label">'+esc(w)+'</div><div class="card-value">'+fmt(d.earned)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">'+d.pcs+' виробів'+(d.paid>0 ? ' · виплачено '+fmt(d.paid)+' грн' : '')+(d.balance>0 ? ' · <strong style="color:var(--warning);">борг '+fmt(d.balance)+' грн</strong>' : '')+'</div></div>';
+      cardsHtml += '<div class="card"><div class="card-label">'+esc(wLabel(w))+'</div><div class="card-value">'+fmt(d.earned)+' <span style="font-size:16px;">грн</span></div><div class="card-sub">'+d.pcs+' виробів'+(d.paid>0 ? ' · виплачено '+fmt(d.paid)+' грн' : '')+(d.balance>0 ? ' · <strong style="color:var(--warning);">борг '+fmt(d.balance)+' грн</strong>' : '')+'</div></div>';
     });
     if(totalSalary>0) cardsHtml += '<div class="card success"><div class="card-label">Всього нараховано</div><div class="card-value">'+fmt(totalSalary)+' <span style="font-size:16px;">грн</span></div></div>';
   }
@@ -4278,7 +4278,7 @@ function renderSalaryPayments(db, isW, wName) {
   if (isW && wName) payments = payments.filter(function(p){return p.worker===wName});
 
   document.getElementById('salary-payments-table').innerHTML = payments.map(function(p){
-    var workerTd = isW ? '' : '<td data-label="Майстер">'+esc(p.worker)+'</td>';
+    var workerTd = isW ? '' : '<td data-label="Майстер">'+esc(wLabel(p.worker))+'</td>';
     var actionsTd = isW ? '' : '<td><button class="btn btn-outline btn-sm" title="Редагувати" onclick="openPaySalaryModal(\''+p.id+'\')" style="margin-right:4px;">✏️</button><button class="btn btn-danger btn-sm" title="Видалити" onclick="deleteSalaryPayment(\''+p.id+'\')">🗑</button></td>';
     return '<tr><td data-label="Дата">'+esc(p.date)+'</td>'+workerTd+'<td data-label="Сума"><strong>'+fmt(p.amount)+' грн</strong></td><td data-label="Коментар">'+esc(p.note||'—')+'</td>'+actionsTd+'</tr>';
   }).join('') || '<tr><td colspan="'+(isW?3:5)+'" class="text-muted" style="text-align:center;padding:30px;">Виплат ще не було</td></tr>';
@@ -4299,7 +4299,7 @@ function openPaySalaryModal(editId) {
   // Ensure current worker is in the list when editing
   if (editing && !wSet[editing.worker]) { workers.push(editing.worker); wSet[editing.worker] = true; }
 
-  document.getElementById('pay-salary-worker').innerHTML = workers.map(function(w){return '<option value="'+esc(w)+'">'+esc(w)+'</option>';}).join('');
+  document.getElementById('pay-salary-worker').innerHTML = workers.map(function(w){return '<option value="'+esc(w)+'">'+esc(wLabel(w))+'</option>';}).join('');
 
   // Update modal title and button label
   var titleEl = document.querySelector('#modal-pay-salary .modal-header h3');
@@ -4934,8 +4934,15 @@ function saveDefaultRate() {
 function loadLinkedWorkers() {
   fetch('/api/workers').then(function(r){ return r.json(); }).then(function(data){
     if (data.error) return;
-    // Save linked worker names for use in dropdowns
-    _linkedWorkerNames = (data.workers || []).map(function(w){ return w.worker_name || w.user_name || ''; }).filter(Boolean);
+    // Save linked worker names + owner aliases for use in dropdowns/labels
+    _linkedWorkerNames = [];
+    _workerAliasMap = {};
+    (data.workers || []).forEach(function(w){
+      var realName = w.worker_name || w.user_name || '';
+      if (!realName) return;
+      _linkedWorkerNames.push(realName);
+      if (w.owner_alias) _workerAliasMap[realName] = w.owner_alias;
+    });
     renderLinkedWorkers(data.workers || [], data.pendingInvites || []);
   }).catch(function(){});
 }
@@ -5053,7 +5060,25 @@ function renameLinkedWorker(linkId, currentName) {
     body: JSON.stringify({ linkId: linkId, name: newName })
   }).then(function(r){ return r.json(); }).then(function(data){
     if (data && data.error) { alert(data.error); return; }
-    loadLinkedWorkers();
+    // Refresh linked workers (this repopulates _workerAliasMap)
+    fetch('/api/workers').then(function(r){ return r.json(); }).then(function(d){
+      if (d.error) return;
+      _linkedWorkerNames = [];
+      _workerAliasMap = {};
+      (d.workers || []).forEach(function(w){
+        var realName = w.worker_name || w.user_name || '';
+        if (!realName) return;
+        _linkedWorkerNames.push(realName);
+        if (w.owner_alias) _workerAliasMap[realName] = w.owner_alias;
+      });
+      renderLinkedWorkers(d.workers || [], d.pendingInvites || []);
+      // Re-render any pages that display worker names, so alias shows up live
+      try { if (typeof renderOrders === 'function') renderOrders(); } catch(e) {}
+      try { if (typeof renderProduction === 'function') renderProduction(); } catch(e) {}
+      try { if (typeof renderSalary === 'function') renderSalary(); } catch(e) {}
+      try { if (typeof renderWorkerStock === 'function') renderWorkerStock(); } catch(e) {}
+      try { if (typeof renderAnalytics === 'function') renderAnalytics(); } catch(e) {}
+    });
   }).catch(function(){ alert('Помилка з\'єднання'); });
 }
 
@@ -6792,6 +6817,14 @@ function adminDeleteUser(userId, name) {
 // ==================== ACCOUNT & NOTIFICATIONS ====================
 var _currentUser = null;
 var _linkedWorkerNames = []; // names of workers connected via CRM
+var _workerAliasMap = {};    // realName -> owner_alias (for display only, owner view)
+
+// Returns display label for a worker name (alias if set by owner, else original name).
+// Used only in owner's view — workers never have alias data in their session.
+function wLabel(name) {
+  if (!name) return '';
+  return _workerAliasMap[name] || name;
+}
 
 function loadAccount() {
   fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
