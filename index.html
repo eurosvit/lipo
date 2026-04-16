@@ -4308,7 +4308,7 @@ function renderOrders() {
   // Cell renderer
   function ordCell(colId, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr) {
     switch(colId) {
-      case 'status': return '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+(statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>';
+      case 'status': return '<td data-label="Статус" style="min-width:130px;"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 22px 4px 8px;border-radius:6px;font-size:12px;background:'+(statusColors[o.status]||'#fff')+';width:100%;min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;">'+statusOpts+'</select></td>';
       case 'date': return '<td data-label="Дата">'+o.date+'</td>';
       case 'client': {
         var cname = o.client || ((o.firstName||'') + ' ' + (o.lastName||'')).trim() || '—';
