@@ -276,6 +276,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
     <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
     <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
+    <button onclick="showPage('expenses')" data-page="expenses">💸 Витрати</button>
     <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
     <button onclick="showPage('analytics')" data-page="analytics">📉 Аналітика</button>
     <button onclick="showPage('admin')" data-page="admin" id="nav-admin" style="display:none;">👑 Адмін</button>
@@ -333,6 +334,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="mobileNav('worker-stock')">👷 Майстри</button>
     <button onclick="mobileNav('salary')">💰 Зарплата</button>
     <button onclick="mobileNav('costs')">📈 Собівартість</button>
+    <button onclick="mobileNav('expenses')">💸 Витрати</button>
     <button onclick="mobileNav('equipment')">🖨 Обладнання</button>
     <button onclick="mobileNav('analytics')">📉 Аналітика</button>
     <button onclick="mobileNav('admin')" id="mobile-nav-admin" style="display:none;">👑 Адмін</button>
@@ -679,6 +681,49 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- ========== EXPENSES ========== -->
+<div id="expenses" class="page">
+  <div class="flex-between">
+    <h2>💸 Витрати (OpEx)</h2>
+    <button class="btn btn-primary" onclick="openExpenseModal()">+ Додати витрату</button>
+  </div>
+  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Операційні витрати: оренда, реклама, підписки, зв'язок, податки тощо. Впливають на чистий прибуток у Аналітиці.</p>
+
+  <!-- Summary cards -->
+  <div class="cards" id="expenses-summary" style="margin-top:16px;"></div>
+
+  <!-- Quick-add templates -->
+  <div style="margin-top:20px;">
+    <div class="flex-between" style="margin-bottom:8px;">
+      <div class="section-title" style="margin:0;">⚡ Швидко додати (повторювані)</div>
+      <button class="btn btn-outline btn-sm" onclick="openExpenseTemplateModal()">+ Новий шаблон</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">💡 Це шаблони-підказки. Натисни — форма відкриється з приблизною сумою, яку редагуєш під цей місяць.</p>
+    <div id="expense-templates" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar" style="margin-top:20px;">
+    <div class="form-group" style="min-width:auto;margin:0;">
+      <label>Місяць</label>
+      <input type="month" id="exp-filter-month" onchange="renderExpenses()">
+    </div>
+    <div class="form-group" style="min-width:auto;margin:0;">
+      <label>Категорія</label>
+      <select id="exp-filter-cat" onchange="renderExpenses()"><option value="">Всі</option></select>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('exp-filter-month').value='';document.getElementById('exp-filter-cat').value='';renderExpenses()">Скинути</button>
+  </div>
+
+  <!-- Expenses table -->
+  <div class="table-wrap" style="margin-top:12px;">
+    <table>
+      <thead><tr><th>Дата</th><th>Категорія</th><th>Сума, грн</th><th>Опис</th><th>Дії</th></tr></thead>
+      <tbody id="expenses-table"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ========== ANALYTICS ========== -->
 <div id="analytics" class="page">
   <h2>Аналітика продажів</h2>
@@ -698,6 +743,16 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="setAnalyticsPeriod('all')">Весь час</button>
   </div>
   <div class="cards" id="analytics-summary"></div>
+
+  <!-- P&L Waterfall -->
+  <div style="margin-top:24px;">
+    <h3>💼 P&L (звіт про прибутки та збитки)</h3>
+    <p style="font-size:12px;color:var(--text-light);margin:0 0 12px;">Класична модель: Виручка − Собівартість = Валовий прибуток; − Операційні витрати − Податки = Чистий прибуток.</p>
+    <div class="table-wrap">
+      <table id="analytics-pnl-table"></table>
+    </div>
+  </div>
+
   <div style="margin-top:24px;">
     <h3>Продажі по місяцях</h3>
     <div id="analytics-chart" style="margin-top:12px;"></div>
@@ -706,7 +761,7 @@ a.order-link:hover { text-decoration:underline; }
     <h3>Деталізація по місяцях</h3>
     <div class="table-wrap" style="margin-top:8px;">
       <table>
-        <thead><tr><th>Місяць</th><th>Замовлень</th><th>Продано шт</th><th>Виручка</th><th>Собівартість</th><th>Зарплата</th><th>Чистий прибуток</th><th>Маржа %</th></tr></thead>
+        <thead><tr><th>Місяць</th><th>Замовлень</th><th>Продано шт</th><th>Виручка</th><th>Собівартість</th><th>Зарплата</th><th>Валовий прибуток</th><th>Валова маржа %</th></tr></thead>
         <tbody id="analytics-table"></tbody>
       </table>
     </div>
@@ -765,6 +820,46 @@ a.order-link:hover { text-decoration:underline; }
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
       <button class="btn btn-danger" onclick="if(confirm('Видалити ВСІ дані? Цю дію не можна скасувати!'))resetAllData()">Скинути все</button>
     </div>
+  </div>
+
+  <!-- Tax Settings -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">🧾 Податки (ФОП)</div>
+    <p style="font-size:12px;color:var(--text-light);margin:-8px 0 12px;">Система авто-розрахує податок за місяць для P&L у «Аналітиці». Суму за конкретний місяць можна замінити вручну (у «Витрати»).</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Група ФОП</label>
+        <select id="tax-fop-group" onchange="onFopGroupChange()">
+          <option value="none">Не вказано / не ФОП</option>
+          <option value="group2">ФОП 2 група (фіксована сума)</option>
+          <option value="group3">ФОП 3 група (% від виручки)</option>
+        </select>
+      </div>
+    </div>
+    <div id="tax-fop-group2-fields" class="form-row" style="display:none;">
+      <div class="form-group">
+        <label>Сума на місяць, грн</label>
+        <input id="tax-fop-group2-amount" type="number" step="0.01" placeholder="3000">
+        <div style="font-size:11px;color:var(--text-light);margin-top:4px;">ЄП + ЄСВ. У 2025 орієнтовно ~3000 грн</div>
+      </div>
+    </div>
+    <div id="tax-fop-group3-fields" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ставка ФОП 3, %</label>
+          <input id="tax-fop-group3-rate" type="number" step="0.1" placeholder="5">
+          <div style="font-size:11px;color:var(--text-light);margin-top:4px;">5% від виручки (без ПДВ) або 3% з ПДВ</div>
+        </div>
+        <div class="form-group">
+          <label>Військовий збір, %</label>
+          <input id="tax-military-rate" type="number" step="0.1" placeholder="1">
+          <div style="font-size:11px;color:var(--text-light);margin-top:4px;">1% з 01.10.2024</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveTaxSettings()">💾 Зберегти</button>
+    <span id="tax-settings-saved" style="font-size:13px;color:var(--success);display:none;margin-left:10px;">✅ Збережено</span>
+    <div id="tax-preview" style="margin-top:12px;font-size:13px;padding:10px 12px;background:#F3E5F5;border-radius:8px;color:#4A148C;"></div>
   </div>
   <div class="card" style="max-width:600px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">SalesDrive CRM</div>
@@ -1394,6 +1489,57 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- Expense add/edit -->
+<div class="modal-overlay" id="modal-expense">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="expense-modal-title">Додати витрату</h3>
+      <button class="modal-close" onclick="closeModal('expense')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="exp-id">
+      <div class="form-row">
+        <div class="form-group"><label>Дата</label><input id="exp-date" type="date"></div>
+        <div class="form-group"><label>Категорія</label><select id="exp-cat"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Сума, грн</label><input id="exp-amount" type="number" step="0.01" placeholder="0"></div>
+      </div>
+      <div class="form-group"><label>Опис (опційно)</label><input id="exp-note" placeholder="Наприклад: оренда + комуналка за листопад"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('expense')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveExpense()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Expense template add/edit -->
+<div class="modal-overlay" id="modal-expense-template">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="exp-tpl-modal-title">Новий шаблон витрати</h3>
+      <button class="modal-close" onclick="closeModal('expense-template')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-light);margin:0 0 12px;">💡 Шаблон — це підказка для повторюваних витрат. Наприклад «Оренда офісу», «Canva Pro». Сума — орієнтовна, при додаванні можна змінити.</p>
+      <input type="hidden" id="exp-tpl-id">
+      <div class="form-row">
+        <div class="form-group"><label>Назва</label><input id="exp-tpl-name" placeholder="Оренда офісу"></div>
+        <div class="form-group"><label>Категорія</label><select id="exp-tpl-cat"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Орієнтовна сума, грн</label><input id="exp-tpl-amount" type="number" step="0.01" placeholder="5000"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="exp-tpl-del-btn" onclick="deleteExpenseTemplate()" style="margin-right:auto;display:none;">Видалити</button>
+      <button class="btn btn-outline" onclick="closeModal('expense-template')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveExpenseTemplate()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <!-- Transfer to Worker -->
 <div class="modal-overlay" id="modal-transfer-to-worker">
   <div class="modal">
@@ -1701,7 +1847,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -1799,7 +1945,7 @@ function showPage(id) {
 
 function renderPage(id) {
   const fn = { dashboard:renderDashboard, materials:renderMaterials, products:renderProducts,
-    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, equipment:renderEquipment, analytics:renderAnalytics, admin:renderAdmin, settings:renderSettings };
+    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, expenses:renderExpenses, equipment:renderEquipment, analytics:renderAnalytics, admin:renderAdmin, settings:renderSettings };
   if (id === 'analytics' && !document.getElementById('an-from').value) setAnalyticsPeriod('6m');
   if(fn[id]) fn[id]();
 }
@@ -4452,6 +4598,32 @@ function renderDashboardPulse(db, thisMonth) {
   var cur = aggregate(thisMonth);
   var prev = aggregate(prevMonth);
 
+  // Add OpEx + taxes for true Net Profit (both months)
+  function opExFor(monthKey) {
+    var total = 0, manualTax = 0;
+    (db.expenses||[]).forEach(function(e) {
+      if ((e.date||'').slice(0,7) !== monthKey) return;
+      total += (e.amount||0);
+      if (e.category === '🧾 Податки') manualTax += (e.amount||0);
+    });
+    return { total:total, manualTax:manualTax };
+  }
+  function taxFor(monthKey, revenue, manualTax) {
+    if (manualTax > 0) return manualTax;
+    var t = computeTaxForMonth(db, monthKey, revenue);
+    return t.amount || 0;
+  }
+  var curOp = opExFor(thisMonth);
+  var prevOp = opExFor(prevMonth);
+  var curTax = taxFor(thisMonth, cur.revenue, curOp.manualTax);
+  var prevTax = taxFor(prevMonth, prev.revenue, prevOp.manualTax);
+  // Net = GP - (OpEx incl. manual tax, minus manual-tax-double) - auto tax
+  // OpEx total already contains manualTax; to avoid double count we subtract manualTax once then add "final tax"
+  cur.opexNet = curOp.total - curOp.manualTax;
+  prev.opexNet = prevOp.total - prevOp.manualTax;
+  cur.netProfit = cur.profit - cur.opexNet - curTax;
+  prev.netProfit = prev.profit - prev.opexNet - prevTax;
+
   function diffBadge(curV, prevV) {
     if (prevV === 0 && curV === 0) return '<span style="color:var(--text-light);font-size:12px;">—</span>';
     if (prevV === 0) return '<span style="color:var(--success);font-size:12px;font-weight:600;">↑ новий</span>';
@@ -4463,7 +4635,8 @@ function renderDashboardPulse(db, thisMonth) {
 
   pulse.innerHTML =
     '<div class="card"><div class="card-label">Виручка цього місяця</div><div class="card-value">'+fmt(cur.revenue)+' грн</div><div class="card-sub">'+diffBadge(cur.revenue, prev.revenue)+'</div></div>'+
-    '<div class="card '+(cur.profit>=0?'success':'danger')+'"><div class="card-label">Чистий прибуток</div><div class="card-value">'+fmt(cur.profit)+' грн</div><div class="card-sub">'+diffBadge(cur.profit, prev.profit)+'</div></div>'+
+    '<div class="card '+(cur.profit>=0?'success':'danger')+'"><div class="card-label">Валовий прибуток</div><div class="card-value">'+fmt(cur.profit)+' грн</div><div class="card-sub">'+diffBadge(cur.profit, prev.profit)+'</div></div>'+
+    '<div class="card '+(cur.netProfit>=0?'success':'danger')+'" style="border-left:4px solid '+(cur.netProfit>=0?'var(--success)':'var(--danger)')+';"><div class="card-label">💰 Чистий прибуток</div><div class="card-value">'+fmt(cur.netProfit)+' грн</div><div class="card-sub">після OpEx '+fmt(cur.opexNet)+' + податків '+fmt(curTax)+'</div></div>'+
     '<div class="card"><div class="card-label">Продано штук</div><div class="card-value">'+cur.items+'</div><div class="card-sub">'+diffBadge(cur.items, prev.items)+'</div></div>';
 
   // Top-3 products this month
@@ -4518,7 +4691,60 @@ function renderSettings() {
   if (!_currentUser || !_currentUser.isWorker) loadLinkedWorkers();
   // Load notification preferences
   loadNotifPrefs();
+  // Load tax settings
+  loadTaxSettings();
 }
+
+function loadTaxSettings() {
+  var db = getDB();
+  var ts = db.taxSettings || {};
+  var sel = document.getElementById('tax-fop-group');
+  if (!sel) return;
+  sel.value = ts.fopGroup || 'none';
+  document.getElementById('tax-fop-group2-amount').value = ts.fopGroup2Amount != null ? ts.fopGroup2Amount : 3000;
+  document.getElementById('tax-fop-group3-rate').value = ts.fopGroup3Rate != null ? ts.fopGroup3Rate : 5;
+  document.getElementById('tax-military-rate').value = ts.militaryRate != null ? ts.militaryRate : 1;
+  onFopGroupChange();
+}
+
+function onFopGroupChange() {
+  var v2 = document.getElementById('tax-fop-group').value;
+  document.getElementById('tax-fop-group2-fields').style.display = (v2==='group2') ? 'flex' : 'none';
+  document.getElementById('tax-fop-group3-fields').style.display = (v2==='group3') ? 'block' : 'none';
+  var prev = document.getElementById('tax-preview');
+  if (v2 === 'group2') {
+    var amt = parseFloat(document.getElementById('tax-fop-group2-amount').value)||0;
+    prev.innerHTML = '💡 Кожен місяць в P&L буде враховано <strong>'+fmt(amt)+' грн</strong> податку (фіксовано). Можна перевизначити суму для конкретного місяця у «Витрати».';
+  } else if (v2 === 'group3') {
+    var r = parseFloat(document.getElementById('tax-fop-group3-rate').value)||0;
+    var m = parseFloat(document.getElementById('tax-military-rate').value)||0;
+    prev.innerHTML = '💡 Податок = (виручка × '+r+'%) + (виручка × '+m+'%) = <strong>виручка × '+(r+m).toFixed(1)+'%</strong>. Рахується автоматично за кожен місяць.';
+  } else {
+    prev.innerHTML = 'ℹ️ Податки не налаштовані — у P&L не враховуються. Якщо ти ФОП, обери групу вище.';
+  }
+}
+
+function saveTaxSettings() {
+  var db = getDB();
+  if (!db.taxSettings) db.taxSettings = {};
+  db.taxSettings.fopGroup = v('tax-fop-group');
+  db.taxSettings.fopGroup2Amount = n('tax-fop-group2-amount');
+  db.taxSettings.fopGroup3Rate = n('tax-fop-group3-rate');
+  db.taxSettings.militaryRate = n('tax-military-rate');
+  if (!db.taxSettings.monthOverrides) db.taxSettings.monthOverrides = {};
+  saveDB(db);
+  var saved = document.getElementById('tax-settings-saved');
+  saved.style.display='inline';
+  setTimeout(function(){ saved.style.display='none'; }, 2000);
+  onFopGroupChange();
+}
+
+// Re-render preview when user edits fields
+document.addEventListener('input', function(e) {
+  if (e.target && (e.target.id === 'tax-fop-group2-amount' || e.target.id === 'tax-fop-group3-rate' || e.target.id === 'tax-military-rate')) {
+    onFopGroupChange();
+  }
+});
 
 function addWorker() {
   var name = v('new-worker').trim();
@@ -5092,25 +5318,166 @@ function renderAnalytics() {
 
   // Sort months
   var sortedMonths = Object.keys(months).sort();
+
+  // ----- OpEx per month (from db.expenses) + Taxes per month -----
+  // Collect all months we care about: from orders + from expenses in the period
+  var expensesAll = (db.expenses || []).filter(function(e) {
+    var m = (e.date||'').slice(0,7);
+    if (fromMonth && m < fromMonth) return false;
+    if (toMonth && m > toMonth) return false;
+    return true;
+  });
+  // Union of months
+  var monthSet = {};
+  sortedMonths.forEach(function(m){ monthSet[m]=true; });
+  expensesAll.forEach(function(e){ var m=(e.date||'').slice(0,7); if(m) monthSet[m]=true; });
+  sortedMonths = Object.keys(monthSet).sort();
+  sortedMonths.forEach(function(m) {
+    if (!months[m]) months[m] = { orders:0, items:0, revenue:0, cost:0, salary:0 };
+  });
+
+  // Per-month OpEx breakdown
+  var opexByMonth = {}; // m -> { total, byCat: {cat: sum} }
+  expensesAll.forEach(function(e) {
+    var m = (e.date||'').slice(0,7);
+    if (!m) return;
+    if (!opexByMonth[m]) opexByMonth[m] = { total:0, byCat:{} };
+    opexByMonth[m].total += (e.amount||0);
+    opexByMonth[m].byCat[e.category] = (opexByMonth[m].byCat[e.category]||0) + (e.amount||0);
+  });
+
+  // Taxes per month
+  var taxByMonth = {};
+  sortedMonths.forEach(function(m) {
+    var t = computeTaxForMonth(db, m, months[m].revenue);
+    taxByMonth[m] = t;
+  });
+  // Exclude '🧾 Податки' category from OpEx if we're auto-computing (to avoid double count).
+  // Rule: if user manually entered tax expense, treat that as override ⇒ skip auto.
+  // Implementation: if opexByMonth[m].byCat['🧾 Податки'] > 0, use it as tax; else use computed.
+  var finalTaxByMonth = {};
+  sortedMonths.forEach(function(m) {
+    var manualTax = (opexByMonth[m] && opexByMonth[m].byCat['🧾 Податки']) || 0;
+    if (manualTax > 0) {
+      finalTaxByMonth[m] = { amount: manualTax, source:'manual', label:'вручну з Витрат' };
+      // Remove from OpEx total so it's not double-counted
+      opexByMonth[m].total -= manualTax;
+      delete opexByMonth[m].byCat['🧾 Податки'];
+    } else {
+      finalTaxByMonth[m] = taxByMonth[m];
+    }
+  });
+
+  // Totals
   var totalRevenue = 0, totalCost = 0, totalSalary = 0, totalOrders = 0, totalItems = 0;
+  var totalOpEx = 0, totalTax = 0;
   sortedMonths.forEach(function(m) {
     totalRevenue += months[m].revenue;
     totalCost += months[m].cost;
     totalSalary += months[m].salary;
     totalOrders += months[m].orders;
     totalItems += months[m].items;
+    totalOpEx += (opexByMonth[m] ? opexByMonth[m].total : 0);
+    totalTax += (finalTaxByMonth[m] ? finalTaxByMonth[m].amount : 0);
   });
-  var totalProfit = totalRevenue - totalCost;
-  var avgMargin = totalRevenue > 0 ? (totalProfit/totalRevenue*100) : 0;
+  var grossProfit = totalRevenue - totalCost;           // Revenue - COGS (incl. piece-rate work)
+  var ebit = grossProfit - totalOpEx;                    // Gross - OpEx
+  var netProfit = ebit - totalTax;                       // EBIT - taxes
+  var grossMargin = totalRevenue > 0 ? (grossProfit/totalRevenue*100) : 0;
+  var netMargin = totalRevenue > 0 ? (netProfit/totalRevenue*100) : 0;
+  var totalProfit = netProfit; // for chart backwards-compat
 
-  // Summary cards
+  // Summary cards (classic P&L)
   document.getElementById('analytics-summary').innerHTML =
-    '<div class="card"><div class="card-label">Виручка</div><div class="card-value">'+fmt(totalRevenue)+'</div><div class="card-sub">грн</div></div>'+
-    '<div class="card"><div class="card-label">Собівартість</div><div class="card-value">'+fmt(totalCost - totalSalary)+'</div><div class="card-sub">грн (матеріали + друк)</div></div>'+
-    '<div class="card"><div class="card-label">Зарплата</div><div class="card-value">'+fmt(totalSalary)+'</div><div class="card-sub">грн</div></div>'+
-    '<div class="card '+(totalProfit>0?'success':'danger')+'"><div class="card-label">Чистий прибуток</div><div class="card-value">'+fmt(totalProfit)+'</div><div class="card-sub">грн ('+fmt(avgMargin)+'%)</div></div>'+
-    '<div class="card"><div class="card-label">Замовлень</div><div class="card-value">'+totalOrders+'</div></div>'+
-    '<div class="card"><div class="card-label">Продано штук</div><div class="card-value">'+totalItems+'</div></div>';
+    '<div class="card"><div class="card-label">Виручка</div><div class="card-value">'+fmt(totalRevenue)+'</div><div class="card-sub">грн · '+totalOrders+' замовл. · '+totalItems+' шт</div></div>'+
+    '<div class="card"><div class="card-label">− Собівартість (COGS)</div><div class="card-value">'+fmt(totalCost)+'</div><div class="card-sub">грн (матеріали + друк + робота)</div></div>'+
+    '<div class="card '+(grossProfit>=0?'success':'danger')+'"><div class="card-label">= Валовий прибуток</div><div class="card-value">'+fmt(grossProfit)+'</div><div class="card-sub">грн ('+fmt(grossMargin)+'%)</div></div>'+
+    '<div class="card"><div class="card-label">− Операційні витрати</div><div class="card-value">'+fmt(totalOpEx)+'</div><div class="card-sub">грн (оренда, реклама…)</div></div>'+
+    '<div class="card"><div class="card-label">− Податки</div><div class="card-value">'+fmt(totalTax)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card '+(netProfit>=0?'success':'danger')+'" style="border-left:4px solid '+(netProfit>=0?'var(--success)':'var(--danger)')+';"><div class="card-label">💰 = Чистий прибуток</div><div class="card-value">'+fmt(netProfit)+'</div><div class="card-sub">грн ('+fmt(netMargin)+'%)</div></div>';
+
+  // ---- P&L Table (full breakdown per month) ----
+  var monthNamesShort = ['','Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  // Collect all OpEx categories used in period
+  var allOpExCats = {};
+  sortedMonths.forEach(function(m) {
+    if (opexByMonth[m]) Object.keys(opexByMonth[m].byCat).forEach(function(c){ allOpExCats[c]=true; });
+  });
+  var opexCatList = Object.keys(allOpExCats).sort();
+
+  var pnlHtml = '<thead><tr><th style="min-width:180px;">Показник</th>';
+  sortedMonths.forEach(function(m) {
+    var mn = parseInt(m.slice(5,7));
+    pnlHtml += '<th>'+monthNamesShort[mn]+' '+m.slice(2,4)+'</th>';
+  });
+  pnlHtml += '<th style="background:#EDE7F6;">Разом</th></tr></thead><tbody>';
+
+  function pnlRow(label, values, total, opts) {
+    opts = opts || {};
+    var style = opts.bold ? 'font-weight:700;' : '';
+    if (opts.bg) style += 'background:'+opts.bg+';';
+    if (opts.color) style += 'color:'+opts.color+';';
+    var row = '<tr style="'+style+'"><td data-label="Показник">'+label+'</td>';
+    values.forEach(function(v){ row += '<td>'+(v===0 || v===null ? '—' : fmt(v)+' грн')+'</td>'; });
+    row += '<td style="background:#EDE7F6;">'+(total===0? '—' : fmt(total)+' грн')+'</td></tr>';
+    return row;
+  }
+
+  // Revenue
+  var rowValsRevenue = sortedMonths.map(function(m){ return months[m].revenue; });
+  pnlHtml += pnlRow('Виручка', rowValsRevenue, totalRevenue, {bold:true, color:'var(--success)'});
+  // COGS
+  var rowValsCogs = sortedMonths.map(function(m){ return -months[m].cost; });
+  pnlHtml += pnlRow('− Собівартість (COGS)', rowValsCogs, -totalCost, {color:'var(--danger)'});
+  // Gross profit
+  var rowValsGp = sortedMonths.map(function(m){ return months[m].revenue - months[m].cost; });
+  pnlHtml += pnlRow('= Валовий прибуток', rowValsGp, grossProfit, {bold:true, bg:'#F3E5F5'});
+
+  // OpEx section
+  if (opexCatList.length > 0) {
+    var rowSepHtml = '<tr><td colspan="'+(sortedMonths.length+2)+'" style="padding-top:8px;font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;">Операційні витрати (OpEx)</td></tr>';
+    pnlHtml += rowSepHtml;
+    opexCatList.forEach(function(cat) {
+      var vals = sortedMonths.map(function(m){
+        return (opexByMonth[m] && opexByMonth[m].byCat[cat]) ? -opexByMonth[m].byCat[cat] : 0;
+      });
+      var catTotal = vals.reduce(function(s,x){return s+x;},0);
+      pnlHtml += pnlRow('&nbsp;&nbsp;&nbsp;&nbsp;'+esc(cat), vals, catTotal, {color:'var(--danger)'});
+    });
+    var rowOpExTotal = sortedMonths.map(function(m){ return -(opexByMonth[m]?opexByMonth[m].total:0); });
+    pnlHtml += pnlRow('− Всього OpEx', rowOpExTotal, -totalOpEx, {bold:true, color:'var(--danger)'});
+  }
+
+  // EBIT
+  var rowValsEbit = sortedMonths.map(function(m){
+    return (months[m].revenue - months[m].cost) - (opexByMonth[m]?opexByMonth[m].total:0);
+  });
+  pnlHtml += pnlRow('= Операційний прибуток (EBIT)', rowValsEbit, ebit, {bold:true, bg:'#E8F5E9'});
+
+  // Taxes
+  var rowValsTax = sortedMonths.map(function(m){ return -(finalTaxByMonth[m]?finalTaxByMonth[m].amount:0); });
+  var taxLabel = '− Податки';
+  pnlHtml += pnlRow(taxLabel, rowValsTax, -totalTax, {color:'var(--danger)'});
+
+  // Net profit
+  var rowValsNet = sortedMonths.map(function(m){
+    var gp = months[m].revenue - months[m].cost;
+    var ox = (opexByMonth[m]?opexByMonth[m].total:0);
+    var tx = (finalTaxByMonth[m]?finalTaxByMonth[m].amount:0);
+    return gp - ox - tx;
+  });
+  pnlHtml += pnlRow('💰 = Чистий прибуток', rowValsNet, netProfit, {bold:true, bg:netProfit>=0?'#C8E6C9':'#FFCDD2', color:netProfit>=0?'#1B5E20':'#B71C1C'});
+
+  pnlHtml += '</tbody>';
+
+  var pnlTable = document.getElementById('analytics-pnl-table');
+  if (pnlTable) {
+    if (sortedMonths.length === 0) {
+      pnlTable.innerHTML = '<tbody><tr><td class="text-muted" style="text-align:center;padding:40px;">Немає даних за обраний період</td></tr></tbody>';
+    } else {
+      pnlTable.innerHTML = pnlHtml;
+    }
+  }
 
   // Bar chart
   var maxRev = 0;
@@ -5472,6 +5839,223 @@ function eqServiceStats(eqId, logs) {
   var eqLogs = logs.filter(function(l){ return l.equipmentId===eqId; });
   var total = eqLogs.reduce(function(s,l){ return s+(l.cost||0); },0);
   return { count: eqLogs.length, totalCost: total };
+}
+
+// ==================== EXPENSES (OpEx) ====================
+function populateExpenseCatSelects() {
+  var db = getDB();
+  var cats = db.expenseCategories || [];
+  ['exp-cat','exp-tpl-cat','exp-filter-cat'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var cur = sel.value;
+    var prefix = (id === 'exp-filter-cat') ? '<option value="">Всі категорії</option>' : '';
+    sel.innerHTML = prefix + cats.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    sel.value = cur;
+  });
+}
+
+function openExpenseModal(id, prefillTemplateId) {
+  var db = getDB();
+  populateExpenseCatSelects();
+  document.getElementById('expense-modal-title').textContent = id ? 'Редагувати витрату' : 'Додати витрату';
+  if (id) {
+    var e = (db.expenses||[]).find(function(x){ return x.id===id; });
+    if (!e) return;
+    document.getElementById('exp-id').value = id;
+    document.getElementById('exp-date').value = e.date || new Date().toISOString().slice(0,10);
+    document.getElementById('exp-cat').value = e.category || '';
+    document.getElementById('exp-amount').value = e.amount || 0;
+    document.getElementById('exp-note').value = e.note || '';
+  } else {
+    document.getElementById('exp-id').value = '';
+    document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('exp-amount').value = '';
+    document.getElementById('exp-note').value = '';
+    if (prefillTemplateId) {
+      var tpl = (db.expenseTemplates||[]).find(function(x){ return x.id===prefillTemplateId; });
+      if (tpl) {
+        document.getElementById('exp-cat').value = tpl.category || '';
+        document.getElementById('exp-amount').value = tpl.defaultAmount || '';
+        document.getElementById('exp-note').value = tpl.name || '';
+      }
+    } else {
+      document.getElementById('exp-cat').selectedIndex = 0;
+    }
+  }
+  openModal('expense');
+}
+
+function saveExpense() {
+  var id = v('exp-id');
+  var date = v('exp-date');
+  var category = v('exp-cat');
+  var amount = n('exp-amount');
+  var note = v('exp-note');
+  if (!date) return alert('Вкажіть дату');
+  if (amount <= 0) return alert('Сума має бути більше 0');
+  if (!category) return alert('Оберіть категорію');
+  var db = getDB();
+  if (!db.expenses) db.expenses = [];
+  if (id) {
+    var e = db.expenses.find(function(x){ return x.id===id; });
+    if (e) { e.date = date; e.category = category; e.amount = amount; e.note = note; }
+  } else {
+    db.expenses.push({ id:uid(), date:date, category:category, amount:amount, note:note });
+  }
+  saveDB(db);
+  closeModal('expense');
+  renderExpenses();
+}
+
+function deleteExpense(id) {
+  if (!confirm('Видалити цю витрату?')) return;
+  var db = getDB();
+  db.expenses = (db.expenses||[]).filter(function(x){ return x.id!==id; });
+  saveDB(db);
+  renderExpenses();
+}
+
+function openExpenseTemplateModal(id) {
+  var db = getDB();
+  populateExpenseCatSelects();
+  var delBtn = document.getElementById('exp-tpl-del-btn');
+  document.getElementById('exp-tpl-modal-title').textContent = id ? 'Редагувати шаблон' : 'Новий шаблон витрати';
+  if (id) {
+    var t = (db.expenseTemplates||[]).find(function(x){ return x.id===id; });
+    if (!t) return;
+    document.getElementById('exp-tpl-id').value = id;
+    document.getElementById('exp-tpl-name').value = t.name || '';
+    document.getElementById('exp-tpl-cat').value = t.category || '';
+    document.getElementById('exp-tpl-amount').value = t.defaultAmount || 0;
+    delBtn.style.display = 'inline-block';
+  } else {
+    document.getElementById('exp-tpl-id').value = '';
+    document.getElementById('exp-tpl-name').value = '';
+    document.getElementById('exp-tpl-amount').value = '';
+    document.getElementById('exp-tpl-cat').selectedIndex = 0;
+    delBtn.style.display = 'none';
+  }
+  openModal('expense-template');
+}
+
+function saveExpenseTemplate() {
+  var id = v('exp-tpl-id');
+  var name = v('exp-tpl-name');
+  var cat = v('exp-tpl-cat');
+  var amount = n('exp-tpl-amount');
+  if (!name) return alert('Введіть назву');
+  if (!cat) return alert('Оберіть категорію');
+  var db = getDB();
+  if (!db.expenseTemplates) db.expenseTemplates = [];
+  if (id) {
+    var t = db.expenseTemplates.find(function(x){ return x.id===id; });
+    if (t) { t.name = name; t.category = cat; t.defaultAmount = amount; }
+  } else {
+    db.expenseTemplates.push({ id:uid(), name:name, category:cat, defaultAmount:amount });
+  }
+  saveDB(db);
+  closeModal('expense-template');
+  renderExpenses();
+}
+
+function deleteExpenseTemplate() {
+  var id = v('exp-tpl-id');
+  if (!id) return;
+  if (!confirm('Видалити шаблон?')) return;
+  var db = getDB();
+  db.expenseTemplates = (db.expenseTemplates||[]).filter(function(x){ return x.id!==id; });
+  saveDB(db);
+  closeModal('expense-template');
+  renderExpenses();
+}
+
+function quickAddFromTemplate(tplId) { openExpenseModal(null, tplId); }
+
+// Compute taxes for a given month (YYYY-MM) and revenue in that month.
+// Returns { amount, source: 'override'|'auto'|'none', label: 'ФОП 2 / 5% / …' }
+function computeTaxForMonth(db, month, revenue) {
+  var ts = db.taxSettings || {};
+  var overrides = ts.monthOverrides || {};
+  if (overrides[month] !== undefined && overrides[month] !== null && overrides[month] !== '') {
+    return { amount: parseFloat(overrides[month])||0, source:'override', label:'вручну' };
+  }
+  if (ts.fopGroup === 'group2') {
+    return { amount: parseFloat(ts.fopGroup2Amount)||0, source:'auto', label:'ФОП 2 гр.' };
+  }
+  if (ts.fopGroup === 'group3') {
+    var r3 = parseFloat(ts.fopGroup3Rate)||0;
+    var mil = parseFloat(ts.militaryRate)||0;
+    var amt = revenue * (r3 + mil) / 100;
+    return { amount: Math.round(amt*100)/100, source:'auto', label:'ФОП 3 гр. '+r3+'%+ВЗ '+mil+'%' };
+  }
+  return { amount: 0, source:'none', label:'податки не налаштовані' };
+}
+
+function renderExpenses() {
+  var db = getDB();
+  populateExpenseCatSelects();
+  var expenses = (db.expenses||[]).slice();
+  var templates = db.expenseTemplates || [];
+
+  var filterMonth = v('exp-filter-month');
+  var filterCat = v('exp-filter-cat');
+  var filtered = expenses.filter(function(e) {
+    if (filterMonth && (e.date||'').slice(0,7) !== filterMonth) return false;
+    if (filterCat && e.category !== filterCat) return false;
+    return true;
+  });
+
+  // Summary: this month totals
+  var thisMonth = new Date().toISOString().slice(0,7);
+  var thisMonthTotal = expenses.filter(function(e){return (e.date||'').slice(0,7)===thisMonth}).reduce(function(s,e){return s+(e.amount||0)},0);
+  var lastMonthDate = new Date(); lastMonthDate.setMonth(lastMonthDate.getMonth()-1);
+  var lastMonth = lastMonthDate.toISOString().slice(0,7);
+  var lastMonthTotal = expenses.filter(function(e){return (e.date||'').slice(0,7)===lastMonth}).reduce(function(s,e){return s+(e.amount||0)},0);
+  var allTimeTotal = expenses.reduce(function(s,e){return s+(e.amount||0)},0);
+
+  // By category this month
+  var byCatThisMonth = {};
+  expenses.filter(function(e){return (e.date||'').slice(0,7)===thisMonth}).forEach(function(e) {
+    byCatThisMonth[e.category] = (byCatThisMonth[e.category]||0) + (e.amount||0);
+  });
+  var topCatEntry = Object.keys(byCatThisMonth).sort(function(a,b){ return byCatThisMonth[b]-byCatThisMonth[a]; })[0];
+  var topCatStr = topCatEntry ? topCatEntry+' — '+fmt(byCatThisMonth[topCatEntry])+' грн' : '—';
+
+  document.getElementById('expenses-summary').innerHTML =
+    '<div class="card"><div class="card-label">Цього місяця</div><div class="card-value">'+fmt(thisMonthTotal)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card"><div class="card-label">Минулого місяця</div><div class="card-value">'+fmt(lastMonthTotal)+'</div><div class="card-sub">грн</div></div>'+
+    '<div class="card"><div class="card-label">Найбільша категорія цього міс.</div><div class="card-value" style="font-size:16px;">'+esc(topCatStr)+'</div></div>'+
+    '<div class="card"><div class="card-label">Всього за весь час</div><div class="card-value">'+fmt(allTimeTotal)+'</div><div class="card-sub">грн</div></div>';
+
+  // Templates (quick-add chips)
+  document.getElementById('expense-templates').innerHTML = templates.length
+    ? templates.map(function(t) {
+        return '<div style="background:linear-gradient(135deg,#F3E5F5,#E1BEE7);padding:10px 14px;border-radius:10px;display:flex;align-items:center;gap:10px;border:1px solid #CE93D8;">'+
+          '<button class="btn btn-primary btn-sm" onclick="quickAddFromTemplate(\''+t.id+'\')" title="Додати цю витрату">+</button>'+
+          '<div>'+
+            '<div style="font-weight:600;font-size:13px;">'+esc(t.name)+'</div>'+
+            '<div style="font-size:11px;color:var(--text-light);">'+esc(t.category||'')+' · орієнт. '+fmt(t.defaultAmount||0)+' грн</div>'+
+          '</div>'+
+          '<button class="btn btn-outline btn-sm" onclick="openExpenseTemplateModal(\''+t.id+'\')" title="Редагувати" style="padding:4px 8px;">✏️</button>'+
+        '</div>';
+      }).join('')
+    : '<div style="font-size:12px;color:var(--text-light);padding:12px;background:var(--bg);border-radius:8px;">Поки що немає шаблонів. Створи перший: наприклад «Оренда офісу».</div>';
+
+  // Table
+  var rows = filtered.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).map(function(e) {
+    return '<tr>'+
+      '<td data-label="Дата">'+esc(e.date||'')+'</td>'+
+      '<td data-label="Категорія">'+esc(e.category||'')+'</td>'+
+      '<td data-label="Сума"><strong>'+fmt(e.amount||0)+' грн</strong></td>'+
+      '<td data-label="Опис">'+esc(e.note||'')+'</td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
+        '<button class="btn btn-outline btn-sm" onclick="openExpenseModal(\''+e.id+'\')" title="Редагувати">✏️</button> '+
+        '<button class="btn btn-danger btn-sm" onclick="deleteExpense(\''+e.id+'\')" title="Видалити">🗑</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+  document.getElementById('expenses-table').innerHTML = rows || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:30px;">Витрат ще не додано. Натисни «+ Додати витрату» або скористайся шаблоном-підказкою.</td></tr>';
 }
 
 function renderEquipment() {
