@@ -1343,7 +1343,24 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url === '/api/admin/users') {
       const user = await getSessionUser(req);
       if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
-      const result = await pool.query("SELECT id, email, name, role, trial_ends_at, subscription_ends_at, promo_used, created_at, last_login_at FROM users ORDER BY created_at DESC");
+      const result = await pool.query(`
+        SELECT u.id, u.email, u.name, u.role, u.trial_ends_at, u.subscription_ends_at,
+               u.promo_used, u.created_at, u.last_login_at,
+               COALESCE((
+                 SELECT json_agg(json_build_object(
+                   'ownerId', wl.owner_id,
+                   'ownerEmail', ou.email,
+                   'ownerName', ou.name,
+                   'workerName', wl.worker_name
+                 ))
+                 FROM worker_links wl
+                 JOIN users ou ON wl.owner_id = ou.id
+                 WHERE wl.worker_id = u.id
+               ), '[]'::json) AS works_for,
+               (SELECT COUNT(*)::int FROM worker_links wl WHERE wl.owner_id = u.id) AS workers_count
+        FROM users u
+        ORDER BY u.created_at DESC
+      `);
       sendJSON(res, 200, result.rows);
       return;
     }
