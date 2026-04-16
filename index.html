@@ -828,7 +828,7 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-group">
         <label>Група ФОП</label>
         <select id="tax-fop-group" onchange="onFopGroupChange()">
-          <option value="none">Не вказано / не ФОП</option>
+          <option value="none">🚫 Не рахувати податки (не ФОП / ще не оформлена)</option>
           <option value="group2">ФОП 2 група (фіксована сума)</option>
           <option value="group3">ФОП 3 група (% від виручки)</option>
         </select>
@@ -4703,7 +4703,7 @@ function onFopGroupChange() {
     var m = parseFloat(document.getElementById('tax-military-rate').value)||0;
     prev.innerHTML = '💡 Податок = (виручка × '+r+'%) + (виручка × '+m+'%) = <strong>виручка × '+(r+m).toFixed(1)+'%</strong>. Рахується автоматично за кожен місяць.';
   } else {
-    prev.innerHTML = 'ℹ️ Податки не налаштовані — у P&L не враховуються. Якщо ти ФОП, обери групу вище.';
+    prev.innerHTML = '✅ <strong>Податки не рахуються автоматично.</strong> У P&L рядок «Податки» буде 0 грн. Якщо колись заплатиш якийсь податок (наприклад ПДФО з виведення коштів) — просто додай разову витрату в категорії «🧾 Податки».';
   }
 }
 
