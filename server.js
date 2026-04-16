@@ -354,7 +354,9 @@ function emailTemplate(content) {
   <!-- Community CTA — shown in every email to maximize join rate -->
   <div style="margin-top:16px;background:linear-gradient(135deg,#F3E5F5 0%,#E1BEE7 100%);border:1px solid #CE93D8;border-radius:12px;padding:20px;text-align:center;">
     <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#4A148C;">💜 Приєднуйся до спільноти ${TG_COMMUNITY_NAME}</p>
-    <p style="margin:0 0 14px;font-size:13px;color:#4A148C;line-height:1.5;">Продаж шаблонів та обладнання, запити, співпраця — майстрині допомагають одна одній.</p>
+    <p style="margin:0 0 10px;font-size:13px;color:#4A148C;line-height:1.5;">Продаж шаблонів та обладнання, запити, співпраця — майстрині допомагають одна одній.</p>
+    <p style="margin:0 0 14px;font-size:12px;color:#6D4C00;background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;padding:6px 10px;display:inline-block;">🎁 Вступ та всі публікації — <strong>безкоштовні</strong> для користувачок CRM</p>
+    <br>
     <a href="${TG_COMMUNITY_INVITE}" style="display:inline-block;background:#7B1FA2;color:#fff;text-decoration:none;padding:10px 28px;border-radius:8px;font-weight:700;font-size:14px;">💬 Вступити в групу Telegram</a>
   </div>
   <div style="text-align:center;padding:20px;font-size:12px;color:#757575;">
@@ -552,6 +554,11 @@ const ONBOARDING_EMAILS = [
       <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
         Привіт, <strong>${name}</strong>! LipoLand — це не просто CRM, а спільнота майстринь липучкових книжок з усієї України. Ми створили закриту Telegram-групу, де можна обмінюватися досвідом, матеріалами, замовленнями.
       </p>
+      <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:10px;padding:14px 18px;margin:16px 0;">
+        <p style="margin:0;font-size:14px;color:#6D4C00;line-height:1.6;">
+          🎁 <strong>Усі публікації та самореклама — безкоштовні</strong> для користувачок LipoLand CRM. Викладай свої шаблони, обладнання чи послуги без комісій, відсотків і обмежень.
+        </p>
+      </div>
       <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
         <h3 style="color:#4A148C;margin:0 0 12px;font-size:16px;">🗂 Що є в групі</h3>
         <table style="width:100%;border-collapse:collapse;">
