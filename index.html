@@ -4570,7 +4570,17 @@ function syncSalesDrive() {
   var totalFetched = 0;
   var MAX_PAGES = 30; // safety cap: 30 * 100 = 3000 orders
 
-  function fetchPage(page) {
+  // SalesDrive rate limit: 10 req/min on /api/order/list/. Тримаємо запас.
+  var SD_PAGE_DELAY_MS = 7000;     // 7с між сторінками → ~8.5 req/min
+  var SD_RATE_RETRY_MS = 65000;    // при 'API limit reached' — чекаємо 65с
+  var SD_MAX_RATE_RETRIES = 3;     // максимум 3 ретраї на одну сторінку
+
+  function isRateLimit(msg) {
+    return /api\s*limit\s*reached/i.test(String(msg || ''));
+  }
+
+  function fetchPage(page, retriesLeft) {
+    if (retriesLeft === undefined) retriesLeft = SD_MAX_RATE_RETRIES;
     var sdPath = '/api/order/list/?page='+page+'&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
     statusEl.innerHTML = '<span class="text-muted">Завантаження сторінки '+page+' з CRM...</span>';
     return fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: sdPath }) })
@@ -4587,6 +4597,17 @@ function syncSalesDrive() {
       })
       .then(function(wrap){
         var data = wrap.data;
+        // Окремо ловимо rate-limit — чекаємо і повторюємо, а не падаємо
+        if (data && isRateLimit(data.error || data.message)) {
+          if (retriesLeft <= 0) {
+            throw new Error('API limit SalesDrive — перевищено 3 спроби. Спробуйте пізніше.');
+          }
+          var waitSec = Math.round(SD_RATE_RETRY_MS/1000);
+          console.warn('[lipo] SalesDrive rate limit hit, waiting', waitSec, 's');
+          return countdownWait(SD_RATE_RETRY_MS, function(secLeft){
+            statusEl.innerHTML = '<span style="color:#E65100;">⏸ Ліміт API SalesDrive (10/хв). Пауза '+secLeft+'с… сторінка '+page+'</span>';
+          }).then(function(){ return fetchPage(page, retriesLeft - 1); });
+        }
         if(data.error) throw new Error(data.error);
         if(!data.data) {
           console.warn('[lipo] SalesDrive unexpected response shape:', data);
@@ -4597,10 +4618,27 @@ function syncSalesDrive() {
         totalFetched += (data.data || []).length;
         var totalPages = (data.pagination && data.pagination.pageCount) || 1;
         if (page < totalPages && page < MAX_PAGES) {
-          return fetchPage(page + 1);
+          // Пауза між сторінками, щоб не впертись у 10/хв
+          return countdownWait(SD_PAGE_DELAY_MS, function(secLeft){
+            statusEl.innerHTML = '<span class="text-muted">Сторінка '+page+' з '+totalPages+' ✓ — пауза '+secLeft+'с (щоб не впертись у ліміт SalesDrive)…</span>';
+          }).then(function(){ return fetchPage(page + 1); });
         }
         return { totalPages: totalPages };
       });
+  }
+
+  // Пауза з видимим лічильником. cb(secLeft) викликається щосекунди.
+  function countdownWait(totalMs, cb) {
+    return new Promise(function(resolve){
+      var left = Math.ceil(totalMs/1000);
+      try { cb(left); } catch(e){}
+      if (left <= 0) { resolve(); return; }
+      var timer = setInterval(function(){
+        left -= 1;
+        if (left <= 0) { clearInterval(timer); resolve(); return; }
+        try { cb(left); } catch(e){}
+      }, 1000);
+    });
   }
 
   function processOrdersBatch(orders) {
