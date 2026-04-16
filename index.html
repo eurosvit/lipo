@@ -2145,22 +2145,13 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
     _dbCache = serverData;
     localStorage.setItem(DB_KEY, JSON.stringify(serverData));
   }
-  // One-time migration: for orders already assigned to a worker but no auto-production yet,
-  // create auto-production entries so they appear in ЗП.
+  // ВИМКНЕНО: раніше тут створювались авто-записи ЗП для призначених майстрів
+  // (syncOrderAutoProduction). Прибрано, бо ми платимо за Виробництвом наперед,
+  // а майстер на замовленні = лише вказівка звідки списати склад.
   try {
     var cur = _dbCache;
-    if (cur && !cur._migratedOrderAutoProduction) {
-      cur._migratedOrderAutoProduction = true;
-      var changed = false;
-      (cur.orders || []).forEach(function(o){
-        if (o.worker) {
-          var hasAuto = (cur.production || []).some(function(b){ return b.source === 'order-auto' && b.orderId === o.id; });
-          if (!hasAuto) { syncOrderAutoProduction(cur, o); changed = true; }
-        }
-      });
-      saveDB(cur); // always persist the _migratedOrderAutoProduction flag
-    }
-  } catch(e){ console.warn('[lipo] Order-auto migration failed:', e); }
+    if (cur) cur._migratedOrderAutoProduction = true; // блокуємо будь-яку повторну міграцію
+  } catch(e){}
   var _savedPage = localStorage.getItem('lipo_current_page') || 'dashboard';
   showPage(_savedPage);
   updateNotifications();
@@ -3526,11 +3517,12 @@ function setOrderWorker(id, worker) {
   var ord = db.orders.find(function(x){return x.id===id});
   if(!ord) return;
   ord.worker = worker;
-  // Sync auto-production entries (so the order's items instantly appear in ЗП for this worker)
-  syncOrderAutoProduction(db, ord);
+  // Майстер на замовленні — лише інформація про виконавця + вказівник на склад
+  // для відвантаження. ЗП НЕ нараховується автоматично (платимо за виробництвом
+  // наперед, тут просто відвантажуємо готову гру). Див. shipOrderFromStock.
   saveDB(db);
-  // Re-render salary if it's currently visible so user sees the change immediately
-  try { if (document.getElementById('salary') && document.getElementById('salary').classList.contains('active')) renderSalary(); } catch(e){}
+  // Re-render orders to refresh stock-source hint
+  try { if (document.getElementById('orders') && document.getElementById('orders').classList.contains('active')) renderOrders(); } catch(e){}
 }
 
 // For each item in the order, keep exactly one completed production entry tagged as
@@ -3599,6 +3591,168 @@ function setOrderPaymentStatus(id, val) {
   var db = getDB();
   var ord = db.orders.find(function(x){return x.id===id});
   if(ord) { ord.paymentStatus = val; saveDB(db); renderPage('orders'); }
+}
+
+// ==================== SHIP ORDER FROM STOCK ====================
+// Майстер на замовленні = вказівник, з якого складу списати готовий товар.
+// Пріоритет: склад майстра → головний склад LipoLand. ЗП не нараховується —
+// виплачується при виробництві, а не при відправці.
+function planOrderShipment(db, ord) {
+  var plan = [];
+  (ord.items || []).forEach(function(item) {
+    if (!item.productId) {
+      plan.push({ productId:null, name:item.name, total:item.qty||0, fromMaster:0, fromMain:0, shortage:item.qty||0, wsId:null, product:null, noLink:true });
+      return;
+    }
+    var need = item.qty || 0;
+    var fromMaster = 0, fromMain = 0, ws = null;
+    if (ord.worker) {
+      ws = (db.workerStock || []).find(function(s) {
+        return s.worker === ord.worker && s.itemId === item.productId && s.type === 'product';
+      });
+      if (ws && ws.qty > 0) {
+        fromMaster = Math.min(need, ws.qty);
+        need -= fromMaster;
+      }
+    }
+    var p = (db.products || []).find(function(x){ return x.id === item.productId; });
+    if (p && need > 0) {
+      fromMain = Math.min(need, p.stock || 0);
+      need -= fromMain;
+    }
+    plan.push({
+      productId: item.productId,
+      name: item.name,
+      total: item.qty || 0,
+      fromMaster: fromMaster,
+      fromMain: fromMain,
+      shortage: need,
+      wsId: ws ? ws.id : null,
+      product: p
+    });
+  });
+  return plan;
+}
+
+function orderStockHint(ord) {
+  var db = getDB();
+  var plan = planOrderShipment(db, ord);
+  var parts = [];
+  var totalMaster = 0, totalMain = 0, totalShortage = 0;
+  plan.forEach(function(p) {
+    totalMaster += p.fromMaster;
+    totalMain += p.fromMain;
+    totalShortage += p.shortage;
+  });
+  if (totalMaster > 0) parts.push('<span style="color:#2E7D32;">👷 '+esc(wLabel(ord.worker))+': '+totalMaster+'</span>');
+  if (totalMain > 0) parts.push('<span style="color:#1565C0;">📦 LipoLand: '+totalMain+'</span>');
+  if (totalShortage > 0) parts.push('<span style="color:#C62828;">❌ не вистачає: '+totalShortage+'</span>');
+  return parts.length ? parts.join(' • ') : '<span class="text-muted">—</span>';
+}
+
+function shipOrderFromStock(id) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if (!ord) return;
+  if (ord.shipped) {
+    alert('Замовлення вже відвантажене. Спочатку скасуйте відправку.');
+    return;
+  }
+  var plan = planOrderShipment(db, ord);
+  if (!plan.length) { alert('У замовленні немає товарів.'); return; }
+
+  var msgParts = [];
+  var hasShortage = false;
+  var hasAny = false;
+  plan.forEach(function(p) {
+    var parts = [];
+    if (p.fromMaster) { parts.push('👷 '+wLabel(ord.worker)+': '+p.fromMaster); hasAny = true; }
+    if (p.fromMain)   { parts.push('📦 LipoLand: '+p.fromMain); hasAny = true; }
+    if (p.shortage)   { parts.push('❌ не вистачає: '+p.shortage); hasShortage = true; }
+    if (p.noLink)     { parts.push('⚠ немає прив\'язки до товару'); }
+    msgParts.push('• '+p.name+' — '+(parts.join(', ') || '—'));
+  });
+
+  var msg = '📤 Списати зі складу для замовлення #'+ord.num+'?\n\n'+msgParts.join('\n');
+  if (hasShortage) msg += '\n\n⚠ Частково не вистачає — списати що є?';
+  if (!hasAny && !hasShortage) { alert('Немає чого списати.'); return; }
+  if (!confirm(msg)) return;
+
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  var today = new Date().toISOString().slice(0,10);
+  ord.shippedFrom = [];
+
+  plan.forEach(function(p) {
+    if (p.fromMaster > 0 && p.wsId) {
+      var ws = db.workerStock.find(function(s){return s.id === p.wsId;});
+      if (ws) {
+        ws.qty = (ws.qty||0) - p.fromMaster;
+        db.workerStockHistory.push({
+          id: uid(), worker: ord.worker, type: 'product',
+          itemId: p.productId, itemName: p.name, qty: p.fromMaster,
+          action: 'відправлено',
+          date: today,
+          note: 'Замовлення #'+ord.num,
+          orderId: ord.id
+        });
+        if (ws.qty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id !== ws.id;});
+      }
+      ord.shippedFrom.push({ source:'worker', worker: ord.worker, productId: p.productId, qty: p.fromMaster, name: p.name });
+    }
+    if (p.fromMain > 0 && p.product) {
+      p.product.stock = (p.product.stock||0) - p.fromMain;
+      ord.shippedFrom.push({ source:'main', productId: p.productId, qty: p.fromMain, name: p.name });
+    }
+  });
+
+  ord.shipped = true;
+  ord.shippedDate = today;
+  saveDB(db);
+  renderPage('orders');
+}
+
+function unshipOrder(id) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if (!ord || !ord.shipped) return;
+  if (!confirm('Повернути товари на склад і скасувати відправку замовлення #'+ord.num+'?')) return;
+
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  var today = new Date().toISOString().slice(0,10);
+
+  (ord.shippedFrom || []).forEach(function(s) {
+    if (s.source === 'main') {
+      var p = (db.products||[]).find(function(x){return x.id===s.productId;});
+      if (p) p.stock = (p.stock||0) + s.qty;
+    } else if (s.source === 'worker') {
+      if (!db.workerStock) db.workerStock = [];
+      var ws = db.workerStock.find(function(w){
+        return w.worker===s.worker && w.itemId===s.productId && w.type==='product';
+      });
+      if (ws) {
+        ws.qty = (ws.qty||0) + s.qty;
+      } else {
+        db.workerStock.push({
+          id: uid(), worker: s.worker, type: 'product',
+          itemId: s.productId, itemName: s.name || 'Товар',
+          qty: s.qty, date: today,
+          note: 'повернуто з замовлення #'+ord.num
+        });
+      }
+      db.workerStockHistory.push({
+        id: uid(), worker: s.worker, type: 'product',
+        itemId: s.productId, itemName: s.name || 'Товар', qty: s.qty,
+        action: 'повернуто (скасовано відправку)',
+        date: today, note: 'Замовлення #'+ord.num, orderId: ord.id
+      });
+    }
+  });
+
+  ord.shipped = false;
+  ord.shippedFrom = [];
+  ord.shippedDate = null;
+  saveDB(db);
+  renderPage('orders');
 }
 
 function renderChannelManager() {
@@ -4106,9 +4260,9 @@ function renderOrders() {
         var typeOpts = '<option value="">—</option>' +
           Object.keys(ORD_PAYMENT_LABELS).map(function(k){ return '<option value="'+k+'" '+(currentType===k?'selected':'')+'>'+esc(ORD_PAYMENT_LABELS[k])+'</option>'; }).join('');
         var statusOpts2 = Object.keys(ORD_PAY_STATUS_LABELS).map(function(k){ return '<option value="'+k+'" '+(currentStatus===k?'selected':'')+'>'+esc(ORD_PAY_STATUS_LABELS[k])+'</option>'; }).join('');
-        return '<td data-label="Оплата" style="font-size:12px;">'+
-          '<select onchange="setOrderPaymentType(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:6px;font-size:11px;width:100%;margin-bottom:3px;border:1px solid var(--border);">'+typeOpts+'</select>'+
-          '<select onchange="setOrderPaymentStatus(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:6px;font-size:11px;width:100%;background:'+psColor+';border:1px solid '+psBorder+';font-weight:600;">'+statusOpts2+'</select>'+
+        return '<td data-label="Оплата" style="font-size:12px;min-width:160px;">'+
+          '<select onchange="setOrderPaymentType(\''+o.id+'\',this.value)" style="padding:4px 6px;border-radius:6px;font-size:12px;width:100%;margin-bottom:4px;border:1px solid var(--border);box-sizing:border-box;">'+typeOpts+'</select>'+
+          '<select onchange="setOrderPaymentStatus(\''+o.id+'\',this.value)" style="padding:4px 6px;border-radius:6px;font-size:12px;width:100%;background:'+psColor+';border:1px solid '+psBorder+';font-weight:600;box-sizing:border-box;">'+statusOpts2+'</select>'+
         '</td>';
       }
       case 'delivery': {
@@ -4129,10 +4283,20 @@ function renderOrders() {
     var chColor = getChannelColor(o.channel);
     var chSelectOpts = channelOpts.replace('value="'+esc(o.channel||'')+'"', 'value="'+esc(o.channel||'')+'" selected');
     var cells = visOrdCols.map(function(c){ return ordCell(c.id, o, statusOpts, statusColors, workerOpts, chSelectOpts, chColor, itemsStr); }).join('');
-    return '<tr>'+
-      '<td data-label="№">#'+o.num+(o.crmId?'<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>':'')+'</td>'+
+    var shipBtn;
+    if (o.shipped) {
+      shipBtn = '<button class="btn btn-outline btn-sm" onclick="unshipOrder(\''+o.id+'\')" title="Скасувати відправку (повернути на склад)" style="margin-right:4px;background:#E8F5E9;color:#2E7D32;border-color:#A5D6A7;">✅</button>';
+    } else {
+      shipBtn = '<button class="btn btn-primary btn-sm" onclick="shipOrderFromStock(\''+o.id+'\')" title="Списати зі складу (відправити)" style="margin-right:4px;">📤</button>';
+    }
+    var numBadges = '#'+o.num;
+    if (o.crmId) numBadges += '<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>';
+    if (o.shipped) numBadges += '<br><span class="badge" style="font-size:9px;background:#E8F5E9;color:#2E7D32;">📤 '+(o.shippedDate||'')+'</span>';
+    return '<tr'+(o.shipped?' style="opacity:0.85;"':'')+'>'+
+      '<td data-label="№">'+numBadges+'</td>'+
       cells+
       '<td data-label="Дії" style="white-space:nowrap;">'+
+        shipBtn+
         '<button class="btn btn-outline btn-sm" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати" style="margin-right:4px;">✏️</button>'+
         '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')" title="Видалити">&#x1F5D1;</button></td>'+
     '</tr>';
