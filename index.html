@@ -1388,16 +1388,70 @@ a.order-link:hover { text-decoration:underline; }
       <button class="modal-close" onclick="closeModal('add-order')">&times;</button>
     </div>
     <div class="modal-body">
+      <div class="section-title" style="margin-top:0;">👤 Клієнт</div>
       <div class="form-row">
-        <div class="form-group"><label>Клієнт</label><input id="ord-client" placeholder="Ім'я / телефон"></div>
-        <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
+        <div class="form-group"><label>Імʼя</label><input id="ord-first-name" placeholder="Наприклад: Марія"></div>
+        <div class="form-group"><label>Прізвище</label><input id="ord-last-name" placeholder="Петренко"></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label>Телефон</label><input id="ord-phone" placeholder="+380..."></div>
+        <div class="form-group"><label>Email (необовʼязково)</label><input id="ord-email" type="email" placeholder="client@example.com"></div>
+      </div>
+
+      <div class="section-title">🚚 Доставка</div>
+      <div class="form-row">
+        <div class="form-group"><label>Перевізник</label>
+          <select id="ord-carrier" onchange="toggleOrdDeliveryFields()">
+            <option value="">— не вказано —</option>
+            <option value="nova">📦 Нова Пошта</option>
+            <option value="ukrposhta">📮 Укрпошта</option>
+            <option value="meest">🚚 Meest Express</option>
+            <option value="courier">🛵 Курʼєр</option>
+            <option value="pickup">🏠 Самовивіз</option>
+            <option value="other">Інше</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Місто</label><input id="ord-city" placeholder="Київ"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" id="ord-warehouse-wrap"><label>№ відділення / поштомат</label><input id="ord-warehouse" placeholder="№123"></div>
+        <div class="form-group" id="ord-address-wrap" style="display:none;"><label>Адреса (вулиця, будинок, кв.)</label><input id="ord-address" placeholder="вул. Хрещатик, 1, кв. 5"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ТТН / трек-номер (необовʼязково)</label><input id="ord-ttn" placeholder="20450123456789"></div>
+      </div>
+
+      <div class="section-title">💳 Оплата</div>
+      <div class="form-row">
+        <div class="form-group"><label>Спосіб оплати</label>
+          <select id="ord-payment">
+            <option value="">— не вказано —</option>
+            <option value="cod">📦 Післяплата</option>
+            <option value="prepayment">💳 Передоплата на карту</option>
+            <option value="iban">🏦 IBAN / рахунок</option>
+            <option value="cash">💵 Готівкою</option>
+            <option value="other">Інше</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Статус оплати</label>
+          <select id="ord-payment-status">
+            <option value="unpaid">Не оплачено</option>
+            <option value="partial">Часткова передоплата</option>
+            <option value="paid">Оплачено</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-title">📋 Замовлення</div>
+      <div class="form-row">
+        <div class="form-group"><label>Дата</label><input id="ord-date" type="date"></div>
         <div class="form-group"><label>Канал продажу</label>
           <select id="ord-channel"><option value="">— не вказано —</option></select>
         </div>
       </div>
-      <div class="section-title">Товари</div>
+      <div class="form-group"><label>Коментар до замовлення (необовʼязково)</label><textarea id="ord-comment" rows="2" placeholder="Побажання клієнта, упаковка тощо"></textarea></div>
+
+      <div class="section-title">🛒 Товари</div>
       <div id="ord-items"></div>
       <button class="btn btn-outline btn-sm mt-8" onclick="addOrderLine()">+ Додати товар</button>
       <div id="ord-total" style="margin-top:12px;font-weight:600;font-size:16px;"></div>
@@ -1405,6 +1459,85 @@ a.order-link:hover { text-decoration:underline; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-order')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveOrder()">Створити</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Order Modal -->
+<div class="modal-overlay" id="modal-edit-order">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Редагувати замовлення</h3>
+      <button class="modal-close" onclick="closeModal('edit-order')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eord-id">
+      <div class="section-title" style="margin-top:0;">👤 Клієнт</div>
+      <div class="form-row">
+        <div class="form-group"><label>Імʼя</label><input id="eord-first-name" placeholder="Марія"></div>
+        <div class="form-group"><label>Прізвище</label><input id="eord-last-name" placeholder="Петренко"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Телефон</label><input id="eord-phone" placeholder="+380..."></div>
+        <div class="form-group"><label>Email</label><input id="eord-email" type="email" placeholder="client@example.com"></div>
+      </div>
+
+      <div class="section-title">🚚 Доставка</div>
+      <div class="form-row">
+        <div class="form-group"><label>Перевізник</label>
+          <select id="eord-carrier" onchange="toggleOrdDeliveryFields('eord')">
+            <option value="">— не вказано —</option>
+            <option value="nova">📦 Нова Пошта</option>
+            <option value="ukrposhta">📮 Укрпошта</option>
+            <option value="meest">🚚 Meest Express</option>
+            <option value="courier">🛵 Курʼєр</option>
+            <option value="pickup">🏠 Самовивіз</option>
+            <option value="other">Інше</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Місто</label><input id="eord-city" placeholder="Київ"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" id="eord-warehouse-wrap"><label>№ відділення / поштомат</label><input id="eord-warehouse" placeholder="№123"></div>
+        <div class="form-group" id="eord-address-wrap" style="display:none;"><label>Адреса</label><input id="eord-address" placeholder="вул. Хрещатик, 1, кв. 5"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ТТН / трек-номер</label><input id="eord-ttn" placeholder="20450123456789"></div>
+      </div>
+
+      <div class="section-title">💳 Оплата</div>
+      <div class="form-row">
+        <div class="form-group"><label>Спосіб оплати</label>
+          <select id="eord-payment">
+            <option value="">— не вказано —</option>
+            <option value="cod">📦 Післяплата</option>
+            <option value="prepayment">💳 Передоплата на карту</option>
+            <option value="iban">🏦 IBAN / рахунок</option>
+            <option value="cash">💵 Готівкою</option>
+            <option value="other">Інше</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Статус оплати</label>
+          <select id="eord-payment-status">
+            <option value="unpaid">Не оплачено</option>
+            <option value="partial">Часткова передоплата</option>
+            <option value="paid">Оплачено</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-title">📋 Замовлення</div>
+      <div class="form-row">
+        <div class="form-group"><label>Дата</label><input id="eord-date" type="date"></div>
+        <div class="form-group"><label>Канал продажу</label>
+          <select id="eord-channel"><option value="">— не вказано —</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Коментар</label><textarea id="eord-comment" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('edit-order')">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveOrderEdit()">Зберегти</button>
     </div>
   </div>
 </div>
@@ -2073,7 +2206,21 @@ function openModal(name) {
   if(name==='add-product') { populateCategorySelects(); document.getElementById('prod-recipe').innerHTML=''; addRecipeLine(); }
   if(name==='start-production') populateStartProd();
   if(name==='complete-production') populateCompleteProd();
-  if(name==='add-order') { document.getElementById('ord-items').innerHTML=''; addOrderLine(); document.getElementById('ord-date').value=new Date().toISOString().slice(0,10); }
+  if(name==='add-order') {
+    document.getElementById('ord-items').innerHTML='';
+    addOrderLine();
+    document.getElementById('ord-date').value=new Date().toISOString().slice(0,10);
+    // Reset delivery/payment fields
+    ['ord-first-name','ord-last-name','ord-phone','ord-email','ord-city','ord-warehouse','ord-address','ord-ttn','ord-comment'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    ['ord-carrier','ord-payment','ord-channel'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    var ps=document.getElementById('ord-payment-status'); if(ps) ps.value='unpaid';
+    toggleOrdDeliveryFields('ord');
+    populateOrderChannelSelect('ord-channel');
+  }
   if(name==='transfer-to-worker') { populateTransferModal(); }
 }
 function closeModal(name) { document.getElementById('modal-'+name).classList.remove('show'); }
@@ -3316,8 +3463,27 @@ function saveOrder() {
   }
   var total = items.reduce(function(s,i){return s+i.qty*i.price},0);
   var firstStatus = (db.orderStatuses && db.orderStatuses.length) ? db.orderStatuses[0].id : 'new';
-  db.orders.push({ id:uid(), num:db.nextOrderNum++, date:v('ord-date')||new Date().toISOString().slice(0,10),
-    client:v('ord-client'), channel:v('ord-channel'), items:items, total:total, status:firstStatus });
+  var firstName = (v('ord-first-name')||'').trim();
+  var lastName = (v('ord-last-name')||'').trim();
+  var client = (firstName + ' ' + lastName).trim();
+  db.orders.push({
+    id:uid(), num:db.nextOrderNum++,
+    date:v('ord-date')||new Date().toISOString().slice(0,10),
+    firstName:firstName, lastName:lastName,
+    client:client,
+    phone:(v('ord-phone')||'').trim(),
+    email:(v('ord-email')||'').trim(),
+    carrier:v('ord-carrier')||'',
+    city:(v('ord-city')||'').trim(),
+    warehouse:(v('ord-warehouse')||'').trim(),
+    address:(v('ord-address')||'').trim(),
+    ttn:(v('ord-ttn')||'').trim(),
+    paymentType:v('ord-payment')||'',
+    paymentStatus:v('ord-payment-status')||'unpaid',
+    comment:(v('ord-comment')||'').trim(),
+    channel:v('ord-channel'),
+    items:items, total:total, status:firstStatus
+  });
   saveDB(db);
   closeModal('add-order');
   renderPage('orders');
@@ -3545,13 +3711,120 @@ function deleteStatus(statusId) {
 }
 
 function populateOrderChannels() {
+  populateOrderChannelSelect('ord-channel');
+}
+
+function populateOrderChannelSelect(elId) {
   var db = getDB();
   var channels = db.orderChannels || [];
-  var el = document.getElementById('ord-channel');
+  var el = document.getElementById(elId);
   if (!el) return;
+  var currentVal = el.value;
   el.innerHTML = '<option value="">— не вказано —</option>' + channels.map(function(ch) {
     return '<option value="'+esc(ch)+'">'+esc(ch)+'</option>';
   }).join('');
+  if (currentVal) el.value = currentVal;
+}
+
+// Toggle warehouse vs address field based on carrier
+function toggleOrdDeliveryFields(prefix) {
+  prefix = prefix || 'ord';
+  var carrier = document.getElementById(prefix+'-carrier');
+  if (!carrier) return;
+  var val = carrier.value;
+  var whWrap = document.getElementById(prefix+'-warehouse-wrap');
+  var addrWrap = document.getElementById(prefix+'-address-wrap');
+  if (!whWrap || !addrWrap) return;
+  // Warehouse fields apply to: Нова Пошта, Укрпошта, Meest (branch pickup)
+  // Address fields apply to: courier, other
+  // Pickup has no delivery fields
+  if (val === 'courier' || val === 'other') {
+    whWrap.style.display = 'none';
+    addrWrap.style.display = '';
+  } else if (val === 'pickup' || val === '') {
+    whWrap.style.display = '';
+    addrWrap.style.display = 'none';
+  } else {
+    // nova / ukrposhta / meest
+    whWrap.style.display = '';
+    addrWrap.style.display = 'none';
+  }
+}
+
+// Human-readable delivery/payment labels for display
+var ORD_CARRIER_LABELS = {
+  nova:'📦 Нова Пошта', ukrposhta:'📮 Укрпошта', meest:'🚚 Meest',
+  courier:'🛵 Курʼєр', pickup:'🏠 Самовивіз', other:'Інше'
+};
+var ORD_PAYMENT_LABELS = {
+  cod:'📦 Післяплата', prepayment:'💳 Передоплата', iban:'🏦 IBAN',
+  cash:'💵 Готівкою', other:'Інше'
+};
+var ORD_PAY_STATUS_LABELS = { unpaid:'Не оплачено', partial:'Часткова', paid:'✔ Оплачено' };
+
+function orderDeliverySummary(o) {
+  if (!o) return '';
+  var parts = [];
+  if (o.carrier) parts.push(ORD_CARRIER_LABELS[o.carrier] || o.carrier);
+  if (o.city) parts.push(esc(o.city));
+  if (o.warehouse) parts.push('№'+esc(String(o.warehouse).replace(/^№/,'')));
+  if (o.address && !o.warehouse) parts.push(esc(o.address));
+  return parts.join(', ');
+}
+
+function openEditOrder(id) {
+  var db = getDB();
+  var o = db.orders.find(function(x){ return x.id === id; });
+  if (!o) return;
+  populateOrderChannelSelect('eord-channel');
+  document.getElementById('eord-id').value = o.id;
+  document.getElementById('eord-first-name').value = o.firstName || '';
+  document.getElementById('eord-last-name').value = o.lastName || '';
+  // Backward compat: if no first/last but there's "client" — split once
+  if (!o.firstName && !o.lastName && o.client) {
+    var parts = String(o.client).trim().split(/\s+/);
+    document.getElementById('eord-first-name').value = parts[0] || '';
+    document.getElementById('eord-last-name').value = parts.slice(1).join(' ') || '';
+  }
+  document.getElementById('eord-phone').value = o.phone || '';
+  document.getElementById('eord-email').value = o.email || '';
+  document.getElementById('eord-carrier').value = o.carrier || '';
+  document.getElementById('eord-city').value = o.city || '';
+  document.getElementById('eord-warehouse').value = o.warehouse || '';
+  document.getElementById('eord-address').value = o.address || '';
+  document.getElementById('eord-ttn').value = o.ttn || '';
+  document.getElementById('eord-payment').value = o.paymentType || '';
+  document.getElementById('eord-payment-status').value = o.paymentStatus || 'unpaid';
+  document.getElementById('eord-date').value = o.date || '';
+  document.getElementById('eord-channel').value = o.channel || '';
+  document.getElementById('eord-comment').value = o.comment || '';
+  toggleOrdDeliveryFields('eord');
+  document.getElementById('modal-edit-order').classList.add('show');
+}
+
+function saveOrderEdit() {
+  var db = getDB();
+  var id = document.getElementById('eord-id').value;
+  var o = db.orders.find(function(x){ return x.id === id; });
+  if (!o) { alert('Замовлення не знайдено'); return; }
+  o.firstName = v('eord-first-name').trim();
+  o.lastName = v('eord-last-name').trim();
+  o.client = (o.firstName + ' ' + o.lastName).trim() || o.client || '';
+  o.phone = v('eord-phone').trim();
+  o.email = v('eord-email').trim();
+  o.carrier = v('eord-carrier');
+  o.city = v('eord-city').trim();
+  o.warehouse = v('eord-warehouse').trim();
+  o.address = v('eord-address').trim();
+  o.ttn = v('eord-ttn').trim();
+  o.paymentType = v('eord-payment');
+  o.paymentStatus = v('eord-payment-status');
+  o.date = v('eord-date') || o.date;
+  o.channel = v('eord-channel');
+  o.comment = v('eord-comment').trim();
+  saveDB(db);
+  closeModal('edit-order');
+  renderPage('orders');
 }
 
 // ==================== ORDER COLUMN SETTINGS ====================
@@ -3559,8 +3832,12 @@ var _defaultOrdCols = [
   { id:'status', label:'Статус', visible:true },
   { id:'date', label:'Дата', visible:true },
   { id:'client', label:'Клієнт', visible:true },
+  { id:'phone', label:'Телефон', visible:false },
   { id:'items', label:'Товари', visible:true },
   { id:'total', label:'Сума', visible:true },
+  { id:'payment', label:'Оплата', visible:false },
+  { id:'delivery', label:'Доставка', visible:false },
+  { id:'ttn', label:'ТТН', visible:false },
   { id:'channel', label:'Канал', visible:true },
   { id:'worker', label:'Майстер', visible:true }
 ];
@@ -3571,7 +3848,7 @@ function getOrdCols() {
     if (saved && saved.length) {
       var savedIds = saved.map(function(c){return c.id;});
       _defaultOrdCols.forEach(function(d) {
-        if (savedIds.indexOf(d.id)===-1) saved.push({id:d.id,label:d.label,visible:true});
+        if (savedIds.indexOf(d.id)===-1) saved.push({id:d.id,label:d.label,visible:d.visible});
       });
       return saved.map(function(s) {
         var def = _defaultOrdCols.find(function(d){return d.id===s.id;});
@@ -3689,9 +3966,25 @@ function renderOrders() {
     switch(colId) {
       case 'status': return '<td data-label="Статус"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;background:'+(statusColors[o.status]||'#fff')+';width:100%;">'+statusOpts+'</select></td>';
       case 'date': return '<td data-label="Дата">'+o.date+'</td>';
-      case 'client': return '<td data-label="Клієнт">'+esc(o.client||'—')+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>';
+      case 'client': {
+        var cname = o.client || ((o.firstName||'') + ' ' + (o.lastName||'')).trim() || '—';
+        return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>';
+      }
+      case 'phone': return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
       case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
       case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
+      case 'payment': {
+        var pt = o.paymentType ? (ORD_PAYMENT_LABELS[o.paymentType] || o.paymentType) : '';
+        var ps = o.paymentStatus || 'unpaid';
+        var psColor = ps==='paid' ? '#E8F5E9' : (ps==='partial' ? '#FFF3E0' : '#FFEBEE');
+        var psText = ORD_PAY_STATUS_LABELS[ps] || ps;
+        return '<td data-label="Оплата" style="font-size:12px;">'+(pt?esc(pt)+'<br>':'')+'<span style="background:'+psColor+';padding:2px 6px;border-radius:4px;font-size:11px;">'+esc(psText)+'</span></td>';
+      }
+      case 'delivery': {
+        var sum = orderDeliverySummary(o);
+        return '<td data-label="Доставка" style="font-size:12px;">'+(sum||'<span class="text-muted">—</span>')+'</td>';
+      }
+      case 'ttn': return '<td data-label="ТТН" style="font-family:monospace;font-size:12px;">'+(o.ttn?esc(o.ttn):'<span class="text-muted">—</span>')+'</td>';
       case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
       case 'worker': return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
       default: return '<td>—</td>';
@@ -3709,7 +4002,8 @@ function renderOrders() {
       '<td data-label="№">#'+o.num+(o.crmId?'<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>':'')+'</td>'+
       cells+
       '<td data-label="Дії" style="white-space:nowrap;">'+
-        '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')">&#x1F5D1;</button></td>'+
+        '<button class="btn btn-outline btn-sm" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати" style="margin-right:4px;">✏️</button>'+
+        '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')" title="Видалити">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visOrdCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
 
@@ -3853,12 +4147,47 @@ function syncSalesDrive() {
         if(lipoProducts.length === 0) return;
 
         var contact = o.primaryContact || {};
-        var clientName = ((contact.fName||'') + ' ' + (contact.lName||'')).trim();
+        var firstName = (contact.fName||'').trim();
+        var lastName = (contact.lName||'').trim();
+        var clientName = (firstName + ' ' + lastName).trim();
         var phone = (contact.phone && contact.phone[0]) || '';
+        var email = (contact.email && contact.email[0]) || '';
 
         // Map SalesDrive status to our status
         var sdStatusMap = {1:'new', 3:'confirmed', 4:'shipped', 5:'completed', 6:'completed', 10:'new'};
         var ourStatus = sdStatusMap[o.statusId] || 'new';
+
+        // Best-effort map delivery fields from SalesDrive
+        // SalesDrive commonly uses shipping_method, shipping_address, shipping_city, shipping_warehouse,
+        // and order.ord_delivery_data. Field names may vary by account — we preserve raw for debugging.
+        var shipMethod = o.shipping_method || o.shippingMethod || '';
+        var carrier = '';
+        if (shipMethod) {
+          var sm = String(shipMethod).toLowerCase();
+          if (sm.indexOf('нова') !== -1 || sm.indexOf('nova') !== -1 || sm.indexOf('np') !== -1) carrier = 'nova';
+          else if (sm.indexOf('укрпошт') !== -1 || sm.indexOf('ukrposhta') !== -1 || sm.indexOf('ukr') !== -1) carrier = 'ukrposhta';
+          else if (sm.indexOf('meest') !== -1 || sm.indexOf('міст') !== -1) carrier = 'meest';
+          else if (sm.indexOf('курʼ') !== -1 || sm.indexOf('курь') !== -1 || sm.indexOf('courier') !== -1) carrier = 'courier';
+          else if (sm.indexOf('самовив') !== -1 || sm.indexOf('pickup') !== -1) carrier = 'pickup';
+          else carrier = 'other';
+        }
+        var shipCity = o.shipping_city || o.shippingCity || (o.ord_delivery_data && o.ord_delivery_data.cityName) || '';
+        var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || (o.ord_delivery_data && (o.ord_delivery_data.branchNumber || o.ord_delivery_data.wareHouseRef)) || '';
+        var shipAddress = o.shipping_address || o.shippingAddress || (o.ord_delivery_data && o.ord_delivery_data.address) || '';
+        var ttn = o.ord_delivery_data && (o.ord_delivery_data.trackingNumber || o.ord_delivery_data.ttn) || o.trackingNumber || '';
+
+        // Best-effort payment mapping
+        var payMethod = o.payment_method || o.paymentMethod || '';
+        var paymentType = '';
+        if (payMethod) {
+          var pm = String(payMethod).toLowerCase();
+          if (pm.indexOf('післяпл') !== -1 || pm.indexOf('cod') !== -1 || pm.indexOf('наложен') !== -1) paymentType = 'cod';
+          else if (pm.indexOf('передопл') !== -1 || pm.indexOf('prepay') !== -1 || pm.indexOf('карт') !== -1) paymentType = 'prepayment';
+          else if (pm.indexOf('iban') !== -1 || pm.indexOf('рахунок') !== -1) paymentType = 'iban';
+          else if (pm.indexOf('готів') !== -1 || pm.indexOf('cash') !== -1) paymentType = 'cash';
+          else paymentType = 'other';
+        }
+        var paymentStatus = o.payment_status === 'paid' || o.paymentStatus === 'paid' || o.payed === 1 ? 'paid' : 'unpaid';
 
         // Match products to our catalog by SKU
         var items = lipoProducts.map(function(sp) {
@@ -3878,22 +4207,45 @@ function syncSalesDrive() {
         var total = items.reduce(function(s,i){return s + i.qty * i.price}, 0);
 
         if(existingCrmIds[o.id]) {
-          // Update existing order status
+          // Update existing order status + backfill delivery/payment if empty
           var existing = db.orders.find(function(x){return x.crmId===o.id});
-          if(existing && existing.status==='new' && ourStatus!=='new') {
-            existing.crmStatus = o.statusId;
-            updatedCount++;
+          if (existing) {
+            if (existing.status==='new' && ourStatus!=='new') {
+              existing.crmStatus = o.statusId;
+              updatedCount++;
+            }
+            // Backfill fields that might have been empty for existing orders
+            if (!existing.firstName && firstName) existing.firstName = firstName;
+            if (!existing.lastName && lastName) existing.lastName = lastName;
+            if (!existing.email && email) existing.email = email;
+            if (!existing.carrier && carrier) existing.carrier = carrier;
+            if (!existing.city && shipCity) existing.city = shipCity;
+            if (!existing.warehouse && shipWarehouse) existing.warehouse = String(shipWarehouse);
+            if (!existing.address && shipAddress) existing.address = shipAddress;
+            if (!existing.ttn && ttn) existing.ttn = String(ttn);
+            if (!existing.paymentType && paymentType) existing.paymentType = paymentType;
+            if (!existing.paymentStatus && paymentStatus) existing.paymentStatus = paymentStatus;
           }
         } else {
-          // Create new order
+          // Create new order with full delivery/payment info
           db.orders.push({
             id: uid(),
             num: db.nextOrderNum++,
             crmId: o.id,
             crmStatus: o.statusId,
             date: (o.orderTime||'').slice(0,10),
+            firstName: firstName,
+            lastName: lastName,
             client: clientName,
             phone: phone,
+            email: email,
+            carrier: carrier,
+            city: shipCity,
+            warehouse: String(shipWarehouse||''),
+            address: shipAddress,
+            ttn: String(ttn||''),
+            paymentType: paymentType,
+            paymentStatus: paymentStatus,
             items: items,
             total: total,
             status: 'new', // Always start as "new" in our system — user confirms manually
