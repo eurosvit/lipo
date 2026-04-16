@@ -444,8 +444,6 @@ a.order-link:hover { text-decoration:underline; }
     </select>
     <span id="prod-count" class="text-muted" style="font-size:13px;"></span>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(false)" title="Деактивувати все що в фільтрі">⏸ Деактив. показані</button>
-      <button class="btn btn-outline btn-sm" onclick="bulkToggleProducts(true)" title="Активувати все що в фільтрі">▶ Актив. показані</button>
       <button class="btn btn-outline btn-sm" onclick="toggleProdColSettings()" title="Налаштування стовпчиків">⚙️</button>
     </div>
   </div>
@@ -2453,25 +2451,6 @@ function toggleProduct(id, activate) {
   renderProducts();
 }
 
-function bulkToggleProducts(activate) {
-  var db = getDB();
-  var catFilter = document.getElementById('prod-cat-filter').value;
-  var search = (document.getElementById('prod-search').value||'').toLowerCase().trim();
-  var count = 0;
-  db.products.forEach(function(p) {
-    var match = true;
-    if(catFilter && p.category!==catFilter) match = false;
-    if(search) {
-      var haystack = ((p.sku||'')+' '+p.name+' '+(p.category||'')).toLowerCase();
-      if(haystack.indexOf(search)===-1) match = false;
-    }
-    if(match) { p.active = activate; count++; }
-  });
-  saveDB(db);
-  renderProducts();
-  alert((activate?'Активовано: ':'Деактивовано: ')+count+' ігор');
-}
-
 function calcCanProduce(product, materials) {
   if(!product.recipe || product.recipe.length===0) return 0;
   var min = Infinity;
@@ -2855,6 +2834,10 @@ function bulkSelectedProducts(activate) {
   var ids = [];
   document.querySelectorAll('.prod-cb:checked').forEach(function(cb){ ids.push(cb.value); });
   if (!ids.length) return;
+  var action = activate ? 'активувати' : 'деактивувати';
+  if (ids.length >= 5) {
+    if (!confirm(action.charAt(0).toUpperCase()+action.slice(1)+' '+ids.length+' гр? Це змінить їх всіх одразу.')) return;
+  }
   var db = getDB();
   ids.forEach(function(id) {
     var p = db.products.find(function(x){ return x.id === id; });
