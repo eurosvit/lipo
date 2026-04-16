@@ -1439,6 +1439,7 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="form-row">
         <div class="form-group"><label>ТТН / трек-номер (необовʼязково)</label><input id="ord-ttn" placeholder="20450123456789"></div>
+        <div class="form-group"><label>Витрати на доставку (грн)</label><input id="ord-shipping-cost" type="number" step="0.01" min="0" placeholder="0" title="Якщо ви оплатили доставку (напр. ETSY) — введіть суму. Буде у P&L в OpEx «🚚 Доставка замовлень»."></div>
       </div>
 
       <div class="section-title">💳 Оплата</div>
@@ -1523,6 +1524,7 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="form-row">
         <div class="form-group"><label>ТТН / трек-номер</label><input id="eord-ttn" placeholder="20450123456789"></div>
+        <div class="form-group"><label>Витрати на доставку (грн)</label><input id="eord-shipping-cost" type="number" step="0.01" min="0" placeholder="0" title="Якщо ви оплатили доставку (напр. ETSY) — введіть суму. Буде у P&L в OpEx «🚚 Доставка замовлень»."></div>
       </div>
 
       <div class="section-title">💳 Оплата</div>
@@ -2283,7 +2285,7 @@ function openModal(name) {
     addOrderLine();
     document.getElementById('ord-date').value=new Date().toISOString().slice(0,10);
     // Reset delivery/payment fields
-    ['ord-first-name','ord-last-name','ord-phone','ord-email','ord-city','ord-warehouse','ord-address','ord-ttn','ord-comment'].forEach(function(id){
+    ['ord-first-name','ord-last-name','ord-phone','ord-email','ord-city','ord-warehouse','ord-address','ord-ttn','ord-shipping-cost','ord-comment'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.value='';
     });
     ['ord-carrier','ord-payment','ord-channel'].forEach(function(id){
@@ -3550,6 +3552,7 @@ function saveOrder() {
     warehouse:(v('ord-warehouse')||'').trim(),
     address:(v('ord-address')||'').trim(),
     ttn:(v('ord-ttn')||'').trim(),
+    shippingCost: parseFloat(v('ord-shipping-cost'))||0,
     paymentType:v('ord-payment')||'',
     paymentStatus:v('ord-payment-status')||'unpaid',
     comment:(v('ord-comment')||'').trim(),
@@ -4016,6 +4019,7 @@ function orderDeliverySummary(o) {
   if (o.city) parts.push(esc(o.city));
   if (o.warehouse) parts.push('№'+esc(String(o.warehouse).replace(/^№/,'')));
   if (o.address && !o.warehouse) parts.push(esc(o.address));
+  if (o.shippingCost > 0) parts.push('<span style="color:#E65100;" title="Витрати на доставку — враховано в P&amp;L">💸 '+fmt(o.shippingCost)+' ₴</span>');
   return parts.join(', ');
 }
 
@@ -4040,6 +4044,8 @@ function openEditOrder(id) {
   document.getElementById('eord-warehouse').value = o.warehouse || '';
   document.getElementById('eord-address').value = o.address || '';
   document.getElementById('eord-ttn').value = o.ttn || '';
+  var scEl = document.getElementById('eord-shipping-cost');
+  if (scEl) scEl.value = (o.shippingCost > 0) ? o.shippingCost : '';
   document.getElementById('eord-payment').value = o.paymentType || '';
   document.getElementById('eord-payment-status').value = o.paymentStatus || 'unpaid';
   document.getElementById('eord-date').value = o.date || '';
@@ -4064,6 +4070,7 @@ function saveOrderEdit() {
   o.warehouse = v('eord-warehouse').trim();
   o.address = v('eord-address').trim();
   o.ttn = v('eord-ttn').trim();
+  o.shippingCost = parseFloat(v('eord-shipping-cost')) || 0;
   o.paymentType = v('eord-payment');
   o.paymentStatus = v('eord-payment-status');
   o.date = v('eord-date') || o.date;
@@ -6393,6 +6400,27 @@ function renderAnalytics() {
     if (!opexByMonth[m]) opexByMonth[m] = { total:0, byCat:{} };
     opexByMonth[m].total += (e.amount||0);
     opexByMonth[m].byCat[e.category] = (opexByMonth[m].byCat[e.category]||0) + (e.amount||0);
+  });
+
+  // Shipping costs from orders (напр. доставка ETSY, яку платить власниця) →
+  // окрема OpEx-категорія. Беремо по даті замовлення.
+  var SHIP_CAT = '🚚 Доставка замовлень';
+  (db.orders || []).forEach(function(ord){
+    var cost = parseFloat(ord.shippingCost) || 0;
+    if (cost <= 0) return;
+    var m = (ord.date || '').slice(0,7);
+    if (!m) return;
+    if (fromMonth && m < fromMonth) return;
+    if (toMonth && m > toMonth) return;
+    if (!opexByMonth[m]) opexByMonth[m] = { total:0, byCat:{} };
+    opexByMonth[m].total += cost;
+    opexByMonth[m].byCat[SHIP_CAT] = (opexByMonth[m].byCat[SHIP_CAT]||0) + cost;
+    monthSet[m] = true;
+  });
+  // Rebuild sortedMonths in case shipping costs introduced new months
+  sortedMonths = Object.keys(monthSet).sort();
+  sortedMonths.forEach(function(m) {
+    if (!months[m]) months[m] = { orders:0, items:0, revenue:0, cost:0, salary:0 };
   });
 
   // Taxes per month
