@@ -717,6 +717,7 @@ a.order-link:hover { text-decoration:underline; }
   <div class="card" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
     <div class="section-title" style="margin-top:0;">👩‍🔧 Підключені майстри <span class="badge badge-ok" style="font-size:10px;">+100 грн/місяць за місце</span></div>
     <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите.</p>
+    <div style="background:#F3E5F5;border-left:3px solid var(--primary);padding:10px 12px;border-radius:6px;font-size:13px;color:#4A148C;margin-bottom:16px;">💡 <b>Як це оплачується:</b> кожен підключений майстер додає 100 грн/міс до підписки. Доплату не знімаємо одразу — до кінця вашої поточної підписки майстер працює безкоштовно. Нова вартість застосується при наступному продовженні.</div>
     <div id="linked-workers-list" class="mb-16"></div>
     <div id="pending-invites-list" class="mb-16"></div>
     <div class="form-row" style="border-top:1px solid var(--border);padding-top:12px;">
@@ -4397,14 +4398,17 @@ function inviteWorker() {
     body: JSON.stringify({ email: email, name: name })
   }).then(function(r){ return r.json(); }).then(function(data){
     if (data.error) { resultEl.innerHTML = '<span class="text-danger">'+esc(data.error)+'</span>'; return; }
+    var priceNote = '<div style="margin-top:10px;padding:10px 12px;background:#FFF3E0;border-left:3px solid #FB8C00;border-radius:6px;font-size:13px;color:#5D4037;">💡 <b>До відома:</b> підключення майстра коштує <b>+100 грн/міс</b>. Доплату не знімаємо зараз — до кінця вашої поточної підписки майстер працює безкоштовно. З наступного продовження вартість складатиме на 100 грн більше за кожного активного майстра.</div>';
     if (data.linked) {
-      resultEl.innerHTML = '<span class="text-success">✅ Майстер підключений! Вона вже зареєстрована в системі.</span>';
+      resultEl.innerHTML = '<span class="text-success">✅ Майстер підключений! Вона вже зареєстрована в системі.</span>' + priceNote;
     } else {
-      resultEl.innerHTML = '<span class="text-success">✅ Запрошення створено! Коли <b>'+esc(email)+'</b> зареєструється на lipoland.top — вона автоматично підключиться до вашого акаунту.</span>';
+      resultEl.innerHTML = '<span class="text-success">✅ Запрошення створено! Коли <b>'+esc(email)+'</b> зареєструється на lipoland.top — вона автоматично підключиться до вашого акаунту.</span>' + priceNote;
     }
     document.getElementById('invite-worker-email').value = '';
     document.getElementById('invite-worker-name').value = '';
     loadLinkedWorkers();
+    // Refresh connectedWorkersCount for immediate price updates in payment modal
+    loadAccount();
   }).catch(function(){ resultEl.innerHTML = '<span class="text-danger">Помилка з\'єднання</span>'; });
 }
 
@@ -4423,18 +4427,18 @@ function updateWorkerPerm(linkId, key, value) {
 }
 
 function removeLinkedWorker(linkId) {
-  if (!confirm('Відключити цього майстра? Вона більше не зможе бачити ваші дані.')) return;
+  if (!confirm('Відключити цього майстра? Вона більше не зможе бачити ваші дані.\n\nВартість підписки зменшиться на 100 грн/міс з наступного продовження.')) return;
   fetch('/api/workers/remove', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ linkId: linkId })
-  }).then(function(){ loadLinkedWorkers(); }).catch(function(){});
+  }).then(function(){ loadLinkedWorkers(); loadAccount(); }).catch(function(){});
 }
 
 function cancelInvite(inviteId) {
   fetch('/api/workers/cancel-invite', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ inviteId: inviteId })
-  }).then(function(){ loadLinkedWorkers(); }).catch(function(){});
+  }).then(function(){ loadLinkedWorkers(); loadAccount(); }).catch(function(){});
 }
 
 // ==================== WORKER ROLE (PERMISSION FILTERING) ====================
