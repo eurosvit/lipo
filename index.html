@@ -7646,7 +7646,7 @@ function saveAdminCosts() {
 function renderAdminUsers(users) {
   var now = new Date();
   var html = '<table class="data-table" style="width:100%;font-size:13px;"><thead><tr>' +
-    '<th>Ім\'я</th><th>Email</th><th>Роль</th><th>Статус</th><th>Тріал до</th><th>Підписка до</th><th>Промо</th><th>Реєстрація</th><th>Останній вхід</th><th>Дії</th>' +
+    '<th>Ім\'я</th><th>Email</th><th>Тип</th><th>Статус</th><th>Тріал до</th><th>Підписка до</th><th>Промо</th><th>Реєстрація</th><th>Останній вхід</th><th>Дії</th>' +
     '</tr></thead><tbody>';
   users.forEach(function(u) {
     var status = '', statusClass = '';
@@ -7660,10 +7660,35 @@ function renderAdminUsers(users) {
     var regDate = u.created_at ? new Date(u.created_at).toLocaleDateString('uk-UA') : '—';
     var lastLogin = u.last_login_at ? timeAgo(new Date(u.last_login_at)) : 'ніколи';
 
+    // Тип: адмін / власник / майстер (+ у кого працює) / власник+майстер
+    var worksFor = Array.isArray(u.works_for) ? u.works_for : [];
+    var workersCount = u.workers_count || 0;
+    var typeHtml;
+    if (u.role === 'admin') {
+      typeHtml = '<span style="color:var(--primary);font-weight:600;">👑 Адмін</span>';
+    } else {
+      var parts = [];
+      // Every user row exists — by default "власник" (has own account)
+      if (workersCount > 0) {
+        parts.push('<span style="color:#6A1B9A;font-weight:600;" title="Має своїх майстрів">👤 Власник <span style="font-size:11px;color:#999;font-weight:400;">(майстрів: '+workersCount+')</span></span>');
+      } else {
+        parts.push('<span style="color:#555;">👤 Власник</span>');
+      }
+      if (worksFor.length > 0) {
+        var ownersList = worksFor.map(function(w){
+          var label = w.workerName || w.ownerName || w.ownerEmail;
+          var tip = 'У: ' + (w.ownerName || '') + ' <' + w.ownerEmail + '>';
+          return '<span title="'+esc(tip)+'" style="display:inline-block;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;border-radius:10px;padding:1px 6px;font-size:11px;margin:1px;">👷 ' + esc(w.ownerName || w.ownerEmail.split('@')[0]) + '</span>';
+        }).join(' ');
+        parts.push('<div style="margin-top:2px;">Майстер у: '+ownersList+'</div>');
+      }
+      typeHtml = parts.join('');
+    }
+
     html += '<tr>' +
       '<td>' + esc(u.name || '—') + '</td>' +
       '<td style="font-size:12px;">' + esc(u.email) + '</td>' +
-      '<td>' + esc(u.role) + '</td>' +
+      '<td style="font-size:12px;">' + typeHtml + '</td>' +
       '<td style="' + statusClass + '">' + status + '</td>' +
       '<td style="font-size:12px;">' + trialDate + '</td>' +
       '<td style="font-size:12px;">' + subDate + '</td>' +
