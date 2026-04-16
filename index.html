@@ -318,6 +318,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </nav>
 <div id="worker-banner" style="display:none;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;margin:0 20px;margin-top:8px;padding:12px 20px;border-radius:10px;font-size:14px;"></div>
+<div id="save-indicator" style="position:fixed;top:8px;right:12px;font-size:11px;z-index:9999;pointer-events:none;"></div>
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu" onclick="if(event.target===this)closeMobileMenu()">
@@ -373,7 +374,10 @@ a.order-link:hover { text-decoration:underline; }
       <a class="btn btn-outline" style="background:white;" href="https://t.me/c/3902589684/6" target="_blank" rel="noopener">🤝 Співпраця</a>
       <a class="btn btn-primary" href="https://t.me/c/3902589684/1" target="_blank" rel="noopener">💬 Загальний чат</a>
     </div>
-    <p style="font-size:11px;color:#6A1B9A;margin:12px 0 0;">ℹ️ Щоб відкрилися посилання — треба бути в групі. Якщо ще не в ній — напиши Яні в підтримку, додамо.</p>
+    <div style="margin-top:12px;padding:10px 12px;background:white;border-radius:6px;border:1px dashed #CE93D8;">
+      <div style="font-size:12px;color:#4A148C;margin-bottom:6px;"><strong>Ще не в групі?</strong> Приєднайся — безкоштовно, майстрині допомагають одна одній:</div>
+      <a class="btn btn-primary btn-sm" href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" rel="noopener" style="display:inline-block;">💜 Вступити в спільноту</a>
+    </div>
   </div>
 
   <div class="section-title">Критичні залишки матеріалів</div>
@@ -1871,16 +1875,68 @@ function getDB() {
   } catch { return def; }
 }
 
-function saveDB(db) {
-  _dbCache = db;
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
-  fetch('/api/data', {
+// ---- Reliable save: track dirty state + sync retry + beforeunload beacon ----
+var _saveDirty = false;
+var _saveInFlight = false;
+var _saveRetryTimer = null;
+
+function _doSyncSave(db, isRetry) {
+  _saveInFlight = true;
+  _updateSaveIndicator('saving');
+  return fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(db)
-  }).catch(function(){});
+    body: JSON.stringify(db),
+    keepalive: true  // allow request to finish even if tab closes
+  }).then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    _saveInFlight = false;
+    _saveDirty = false;
+    _updateSaveIndicator('saved');
+    if (_saveRetryTimer) { clearTimeout(_saveRetryTimer); _saveRetryTimer = null; }
+  }).catch(function(err){
+    _saveInFlight = false;
+    _updateSaveIndicator('error');
+    // Retry after 3s with latest data (may have been updated in the meantime)
+    if (_saveRetryTimer) clearTimeout(_saveRetryTimer);
+    _saveRetryTimer = setTimeout(function(){
+      if (_saveDirty) {
+        var latest = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+        if (latest) _doSyncSave(latest, true);
+      }
+    }, 3000);
+  });
+}
+
+function _updateSaveIndicator(state) {
+  var el = document.getElementById('save-indicator');
+  if (!el) return;
+  if (state === 'saving') { el.textContent = '⏳ Збереження...'; el.style.color = '#999'; }
+  else if (state === 'saved') { el.textContent = '✓ Збережено'; el.style.color = '#4CAF50'; setTimeout(function(){ if(el.textContent==='✓ Збережено') el.textContent=''; }, 2000); }
+  else if (state === 'error') { el.textContent = '⚠ Не збережено — повтор за 3с'; el.style.color = '#E53935'; }
+}
+
+function saveDB(db) {
+  db._updatedAt = Date.now();
+  _dbCache = db;
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  _saveDirty = true;
+  _doSyncSave(db, false);
   if (typeof updateNotifications === 'function') updateNotifications();
 }
+
+// Safety net: if tab closes while a save is pending, use sendBeacon (guaranteed delivery)
+window.addEventListener('beforeunload', function() {
+  if (_saveDirty) {
+    try {
+      var db = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+      if (db && navigator.sendBeacon) {
+        var blob = new Blob([JSON.stringify(db)], { type: 'application/json' });
+        navigator.sendBeacon('/api/data', blob);
+      }
+    } catch(e){}
+  }
+});
 
 function getAllWorkerNames() {
   var db = getDB();
@@ -1906,10 +1962,42 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
   if (curUser) localStorage.setItem('lipo_current_user', curUser);
   return fetch('/api/data');
 }).then(function(r){ return r.json(); }).then(function(serverData){
-  if (serverData && (serverData.materials || serverData.products)) {
+  // Reconcile local vs server by _updatedAt timestamp.
+  // If local is newer (e.g. previous save didn't reach server) — push local up and keep it.
+  // Otherwise — use server data as the truth.
+  var localRaw = null;
+  try { localRaw = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); } catch(e) {}
+  var localTs = (localRaw && localRaw._updatedAt) || 0;
+  var serverTs = (serverData && serverData._updatedAt) || 0;
+  var localHasContent = localRaw && (localRaw.materials || localRaw.products || localRaw.orders);
+  var serverHasContent = serverData && (serverData.materials || serverData.products || serverData.orders);
+
+  if (localHasContent && localTs > serverTs) {
+    // Local has unsynced changes — push up, keep local
+    _dbCache = localRaw;
+    _saveDirty = true;
+    _doSyncSave(localRaw, false);
+    console.info('[lipo] Local data is newer (ts='+localTs+' vs server '+serverTs+') — pushing up');
+  } else if (serverHasContent) {
     _dbCache = serverData;
     localStorage.setItem(DB_KEY, JSON.stringify(serverData));
   }
+  // One-time migration: for orders already assigned to a worker but no auto-production yet,
+  // create auto-production entries so they appear in ЗП.
+  try {
+    var cur = _dbCache;
+    if (cur && !cur._migratedOrderAutoProduction) {
+      cur._migratedOrderAutoProduction = true;
+      var changed = false;
+      (cur.orders || []).forEach(function(o){
+        if (o.worker) {
+          var hasAuto = (cur.production || []).some(function(b){ return b.source === 'order-auto' && b.orderId === o.id; });
+          if (!hasAuto) { syncOrderAutoProduction(cur, o); changed = true; }
+        }
+      });
+      saveDB(cur); // always persist the _migratedOrderAutoProduction flag
+    }
+  } catch(e){ console.warn('[lipo] Order-auto migration failed:', e); }
   var _savedPage = localStorage.getItem('lipo_current_page') || 'dashboard';
   showPage(_savedPage);
   updateNotifications();
@@ -3232,7 +3320,40 @@ function setOrderStatus(id, status) {
 function setOrderWorker(id, worker) {
   var db = getDB();
   var ord = db.orders.find(function(x){return x.id===id});
-  if(ord) { ord.worker=worker; saveDB(db); }
+  if(!ord) return;
+  ord.worker = worker;
+  // Sync auto-production entries (so the order's items instantly appear in ЗП for this worker)
+  syncOrderAutoProduction(db, ord);
+  saveDB(db);
+  // Re-render salary if it's currently visible so user sees the change immediately
+  try { if (document.getElementById('salary') && document.getElementById('salary').classList.contains('active')) renderSalary(); } catch(e){}
+}
+
+// For each item in the order, keep exactly one completed production entry tagged as
+// source:'order-auto' with the current assigned worker. Removes stale entries if
+// worker changed or was unassigned. This makes the ЗП tab pick up orders automatically.
+function syncOrderAutoProduction(db, ord) {
+  if (!db.production) db.production = [];
+  // Remove previous auto entries for this order
+  db.production = db.production.filter(function(b){ return !(b.source === 'order-auto' && b.orderId === ord.id); });
+  if (!ord.worker) return;
+  var today = new Date().toISOString().slice(0,10);
+  (ord.items || []).forEach(function(it){
+    if (!it.productId) return; // cannot calc salary without product link
+    var qty = it.qty || 1;
+    db.production.push({
+      id: uid(),
+      productId: it.productId,
+      qty: qty,
+      worker: ord.worker,
+      date: ord.date || today,
+      status: 'completed',
+      completedQty: qty,
+      completedDate: ord.date || today,
+      source: 'order-auto',
+      orderId: ord.id
+    });
+  });
 }
 
 // ==================== ORDER CHANNELS ====================
@@ -3620,6 +3741,8 @@ function deleteOrder(id) {
   if(!confirm('Видалити замовлення?')) return;
   var db = getDB();
   db.orders = db.orders.filter(function(x){return x.id!==id});
+  // Also remove any auto-created ЗП entries linked to this order
+  if (db.production) db.production = db.production.filter(function(b){ return !(b.source === 'order-auto' && b.orderId === id); });
   saveDB(db);
   renderPage('orders');
 }
