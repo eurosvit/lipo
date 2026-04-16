@@ -20,6 +20,7 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'LipoLand <hello@lipoland.top>';
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const NP_API_KEY = process.env.NP_API_KEY || ''; // Nova Poshta API key (платформний, один на всіх)
 
 // Subscription plans
 const PLANS = {
@@ -1703,6 +1704,87 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 504, { error: 'Таймаут з\'єднання з CRM (45с). Спробуйте менший діапазон дат.' });
       });
       proxyReq.end();
+      return;
+    }
+
+    // ---- NOVA POSHTA TRACKING ----
+    // Платформний NP_API_KEY (один на всіх користувачів) — беремо з ENV.
+    // Клієнт шле POST { ttns: ["20450...", ...] } — повертаємо { results: {ttn: {...}} }
+    if (req.method === 'POST' && url === '/api/np/track') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!NP_API_KEY) {
+        sendJSON(res, 501, { error: 'Трекінг НП не налаштовано (NP_API_KEY).' });
+        return;
+      }
+      let reqBody;
+      try { reqBody = JSON.parse(await readBody(req)); }
+      catch { sendJSON(res, 400, { error: 'Invalid JSON' }); return; }
+      const ttns = Array.isArray(reqBody.ttns) ? reqBody.ttns.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [];
+      if (!ttns.length) { sendJSON(res, 200, { results: {} }); return; }
+      // NP дозволяє до 100 документів в одному запиті. Ми додатково ліміт 100.
+      const batch = ttns.slice(0, 100);
+      const npPayload = JSON.stringify({
+        apiKey: NP_API_KEY,
+        modelName: 'TrackingDocument',
+        calledMethod: 'getStatusDocuments',
+        methodProperties: {
+          Documents: batch.map(n => ({ DocumentNumber: n, Phone: '' }))
+        }
+      });
+      const npReq = https.request('https://api.novaposhta.ua/v2.0/json/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(npPayload) }
+      }, (npRes) => {
+        const chunks = [];
+        npRes.on('data', d => chunks.push(d));
+        npRes.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          let parsed;
+          try { parsed = JSON.parse(raw); }
+          catch {
+            console.warn('[NP] invalid JSON, status=%s body=%s', npRes.statusCode, raw.slice(0, 300));
+            sendJSON(res, 502, { error: 'НП повернула не-JSON відповідь (HTTP ' + npRes.statusCode + ')' });
+            return;
+          }
+          if (!parsed.success) {
+            console.warn('[NP] success=false errors=%j', parsed.errors);
+            sendJSON(res, 502, { error: 'НП: ' + (Array.isArray(parsed.errors) ? parsed.errors.join('; ') : 'невідома помилка') });
+            return;
+          }
+          const results = {};
+          (parsed.data || []).forEach(row => {
+            const ttn = row.Number || row.DocumentNumber || '';
+            if (!ttn) return;
+            results[ttn] = {
+              status: row.Status || '',
+              statusCode: parseInt(row.StatusCode, 10) || 0,
+              citySender: row.CitySender || '',
+              cityRecipient: row.CityRecipient || '',
+              warehouseRecipient: row.WarehouseRecipient || '',
+              recipientFullName: row.RecipientFullName || '',
+              recipientDateTime: row.RecipientDateTime || '',
+              scheduledDeliveryDate: row.ScheduledDeliveryDate || '',
+              actualDeliveryDate: row.ActualDeliveryDate || '',
+              documentCost: parseFloat(row.DocumentCost) || 0,
+              paymentStatus: row.PaymentStatusDate ? 'paid' : (row.PaymentMethod || ''),
+              updatedAt: new Date().toISOString()
+            };
+          });
+          sendJSON(res, 200, { results });
+        });
+      });
+      npReq.on('error', (err) => {
+        console.warn('[NP] request error: %s', err.message);
+        sendJSON(res, 502, { error: 'Помилка з\'єднання з НП: ' + err.message });
+      });
+      npReq.setTimeout(20000, () => {
+        console.warn('[NP] timeout');
+        npReq.destroy();
+        sendJSON(res, 504, { error: 'Таймаут з\'єднання з НП (20с)' });
+      });
+      npReq.write(npPayload);
+      npReq.end();
       return;
     }
 
