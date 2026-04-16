@@ -47,13 +47,9 @@ a { text-decoration:none; color:inherit; }
 .hero h1 span { background:linear-gradient(135deg,var(--pink),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 .hero p { font-size:20px; color:var(--gray); max-width:580px; margin:0 auto 40px; line-height:1.6; }
 .hero-buttons { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
-.hero-stats { display:flex; gap:40px; justify-content:center; margin-top:48px; }
-.hero-stat { text-align:center; }
-.hero-stat .num { font-size:32px; font-weight:900; color:var(--pink); }
-.hero-stat .lbl { font-size:14px; color:var(--gray); font-weight:600; }
 
 /* BROWSER MOCKUP */
-.browser-frame { max-width:1000px; margin:60px auto 0; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.1); }
+.browser-frame { max-width:1100px; margin:60px auto 0; border-radius:12px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.15); border:1px solid rgba(0,0,0,0.1); }
 .browser-bar { background:#f1f1f1; padding:10px 16px; display:flex; align-items:center; gap:8px; }
 .browser-dots { display:flex; gap:6px; }
 .browser-dots span { width:12px; height:12px; border-radius:50%; }
@@ -62,14 +58,13 @@ a { text-decoration:none; color:inherit; }
 .browser-dots span:nth-child(3) { background:#27C93F; }
 .browser-url { flex:1; background:#fff; border-radius:6px; padding:5px 12px; font-size:13px; color:var(--gray); margin-left:8px; }
 .browser-body { background:#F8F5FF; }
-.browser-body img { width:100%; display:block; }
 
 /* FEATURES */
 .features { padding:100px 40px; }
 .section-title { text-align:center; margin-bottom:60px; }
 .section-title h2 { font-size:36px; font-weight:800; margin-bottom:12px; }
 .section-title p { font-size:18px; color:var(--gray); }
-.features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; max-width:1100px; margin:0 auto; }
+.features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; max-width:1100px; margin:0 auto; }
 .feature-card { background:#fff; border-radius:16px; padding:32px; border:1px solid rgba(0,0,0,0.06); transition:all .3s; cursor:pointer; position:relative; }
 .feature-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.08); }
 .feature-icon { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:20px; }
@@ -93,7 +88,6 @@ a { text-decoration:none; color:inherit; }
 .feature-card:nth-child(6) .feature-icon { background:rgba(76,188,190,0.1); }
 .feature-card:nth-child(7) .feature-icon { background:rgba(242,192,49,0.15); }
 .feature-card:nth-child(8) .feature-icon { background:rgba(232,146,64,0.12); }
-.feature-card:nth-child(9) .feature-icon { background:rgba(201,27,110,0.1); }
 
 /* EXTRA-BADGE on card */
 .card-badge { position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:50px; color:#fff; }
@@ -159,8 +153,6 @@ a { text-decoration:none; color:inherit; }
   .hero { padding:110px 20px 60px; }
   .hero h1 { font-size:32px; }
   .hero p { font-size:16px; }
-  .hero-stats { gap:20px; }
-  .hero-stat .num { font-size:24px; }
   .features-grid { grid-template-columns:1fr; }
   .features, .pricing, .cta, .how-it-works, .faq { padding:60px 20px; }
   .section-title h2 { font-size:28px; }
@@ -190,7 +182,7 @@ a { text-decoration:none; color:inherit; }
 <section class="hero">
   <div class="hero-badge">Перша CRM для українських майстринь ліпучок</div>
   <h1>Склад, замовлення та прибуток — <span>в одній системі</span></h1>
-  <p>Замість блокнотів, Excel-таблиць та 10 відкритих вкладок. Спеціалізована CRM, яка розуміє вашу специфіку: матеріали, рецептура, собівартість, НП, SalesDrive.</p>
+  <p>Замість блокнотів, Excel-таблиць та 10 відкритих вкладок. Спеціалізована CRM, яка розуміє вашу специфіку: матеріали, рецептура, собівартість, трекінг НП.</p>
   <div class="hero-buttons">
     <a href="/register" class="btn btn-primary">Почати безкоштовно</a>
     <a href="#features" class="btn btn-outline">Що всередині</a>
@@ -202,64 +194,110 @@ a { text-decoration:none; color:inherit; }
       <div class="browser-dots"><span></span><span></span><span></span></div>
       <div class="browser-url">lipoland.top</div>
     </div>
-    <div class="browser-body" style="padding:20px;font-family:'Segoe UI',system-ui,sans-serif;">
+    <div class="browser-body" style="padding:24px;font-family:'Segoe UI',system-ui,sans-serif;">
       <!-- Mock top bar -->
-      <div style="background:linear-gradient(135deg,#4A148C,#7B1FA2);padding:8px 16px;border-radius:8px 8px 0 0;display:flex;gap:12px;align-items:center;font-size:12px;">
-        <img src="/favicon.png" style="width:20px;height:20px;border-radius:50%;"><span style="color:#fff;font-weight:700;font-size:14px;">LipoLand</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📊 Дашборд</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📦 Матеріали</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">🎮 Продукція</span>
-        <span style="color:#fff;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-weight:600;">📋 Замовлення</span>
-        <span style="color:rgba(255,255,255,0.6);padding:4px 10px;">📊 Аналітика</span>
+      <div style="background:linear-gradient(135deg,#4A148C,#7B1FA2);padding:10px 20px;border-radius:10px 10px 0 0;display:flex;gap:16px;align-items:center;font-size:13px;">
+        <img src="/favicon.png" style="width:22px;height:22px;border-radius:50%;"><span style="color:#fff;font-weight:700;font-size:15px;">LipoLand</span>
+        <span style="color:rgba(255,255,255,0.6);padding:5px 12px;">📊 Дашборд</span>
+        <span style="color:rgba(255,255,255,0.6);padding:5px 12px;">📦 Матеріали</span>
+        <span style="color:rgba(255,255,255,0.6);padding:5px 12px;">🎮 Продукція</span>
+        <span style="color:#fff;background:rgba(255,255,255,0.2);padding:5px 12px;border-radius:6px;font-weight:600;">📋 Замовлення</span>
+        <span style="color:rgba(255,255,255,0.6);padding:5px 12px;">📊 Аналітика</span>
+        <span style="color:rgba(255,255,255,0.6);padding:5px 12px;">🖨 Обладнання</span>
       </div>
-      <div style="padding:16px;background:#F8F5FF;">
-        <!-- Mock summary -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div style="font-size:18px;font-weight:700;color:#2d2d2d;">Замовлення</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:11px;color:#757575;">Показано: 1-25 з 147 на 138 790 грн</span>
-            <span style="background:#2E7D32;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">🔄 Синхронізувати з CRM</span>
-            <span style="background:#fff;border:1px solid #CE93D8;color:#4A148C;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;">📍 Трекінг НП</span>
+      <div style="padding:20px;background:#F8F5FF;">
+        <!-- Mock summary bar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div style="font-size:22px;font-weight:800;color:#2d2d2d;">Замовлення</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="font-size:12px;color:#757575;">Показано: 1–25 з 84 на 52 650 грн</span>
+            <span style="background:#2E7D32;color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;">+ Нове замовлення</span>
+            <span style="background:#fff;border:1px solid #CE93D8;color:#4A148C;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;">📍 Трекінг НП</span>
           </div>
         </div>
+        <!-- Filter bar -->
+        <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
+          <span style="background:#fff;border:1px solid #E0D8E8;padding:5px 12px;border-radius:6px;font-size:12px;color:#555;">Всі статуси ▾</span>
+          <span style="background:#fff;border:1px solid #E0D8E8;padding:5px 12px;border-radius:6px;font-size:12px;color:#555;">Всі канали ▾</span>
+          <span style="font-size:11px;color:#999;margin-left:8px;">⚙ Налаштування колонок</span>
+        </div>
         <!-- Mock orders table -->
-        <div style="background:#fff;border-radius:8px;border:1px solid #E0D8E8;font-size:12px;overflow:hidden;">
-          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;background:#F3E5F5;padding:8px 12px;font-weight:700;color:#4A148C;font-size:11px;text-transform:uppercase;">
-            <span>#</span><span>Статус</span><span>Канал</span><span>Клієнт</span><span>Товари</span><span>Сума</span><span>ТТН</span><span>Майстер</span>
+        <div style="background:#fff;border-radius:10px;border:1px solid #E0D8E8;font-size:12px;overflow:hidden;">
+          <!-- HEADER -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;background:#F3E5F5;padding:10px 14px;font-weight:700;color:#4A148C;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;">
+            <span>#</span><span>Статус</span><span>Канал</span><span>Клієнт</span><span>Товари</span><span>Сума</span><span>Оплата</span><span>ТТН</span><span>Майстер</span>
           </div>
-          <!-- Order row 1 -->
-          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;border-bottom:1px solid #f0f0f0;align-items:center;">
-            <span style="font-weight:600;">#147<br><span style="background:#F3E5F5;color:#6A1B9A;padding:1px 6px;border-radius:3px;font-size:9px;">CRM</span></span>
-            <span><span style="background:#C8E6C9;color:#2E7D32;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Виконано</span></span>
-            <span><span style="background:#E1BEE7;color:#6A1B9A;padding:2px 8px;border-radius:4px;font-size:10px;">ETSY</span></span>
-            <span>Олена Баланюк<br><span style="color:#999;font-size:10px;">380974114036</span></span>
-            <span style="font-size:11px;">Моя перша книжечка Lipoland A5 x1</span>
+          <!-- Row 1 -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;padding:12px 14px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:700;">#84</span>
+            <span><span style="background:#C8E6C9;color:#2E7D32;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">Виконано</span></span>
+            <span><span style="background:#E1BEE7;color:#6A1B9A;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">ETSY</span></span>
+            <span style="font-weight:600;">Тетяна Мельник<br><span style="color:#999;font-size:10px;font-weight:400;">380671234567</span></span>
+            <span style="font-size:11px;color:#555;">Книжка-гра «Ферма» A5 Ліпучки x1, Альбом «Кольори» A5 x1</span>
+            <span style="font-weight:700;">1 300 грн</span>
+            <span><span style="background:#E8F5E9;color:#2E7D32;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;">✔ Оплачено</span></span>
+            <span style="font-family:monospace;font-size:10px;">20450123456789<br><span style="background:#E8F5E9;color:#2E7D32;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;display:inline-block;margin-top:2px;">✅ Вручено</span></span>
+            <span style="font-size:12px;">Оксана</span>
+          </div>
+          <!-- Row 2 -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;padding:12px 14px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:700;">#83</span>
+            <span><span style="background:#E3F2FD;color:#1565C0;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">Відправлено</span></span>
+            <span><span style="background:#BBDEFB;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">Instagram</span></span>
+            <span style="font-weight:600;">Ірина Коваленко<br><span style="color:#999;font-size:10px;font-weight:400;">380509876543</span></span>
+            <span style="font-size:11px;color:#555;">Візуальний розклад A5 «Мій день» x1</span>
             <span style="font-weight:700;">650 грн</span>
-            <span style="font-family:monospace;font-size:10px;">20450501234567<br><span style="background:#E8F5E9;color:#2E7D32;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">✅ Вручено</span></span>
-            <span>Юля</span>
+            <span><span style="background:#FFF3E0;color:#E65100;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;">📦 Післяплата</span></span>
+            <span style="font-family:monospace;font-size:10px;">20450987654321<br><span style="background:#FFF3E0;color:#E65100;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;display:inline-block;margin-top:2px;">📮 У відділенні</span></span>
+            <span style="font-size:12px;">Марія</span>
           </div>
-          <!-- Order row 2 -->
-          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;border-bottom:1px solid #f0f0f0;align-items:center;">
-            <span style="font-weight:600;">#146<br><span style="background:#F3E5F5;color:#6A1B9A;padding:1px 6px;border-radius:3px;font-size:9px;">CRM</span></span>
-            <span><span style="background:#FFF9C4;color:#E65100;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Нове</span></span>
-            <span><span style="background:#BBDEFB;color:#1565C0;padding:2px 8px;border-radius:4px;font-size:10px;">Instagram</span></span>
-            <span>Марина Клименко<br><span style="color:#999;font-size:10px;">380509212215</span></span>
-            <span style="font-size:11px;">Альбом Lipoland A5 Пластилин x1</span>
-            <span style="font-weight:700;">320 грн</span>
-            <span style="font-family:monospace;font-size:10px;">20450609876543<br><span style="background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">📮 У відділенні</span></span>
-            <span>Яна</span>
+          <!-- Row 3 -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;padding:12px 14px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:700;">#82</span>
+            <span><span style="background:#E3F2FD;color:#1565C0;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">Відправлено</span></span>
+            <span><span style="background:#C8E6C9;color:#2E7D32;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">Rozetka</span></span>
+            <span style="font-weight:600;">Наталія Бондаренко</span>
+            <span style="font-size:11px;color:#555;">Книжка «Океан» A4 Ліпучки + фетр x1</span>
+            <span style="font-weight:700;">850 грн</span>
+            <span><span style="background:#E8F5E9;color:#2E7D32;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;">✔ Оплачено</span></span>
+            <span style="font-family:monospace;font-size:10px;">20450555444333<br><span style="background:#E3F2FD;color:#1565C0;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;display:inline-block;margin-top:2px;">🚚 У дорозі</span></span>
+            <span style="font-size:12px;">Оксана</span>
           </div>
-          <!-- Order row 3 -->
-          <div style="display:grid;grid-template-columns:50px 100px 100px 150px 2fr 80px 130px 80px;gap:0;padding:10px 12px;align-items:center;">
-            <span style="font-weight:600;">#145</span>
-            <span><span style="background:#E3F2FD;color:#1565C0;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;">Відправлено</span></span>
-            <span><span style="background:#C8E6C9;color:#2E7D32;padding:2px 8px;border-radius:4px;font-size:10px;">Rozetka</span></span>
-            <span>Валентина Житнікова</span>
-            <span style="font-size:11px;">LP1803A5 Візуальний розклад x1</span>
-            <span style="font-weight:700;">500 грн</span>
-            <span style="font-family:monospace;font-size:10px;">20450705554433<br><span style="background:#E3F2FD;color:#1565C0;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">🚚 У дорозі</span></span>
-            <span>Юля</span>
+          <!-- Row 4 -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;padding:12px 14px;border-bottom:1px solid #f0f0f0;align-items:center;">
+            <span style="font-weight:700;">#81</span>
+            <span><span style="background:#FFF9C4;color:#E65100;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">В роботі</span></span>
+            <span><span style="background:#FFE0B2;color:#E65100;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">Prom</span></span>
+            <span style="font-weight:600;">Олена Шевченко<br><span style="color:#999;font-size:10px;font-weight:400;">380631112233</span></span>
+            <span style="font-size:11px;color:#555;">Альбом «Пори року» A5 Ліпучки x2</span>
+            <span style="font-weight:700;">1 200 грн</span>
+            <span><span style="background:#FFEBEE;color:#C62828;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;">Не оплачено</span></span>
+            <span style="color:#bbb;font-size:11px;">—</span>
+            <span style="font-size:12px;">Марія</span>
           </div>
+          <!-- Row 5 -->
+          <div style="display:grid;grid-template-columns:60px 110px 90px 160px 2fr 80px 120px 140px 80px;gap:0;padding:12px 14px;align-items:center;">
+            <span style="font-weight:700;">#80</span>
+            <span><span style="background:#FFF9C4;color:#E65100;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">Нове</span></span>
+            <span><span style="background:#E1BEE7;color:#6A1B9A;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">ETSY</span></span>
+            <span style="font-weight:600;">Sarah Williams<br><span style="color:#999;font-size:10px;font-weight:400;">DE, Berlin</span></span>
+            <span style="font-size:11px;color:#555;">Quiet Book «Animals» A4 Velcro x1</span>
+            <span style="font-weight:700;">45 EUR</span>
+            <span><span style="background:#E8F5E9;color:#2E7D32;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;">✔ Оплачено</span></span>
+            <span style="color:#bbb;font-size:11px;">—</span>
+            <span style="font-size:12px;">—</span>
+          </div>
+        </div>
+        <!-- Pagination -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:11px;color:#999;">
+          <span>На сторінці: <span style="background:#fff;border:1px solid #E0D8E8;padding:2px 8px;border-radius:4px;">25 ▾</span></span>
+          <span style="display:flex;gap:4px;">
+            <span style="background:#7B1FA2;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;">1</span>
+            <span style="background:#fff;border:1px solid #E0D8E8;padding:2px 8px;border-radius:4px;">2</span>
+            <span style="background:#fff;border:1px solid #E0D8E8;padding:2px 8px;border-radius:4px;">3</span>
+            <span style="background:#fff;border:1px solid #E0D8E8;padding:2px 8px;border-radius:4px;">4</span>
+          </span>
+          <span>Показано: 1–25 з 84</span>
         </div>
       </div>
     </div>
@@ -270,7 +308,7 @@ a { text-decoration:none; color:inherit; }
 <section class="features" id="features">
   <div class="section-title">
     <h2>Все, що потрібно майстрині</h2>
-    <p>9 модулів, створених спеціально для виробництва дитячих книжок на ліпучках</p>
+    <p>Спеціалізовані модулі для виробництва дитячих книжок на ліпучках + підтримка спільноти</p>
   </div>
   <div class="features-grid">
 
@@ -319,9 +357,9 @@ a { text-decoration:none; color:inherit; }
           <li>Канали продажів: ETSY, Instagram, Rozetka, Prom або ваші</li>
           <li>Спосіб оплати: передоплата, післяплата, IBAN, готівка</li>
           <li>Контроль оплати: не оплачено / часткова / оплачено</li>
-          <li>Призначення майстра (хто робить) з підказкою складу</li>
+          <li>Призначення майстра на замовлення з підказкою складу</li>
+          <li>Імпорт замовлень з зовнішніх систем через API</li>
           <li>Пагінація, фільтри, налаштування видимих колонок</li>
-          <li>Підрахунок суми: «Показано 1–25 з 147 на 138 790 грн»</li>
         </ul>
       </div>
     </div>
@@ -333,10 +371,10 @@ a { text-decoration:none; color:inherit; }
       <div class="feature-expand">Детальніше</div>
       <div class="feature-details">
         <ul>
-          <li>Повний P&L звіт: Виручка → COGS → Валовий прибуток → OpEx → EBIT → Податки → Чистий прибуток</li>
+          <li>Повний P&L звіт: Виручка → COGS → Валовий прибуток → OpEx → EBIT → Чистий прибуток</li>
           <li>Розбивка по місяцях за обраний період</li>
-          <li>Категорії витрат: оренда, реклама, пакування, доставка замовлень</li>
-          <li>Автоматичний облік витрат на доставку (напр. ETSY) прямо з замовлення</li>
+          <li>Категорії витрат: оренда, реклама, пакування, доставка</li>
+          <li>Автоматичний облік витрат на доставку прямо з замовлення</li>
           <li>Податки: ЄП 3 група (5%), 2 група (фікс), або ручне введення</li>
           <li>Картки-підсумки: виручка, прибуток, маржинальність</li>
         </ul>
@@ -353,9 +391,9 @@ a { text-decoration:none; color:inherit; }
           <li>Вводите ТТН вручну — система тягне статус з API Нової Пошти</li>
           <li>Кольорові бейджі: 🏷 Створено → 🚚 У дорозі → 📮 У відділенні → ✅ Вручено</li>
           <li>Авто-оновлення при відкритті сторінки замовлень</li>
-          <li>Кнопка «📍 Трекінг НП» для примусового оновлення всіх ТТН</li>
+          <li>Кнопка «Трекінг НП» для примусового оновлення всіх ТТН</li>
           <li>При наведенні — деталі: місто, відділення, очікувана дата</li>
-          <li>Батчинг до 100 ТТН за 1 запит — швидко навіть для великих обсягів</li>
+          <li>Працює автоматично — не потрібен ваш API-ключ НП</li>
         </ul>
       </div>
     </div>
@@ -395,23 +433,6 @@ a { text-decoration:none; color:inherit; }
     </div>
 
     <div class="feature-card" onclick="this.classList.toggle('open')">
-      <div class="feature-icon">🔄</div>
-      <h3>SalesDrive CRM</h3>
-      <p>Автоматичний імпорт замовлень з SalesDrive — завжди актуальний список</p>
-      <div class="feature-expand">Детальніше</div>
-      <div class="feature-details">
-        <ul>
-          <li>Одноразове налаштування: домен + API-ключ SalesDrive</li>
-          <li>Синхронізація замовлень за обраний період (до 90 днів)</li>
-          <li>Автоматична фільтрація: тільки товари з «Lipoland» у назві</li>
-          <li>Автоматичне оновлення існуючих замовлень + створення нових</li>
-          <li>Дані клієнта, товари, доставка, оплата — все підтягується</li>
-          <li>Пагінація з паузами: не блокує API ліміт SalesDrive (10 запитів/хв)</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="feature-card" onclick="this.classList.toggle('open')">
       <div class="feature-icon">🔔</div>
       <h3>Розумні сповіщення</h3>
       <p>Telegram-бот та внутрішні нагадування — нічого не пропустите</p>
@@ -423,6 +444,24 @@ a { text-decoration:none; color:inherit; }
           <li>Обладнання потребує обслуговування → завчасне попередження</li>
           <li>Telegram-бот: отримуйте нагадування прямо в месенджер</li>
           <li>Дзвіночок у системі з лічильником непрочитаних</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature-card" onclick="this.classList.toggle('open')" style="border:2px solid var(--pink);background:linear-gradient(135deg,rgba(201,27,110,0.02),rgba(232,146,64,0.02));">
+      <div class="card-badge" style="background:linear-gradient(135deg,var(--pink),var(--orange));">Безкоштовно</div>
+      <div class="feature-icon" style="background:rgba(201,27,110,0.1);">💬</div>
+      <h3>Спільнота в Telegram</h3>
+      <p>Приватна група майстринь: допомога, обмін досвідом, ідеї та новини LipoLand</p>
+      <div class="feature-expand">Детальніше</div>
+      <div class="feature-details">
+        <ul>
+          <li>Закрита Telegram-група тільки для користувачів LipoLand</li>
+          <li>Обмін досвідом з іншими майстринями ліпучок</li>
+          <li>Поради по ціноутворенню, матеріалах, обладнанні</li>
+          <li>Пріоритетна підтримка від команди LipoLand</li>
+          <li>Голосування за нові функції — ви впливаєте на розвиток</li>
+          <li>Першими дізнаєтесь про оновлення та нові модулі</li>
         </ul>
       </div>
     </div>
@@ -446,7 +485,7 @@ a { text-decoration:none; color:inherit; }
     <div class="step">
       <div class="step-num">2</div>
       <h3>Внесіть свої дані</h3>
-      <p>Матеріали, продукцію, рецептуру. Підключіть SalesDrive для авто-імпорту замовлень. Система одразу рахує собівартість</p>
+      <p>Додайте матеріали, продукцію, рецептуру. Заведіть перші замовлення. Система одразу рахує собівартість</p>
       <span class="step-arrow">→</span>
     </div>
     <div class="step">
@@ -469,9 +508,9 @@ a { text-decoration:none; color:inherit; }
       <div class="price-amount">250<span> грн/міс</span></div>
       <div class="price-per-month">&nbsp;</div>
       <ul class="price-features">
-        <li>Всі 9 модулів системи</li>
+        <li>Всі модулі + спільнота</li>
         <li>Необмежена кількість товарів</li>
-        <li>SalesDrive + НП трекінг</li>
+        <li>Трекінг Нова Пошта</li>
         <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
       </ul>
@@ -484,9 +523,9 @@ a { text-decoration:none; color:inherit; }
       <div class="price-per-month">208 грн/міс</div>
       <div class="price-save">Економія 250 грн</div>
       <ul class="price-features">
-        <li>Всі 9 модулів системи</li>
+        <li>Всі модулі + спільнота</li>
         <li>Необмежена кількість товарів</li>
-        <li>SalesDrive + НП трекінг</li>
+        <li>Трекінг Нова Пошта</li>
         <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
         <li>Пріоритетна підтримка</li>
@@ -499,9 +538,9 @@ a { text-decoration:none; color:inherit; }
       <div class="price-per-month">183 грн/міс</div>
       <div class="price-save">Економія 800 грн</div>
       <ul class="price-features">
-        <li>Всі 9 модулів системи</li>
+        <li>Всі модулі + спільнота</li>
         <li>Необмежена кількість товарів</li>
-        <li>SalesDrive + НП трекінг</li>
+        <li>Трекінг Нова Пошта</li>
         <li>P&L аналітика</li>
         <li>Оновлення та підтримка</li>
         <li>Пріоритетна підтримка</li>
@@ -532,15 +571,15 @@ a { text-decoration:none; color:inherit; }
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що входить у безкоштовний місяць?</div>
-      <div class="faq-a"><p>Абсолютно все! 30 днів повного доступу до всіх 9 модулів: склад, продукція, замовлення, P&L аналітика, обладнання, сповіщення, SalesDrive, трекінг НП. Без обмежень на кількість товарів чи замовлень, без прив'язки картки.</p></div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я користуюсь SalesDrive — чи підійде LipoLand?</div>
-      <div class="faq-a"><p>Саме для вас! LipoLand синхронізує замовлення з SalesDrive автоматично. Ви вводите лише домен та API-ключ — і всі замовлення з товарами Lipoland підтягуються в систему. Далі ви керуєте статусами, призначаєте майстрів, відстежуєте оплату та доставку — все в одному місці.</p></div>
+      <div class="faq-a"><p>Абсолютно все! 30 днів повного доступу до всіх модулів: склад, продукція, замовлення, P&L аналітика, обладнання, сповіщення, трекінг НП, Telegram-спільнота. Без обмежень на кількість товарів чи замовлень, без прив'язки картки.</p></div>
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Як працює трекінг Нової Пошти?</div>
-      <div class="faq-a"><p>Ви вводите ТТН у замовлення — система автоматично тягне статус з API Нової Пошти і показує його кольоровим бейджем прямо в таблиці (Створено → У дорозі → У відділенні → Вручено). Оновлюється автоматично при відкритті сторінки або вручну за кнопкою «Трекінг НП». ТТН створюється у вашому кабінеті НП як зазвичай.</p></div>
+      <div class="faq-a"><p>Ви вводите ТТН у замовлення — система автоматично тягне статус з API Нової Пошти і показує його кольоровим бейджем прямо в таблиці (Створено → У дорозі → У відділенні → Вручено). Оновлюється автоматично при відкритті сторінки або вручну за кнопкою «Трекінг НП». Вам не потрібен API-ключ НП — все працює одразу.</p></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Що за Telegram-спільнота?</div>
+      <div class="faq-a"><p>При реєстрації ви отримуєте запрошення до закритої Telegram-групи тільки для майстринь LipoLand. Там можна задати питання, поділитися досвідом, обговорити ціноутворення або матеріали з іншими майстринями. Команда LipoLand також там — відповідаємо на питання та збираємо ідеї для нових функцій. Участь безкоштовна.</p></div>
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Я працюю сама, без майстрів. Мені підійде?</div>
