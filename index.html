@@ -331,6 +331,14 @@ a.order-link:hover { text-decoration:underline; }
   <h2>Дашборд</h2>
   <div id="dash-alerts" class="alerts"></div>
   <div id="dash-cards" class="cards"></div>
+  <div id="dash-pulse-wrap" style="display:none;margin-top:20px;">
+    <div class="flex-between" style="align-items:center;margin-bottom:12px;">
+      <div class="section-title" style="margin:0;">💹 Фінансовий пульс</div>
+      <button class="btn btn-outline btn-sm" onclick="showPage('analytics')">📉 Детальна аналітика →</button>
+    </div>
+    <div id="dash-pulse" class="cards"></div>
+    <div id="dash-top-products" style="margin-top:16px;"></div>
+  </div>
   <div class="section-title">Критичні залишки матеріалів</div>
   <div class="table-wrap">
     <table><thead><tr><th>Матеріал</th><th>Залишок</th><th>Мінімум</th><th>Статус</th><th>Вистачить на</th></tr></thead>
@@ -4158,6 +4166,8 @@ function renderDashboard() {
     if (wp.orders) cardsHtml += '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div></div>';
     cardsHtml += '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
     document.getElementById('dash-cards').innerHTML = cardsHtml;
+    var pulseWrap = document.getElementById('dash-pulse-wrap');
+    if (pulseWrap) pulseWrap.style.display = 'none';
   } else {
     // Owner dashboard — full cards
     var lowMats = db.materials.filter(function(m){return m.qty<=m.min}).length;
@@ -4169,6 +4179,9 @@ function renderDashboard() {
       '<div class="card '+(lowMats>0?'danger':'success')+'"><div class="card-label">Матеріали</div><div class="card-value">'+lowMats+'</div><div class="card-sub">'+(lowMats>0?'потребують замовлення':'все в нормі')+'</div></div>'+
       '<div class="card"><div class="card-label">Замовлення ('+thisMonth+')</div><div class="card-value">'+monthOrders.length+'</div><div class="card-sub">'+fmt(monthRevenue)+' грн</div></div>'+
       '<div class="card"><div class="card-label">Товарів у каталозі</div><div class="card-value">'+db.products.length+'</div></div>';
+
+    // --- Фінансовий пульс (owner-only quick stats) ---
+    renderDashboardPulse(db, thisMonth);
   }
 
   // --- Materials table (only for owner or if worker has materials permission) ---
@@ -4204,6 +4217,84 @@ function renderDashboard() {
     var can = calcCanProduce(p, db.materials);
     return '<tr><td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td><td data-label="Гра"><strong>'+esc(p.name)+'</strong></td><td data-label="Категорія">'+esc(p.category||'—')+'</td><td data-label="На складі">'+(p.stock||0)+'</td><td data-label="В роботі">'+(p.inProgress||0)+'</td><td data-label="Можна зібрати">'+can+' шт</td></tr>';
   }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">Склад порожній</td></tr>';
+}
+
+function renderDashboardPulse(db, thisMonth) {
+  var wrap = document.getElementById('dash-pulse-wrap');
+  var pulse = document.getElementById('dash-pulse');
+  var topEl = document.getElementById('dash-top-products');
+  if (!wrap || !pulse) return;
+  wrap.style.display = '';
+
+  // Previous month key (YYYY-MM)
+  var y = parseInt(thisMonth.slice(0,4));
+  var m = parseInt(thisMonth.slice(5,7));
+  var pm = m - 1, py = y;
+  if (pm === 0) { pm = 12; py = y - 1; }
+  var prevMonth = py + '-' + (pm < 10 ? '0'+pm : ''+pm);
+
+  // Aggregate current & previous month
+  function aggregate(monthKey) {
+    var agg = { revenue:0, cost:0, salary:0, orders:0, items:0, byProduct:{} };
+    (db.orders||[]).forEach(function(o){
+      if ((o.date||'').slice(0,7) !== monthKey) return;
+      agg.orders++;
+      (o.items||[]).forEach(function(it){
+        var q = it.qty||0;
+        agg.items += q;
+        agg.revenue += q * (it.price||0);
+        var p = db.products.find(function(x){return x.id===it.productId});
+        if (p) {
+          var c = calcCost(p, db.materials, db);
+          agg.cost += c.total * q;
+          agg.salary += c.work * q;
+        }
+        var pname = p ? p.name : (it.name || '—');
+        if (!agg.byProduct[pname]) agg.byProduct[pname] = { qty:0, revenue:0 };
+        agg.byProduct[pname].qty += q;
+        agg.byProduct[pname].revenue += q * (it.price||0);
+      });
+    });
+    agg.profit = agg.revenue - agg.cost;
+    return agg;
+  }
+
+  var cur = aggregate(thisMonth);
+  var prev = aggregate(prevMonth);
+
+  function diffBadge(curV, prevV) {
+    if (prevV === 0 && curV === 0) return '<span style="color:var(--text-light);font-size:12px;">—</span>';
+    if (prevV === 0) return '<span style="color:var(--success);font-size:12px;font-weight:600;">↑ новий</span>';
+    var delta = ((curV - prevV) / prevV) * 100;
+    var sign = delta >= 0 ? '↑' : '↓';
+    var color = delta >= 0 ? 'var(--success)' : 'var(--danger)';
+    return '<span style="color:'+color+';font-size:12px;font-weight:600;">'+sign+' '+fmt(Math.abs(delta))+'% vs '+prevMonth+'</span>';
+  }
+
+  pulse.innerHTML =
+    '<div class="card"><div class="card-label">Виручка цього місяця</div><div class="card-value">'+fmt(cur.revenue)+' грн</div><div class="card-sub">'+diffBadge(cur.revenue, prev.revenue)+'</div></div>'+
+    '<div class="card '+(cur.profit>=0?'success':'danger')+'"><div class="card-label">Чистий прибуток</div><div class="card-value">'+fmt(cur.profit)+' грн</div><div class="card-sub">'+diffBadge(cur.profit, prev.profit)+'</div></div>'+
+    '<div class="card"><div class="card-label">Продано штук</div><div class="card-value">'+cur.items+'</div><div class="card-sub">'+diffBadge(cur.items, prev.items)+'</div></div>';
+
+  // Top-3 products this month
+  var tops = Object.keys(cur.byProduct).map(function(n){
+    return { name:n, qty:cur.byProduct[n].qty, revenue:cur.byProduct[n].revenue };
+  }).sort(function(a,b){ return b.revenue - a.revenue; }).slice(0,3);
+
+  if (tops.length === 0) {
+    topEl.innerHTML = '<p class="text-muted" style="margin:8px 0 0;font-size:13px;">Ще немає продажів у цьому місяці.</p>';
+  } else {
+    var medals = ['🥇','🥈','🥉'];
+    topEl.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--text-light);margin-bottom:8px;">🏆 Топ-3 товари цього місяця</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+      tops.map(function(t,i){
+        return '<div style="flex:1;min-width:180px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;">'+
+          '<div style="font-size:13px;"><span style="font-size:16px;">'+medals[i]+'</span> <strong>'+esc(t.name)+'</strong></div>'+
+          '<div style="font-size:12px;color:var(--text-light);margin-top:2px;">'+t.qty+' шт · '+fmt(t.revenue)+' грн</div>'+
+        '</div>';
+      }).join('')+
+      '</div>';
+  }
 }
 
 // ==================== SETTINGS ====================
