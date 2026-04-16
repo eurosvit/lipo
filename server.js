@@ -865,9 +865,11 @@ async function createSession(res, userId) {
 // ==================== HELPERS ====================
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => resolve(body));
+    // Collect raw buffers and decode as UTF-8 once at the end. Doing `body += chunk`
+    // splits multi-byte cyrillic chars across chunk boundaries and corrupts input.
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
@@ -1655,9 +1657,13 @@ const server = http.createServer(async (req, res) => {
       // Proxy request to SalesDrive
       const sdUrl = `https://${sdDomain}${sdPath}`;
       const proxyReq = https.request(sdUrl, { method: 'GET', headers: { 'X-Api-Key': sdApiKey } }, (proxyRes) => {
-        let proxyBody = '';
-        proxyRes.on('data', d => proxyBody += d);
+        // Collect raw buffers and decode as UTF-8 only once at the end.
+        // Doing `str += chunk` splits multi-byte UTF-8 chars across chunks and
+        // produces ?? / � in cyrillic names (e.g. "Ба��анюк" замість "Бабанюк").
+        const chunks = [];
+        proxyRes.on('data', d => chunks.push(d));
         proxyRes.on('end', () => {
+          const proxyBody = Buffer.concat(chunks).toString('utf8');
           try {
             const parsed = JSON.parse(proxyBody);
             sendJSON(res, 200, parsed);
