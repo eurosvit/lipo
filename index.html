@@ -3575,6 +3575,18 @@ function setOrderChannel(id, channel) {
   if(ord) { ord.channel=channel; saveDB(db); renderPage('orders'); }
 }
 
+function setOrderPaymentType(id, val) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(ord) { ord.paymentType = val; saveDB(db); renderPage('orders'); }
+}
+
+function setOrderPaymentStatus(id, val) {
+  var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if(ord) { ord.paymentStatus = val; saveDB(db); renderPage('orders'); }
+}
+
 function renderChannelManager() {
   var db = getDB();
   var channels = db.orderChannels || [];
@@ -3888,14 +3900,63 @@ function toggleOrdColSettings() {
 
 function renderOrdColSettings() {
   var cols = _ordColsDraft || getOrdCols();
-  document.getElementById('ord-col-list').innerHTML = cols.map(function(c, i) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;">'+
+  var list = document.getElementById('ord-col-list');
+  list.innerHTML = cols.map(function(c, i) {
+    return '<div draggable="true" data-colid="'+c.id+'" data-idx="'+i+'" '+
+        'ondragstart="ordColDragStart(event,\''+c.id+'\')" '+
+        'ondragover="ordColDragOver(event,\''+c.id+'\')" '+
+        'ondragleave="ordColDragLeave(event)" '+
+        'ondrop="ordColDrop(event,\''+c.id+'\')" '+
+        'ondragend="ordColDragEnd(event)" '+
+        'style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;transition:background .15s,border-color .15s;">'+
+      '<span title="Перетягніть для зміни порядку" style="cursor:grab;user-select:none;font-size:16px;color:#999;padding:0 4px;">≡</span>'+
       '<input type="checkbox" '+(c.visible?'checked':'')+' onchange="toggleOrdCol(\''+c.id+'\',this.checked)" style="width:16px;height:16px;accent-color:var(--primary);">'+
       '<span style="flex:1;font-size:13px;font-weight:500;">'+c.label+'</span>'+
-      '<button onclick="moveOrdCol(\''+c.id+'\',-1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===0?'0.2':'0.7')+';" '+(i===0?'disabled':'')+'>▲</button>'+
-      '<button onclick="moveOrdCol(\''+c.id+'\',1)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===cols.length-1?'0.2':'0.7')+';" '+(i===cols.length-1?'disabled':'')+'>▼</button>'+
+      '<button onclick="moveOrdCol(\''+c.id+'\',-1)" title="Вгору" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===0?'0.2':'0.7')+';" '+(i===0?'disabled':'')+'>▲</button>'+
+      '<button onclick="moveOrdCol(\''+c.id+'\',1)" title="Вниз" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(i===cols.length-1?'0.2':'0.7')+';" '+(i===cols.length-1?'disabled':'')+'>▼</button>'+
     '</div>';
   }).join('');
+}
+
+var _ordColDragId = null;
+
+function ordColDragStart(e, colId) {
+  _ordColDragId = colId;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', colId); } catch(err){}
+  e.currentTarget.style.opacity = '0.4';
+}
+
+function ordColDragOver(e, colId) {
+  if (_ordColDragId == null || _ordColDragId === colId) return;
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch(err){}
+  e.currentTarget.style.borderColor = 'var(--primary)';
+  e.currentTarget.style.background = '#F3E8FF';
+}
+
+function ordColDragLeave(e) {
+  e.currentTarget.style.borderColor = 'var(--border)';
+  e.currentTarget.style.background = '#fff';
+}
+
+function ordColDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--border)';
+  e.currentTarget.style.background = '#fff';
+  if (!_ordColDragId || _ordColDragId === targetId) { _ordColDragId = null; return; }
+  if (!_ordColsDraft) _ordColsDraft = getOrdCols();
+  var fromIdx = _ordColsDraft.findIndex(function(c){return c.id===_ordColDragId;});
+  var toIdx = _ordColsDraft.findIndex(function(c){return c.id===targetId;});
+  if (fromIdx === -1 || toIdx === -1) { _ordColDragId = null; return; }
+  var moved = _ordColsDraft.splice(fromIdx, 1)[0];
+  _ordColsDraft.splice(toIdx, 0, moved);
+  _ordColDragId = null;
+  renderOrdColSettings();
+}
+
+function ordColDragEnd(e) {
+  e.currentTarget.style.opacity = '1';
+  _ordColDragId = null;
 }
 
 function toggleOrdCol(colId, visible) {
@@ -3987,11 +4048,17 @@ function renderOrders() {
       case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
       case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
       case 'payment': {
-        var pt = o.paymentType ? (ORD_PAYMENT_LABELS[o.paymentType] || o.paymentType) : '';
-        var ps = o.paymentStatus || 'unpaid';
-        var psColor = ps==='paid' ? '#E8F5E9' : (ps==='partial' ? '#FFF3E0' : '#FFEBEE');
-        var psText = ORD_PAY_STATUS_LABELS[ps] || ps;
-        return '<td data-label="Оплата" style="font-size:12px;">'+(pt?esc(pt)+'<br>':'')+'<span style="background:'+psColor+';padding:2px 6px;border-radius:4px;font-size:11px;">'+esc(psText)+'</span></td>';
+        var currentType = o.paymentType || '';
+        var currentStatus = o.paymentStatus || 'unpaid';
+        var psColor = currentStatus==='paid' ? '#E8F5E9' : (currentStatus==='partial' ? '#FFF3E0' : '#FFEBEE');
+        var psBorder = currentStatus==='paid' ? '#A5D6A7' : (currentStatus==='partial' ? '#FFCC80' : '#EF9A9A');
+        var typeOpts = '<option value="">—</option>' +
+          Object.keys(ORD_PAYMENT_LABELS).map(function(k){ return '<option value="'+k+'" '+(currentType===k?'selected':'')+'>'+esc(ORD_PAYMENT_LABELS[k])+'</option>'; }).join('');
+        var statusOpts2 = Object.keys(ORD_PAY_STATUS_LABELS).map(function(k){ return '<option value="'+k+'" '+(currentStatus===k?'selected':'')+'>'+esc(ORD_PAY_STATUS_LABELS[k])+'</option>'; }).join('');
+        return '<td data-label="Оплата" style="font-size:12px;">'+
+          '<select onchange="setOrderPaymentType(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:6px;font-size:11px;width:100%;margin-bottom:3px;border:1px solid var(--border);">'+typeOpts+'</select>'+
+          '<select onchange="setOrderPaymentStatus(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:6px;font-size:11px;width:100%;background:'+psColor+';border:1px solid '+psBorder+';font-weight:600;">'+statusOpts2+'</select>'+
+        '</td>';
       }
       case 'delivery': {
         var sum = orderDeliverySummary(o);
