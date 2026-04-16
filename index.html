@@ -319,7 +319,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </nav>
 <div id="worker-banner" style="display:none;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;margin:0 20px;margin-top:8px;padding:12px 20px;border-radius:10px;font-size:14px;"></div>
-<div id="save-indicator" style="position:fixed;top:8px;right:12px;font-size:11px;z-index:9999;pointer-events:none;"></div>
+<div id="save-indicator" style="position:fixed;bottom:16px;right:16px;font-size:12px;z-index:9999;pointer-events:none;background:rgba(255,255,255,0.96);padding:6px 12px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.12);opacity:0;transition:opacity .2s;"></div>
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu" onclick="if(event.target===this)closeMobileMenu()">
@@ -517,12 +517,18 @@ a.order-link:hover { text-decoration:underline; }
 <div id="orders" class="page">
   <div class="flex-between">
     <h2>Замовлення</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;align-items:center;gap:6px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:8px;padding:4px 8px;">
+        <span style="font-size:12px;color:#4A148C;font-weight:600;">З дати:</span>
+        <input type="date" id="sync-from-date" style="border:none;background:transparent;font-size:13px;padding:2px 0;color:#4A148C;" title="Завантажити замовлення з CRM починаючи з цієї дати">
+        <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(30)" title="Останні 30 днів">30д</button>
+        <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(90)" title="Останні 90 днів">90д</button>
+      </div>
       <button class="btn btn-success" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
       <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Замовлення з CRM або створені вручну. Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
+  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення (зберігається між сесіями). Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
   <div id="sync-status" style="margin-top:8px;"></div>
   <div style="margin-top:8px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('channel-manager').style.display=document.getElementById('channel-manager').style.display==='none'?'block':'none'">📢 Канали продажів</button>
@@ -2048,9 +2054,15 @@ function _doSyncSave(db, isRetry) {
 function _updateSaveIndicator(state) {
   var el = document.getElementById('save-indicator');
   if (!el) return;
-  if (state === 'saving') { el.textContent = '⏳ Збереження...'; el.style.color = '#999'; }
-  else if (state === 'saved') { el.textContent = '✓ Збережено'; el.style.color = '#4CAF50'; setTimeout(function(){ if(el.textContent==='✓ Збережено') el.textContent=''; }, 2000); }
-  else if (state === 'error') { el.textContent = '⚠ Не збережено — повтор за 3с'; el.style.color = '#E53935'; }
+  var show = function(text, color) { el.textContent = text; el.style.color = color; el.style.opacity = '1'; };
+  var hide = function(){ el.style.opacity = '0'; setTimeout(function(){ if (el.style.opacity === '0') el.textContent = ''; }, 250); };
+  if (state === 'saving') { show('⏳ Збереження...', '#999'); }
+  else if (state === 'saved') {
+    show('✓ Збережено', '#4CAF50');
+    setTimeout(function(){ if (el.textContent === '✓ Збережено') hide(); }, 1500);
+  }
+  else if (state === 'error') { show('⚠ Не збережено — повтор за 3с', '#E53935'); }
+  else { hide(); }
 }
 
 function saveDB(db) {
@@ -3917,6 +3929,7 @@ function resetOrdCols() {
 }
 
 function renderOrders() {
+  initSyncDateInput();
   var db = getDB();
   var tb = document.getElementById('orders-table');
   var statusFilter = document.getElementById('ord-status-filter').value;
@@ -4111,33 +4124,77 @@ function testCrmConnection() {
     });
 }
 
+// Set the CRM sync "from" date to N days ago
+function setSyncDatePreset(daysBack) {
+  var d = new Date();
+  d.setDate(d.getDate() - daysBack);
+  var el = document.getElementById('sync-from-date');
+  if (el) {
+    el.value = d.toISOString().slice(0,10);
+    localStorage.setItem('lipo_sync_from_date', el.value);
+  }
+}
+
+// Initialise sync date input on orders page render (saved value or default 30 days)
+function initSyncDateInput() {
+  var el = document.getElementById('sync-from-date');
+  if (!el) return;
+  if (el.value) return;
+  var saved = localStorage.getItem('lipo_sync_from_date');
+  if (saved) { el.value = saved; return; }
+  var d = new Date();
+  d.setDate(d.getDate() - 30);
+  el.value = d.toISOString().slice(0,10);
+}
+
 function syncSalesDrive() {
   var btn = document.getElementById('sync-btn');
   var statusEl = document.getElementById('sync-status');
   btn.disabled = true;
   btn.textContent = '⏳ Синхронізація...';
-  statusEl.innerHTML = '<span class="text-muted">Завантаження замовлень з SalesDrive...</span>';
+
+  // Read "from" date from UI (user can pick custom); fall back to 30 days back.
+  var fromInput = document.getElementById('sync-from-date');
+  var fromStr;
+  if (fromInput && fromInput.value) {
+    fromStr = fromInput.value + ' 00:00:00';
+    localStorage.setItem('lipo_sync_from_date', fromInput.value);
+  } else {
+    var fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 30);
+    fromStr = fromDate.toISOString().slice(0,10) + ' 00:00:00';
+  }
+  statusEl.innerHTML = '<span class="text-muted">Завантаження замовлень з SalesDrive з '+esc(fromStr.slice(0,10))+'...</span>';
 
   var db = getDB();
   // Get existing CRM order IDs to avoid duplicates
   var existingCrmIds = {};
   db.orders.forEach(function(o){ if(o.crmId) existingCrmIds[o.crmId] = true; });
 
-  // Fetch last 30 days of orders
-  var fromDate = new Date();
-  fromDate.setDate(fromDate.getDate() - 30);
-  var fromStr = fromDate.toISOString().slice(0,10) + ' 00:00:00';
+  var newCount = 0;
+  var updatedCount = 0;
+  var totalFetched = 0;
+  var MAX_PAGES = 30; // safety cap: 30 * 100 = 3000 orders
 
-  var sdPath = '/api/order/list/?page=1&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
+  function fetchPage(page) {
+    var sdPath = '/api/order/list/?page='+page+'&limit=100&filter[orderTime][from]='+encodeURIComponent(fromStr)+'&filter[statusId]=__NOTDELETED__';
+    statusEl.innerHTML = '<span class="text-muted">Завантаження сторінки '+page+' з CRM...</span>';
+    return fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: sdPath }) })
+      .then(function(r){return r.json()})
+      .then(function(data){
+        if(data.error) throw new Error(data.error);
+        if(!data.data) throw new Error('Невірна відповідь API');
+        processOrdersBatch(data.data);
+        totalFetched += (data.data || []).length;
+        var totalPages = (data.pagination && data.pagination.pageCount) || 1;
+        if (page < totalPages && page < MAX_PAGES) {
+          return fetchPage(page + 1);
+        }
+        return { totalPages: totalPages };
+      });
+  }
 
-  fetch('/api/salesdrive/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: sdPath }) })
-    .then(function(r){return r.json()})
-    .then(function(data) {
-      if(data.error) throw new Error(data.error);
-      if(!data.data) throw new Error('Невірна відповідь API');
-      var orders = data.data;
-      var newCount = 0;
-      var updatedCount = 0;
+  function processOrdersBatch(orders) {
 
       orders.forEach(function(o) {
         // Filter: only products with "lipoland" or "Lipoland" in name
@@ -4254,14 +4311,16 @@ function syncSalesDrive() {
           newCount++;
         }
       });
+  } // end processOrdersBatch
 
+  fetchPage(1)
+    .then(function(info){
       saveDB(db);
       btn.disabled = false;
       btn.textContent = '🔄 Синхронізувати з CRM';
-
-      var totalPages = data.pagination ? data.pagination.pageCount : 1;
-      statusEl.innerHTML = '<span class="text-success">✅ Синхронізовано! Нових замовлень: <strong>'+newCount+'</strong>, оновлено: '+updatedCount+'</span>' +
-        '<br><span class="text-muted" style="font-size:12px;">Останнє оновлення: '+new Date().toLocaleString('uk')+'</span>';
+      var cappedNote = (info && info.totalPages > MAX_PAGES) ? '<br><span class="text-muted" style="font-size:12px;">⚠ Показано перші '+MAX_PAGES+' сторінок. Виберіть новіший період, щоб охопити менше замовлень.</span>' : '';
+      statusEl.innerHTML = '<span class="text-success">✅ Синхронізовано з '+esc(fromStr.slice(0,10))+'! Замовлень в CRM: <strong>'+totalFetched+'</strong>, нових: <strong>'+newCount+'</strong>, оновлено: '+updatedCount+'</span>' +
+        '<br><span class="text-muted" style="font-size:12px;">Останнє оновлення: '+new Date().toLocaleString('uk')+'</span>' + cappedNote;
       renderOrders();
     })
     .catch(function(err) {
