@@ -449,7 +449,7 @@ a.order-link:hover { text-decoration:underline; }
     <h2>Виробництво</h2>
     <button class="btn btn-primary" onclick="openModal('start-production')">Запустити в роботу</button>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Запуск в роботу = передача напівфабрикатів (надрукованих сторінок, деталей) майстру. Матеріали списуються зі складу майстра, папір — зі складу. Коли майстер здає готове — гра потрапляє на склад.</p>
+  <p style="font-size:13px;color:var(--text-light);margin:8px 0;">Запуск в роботу = передача напівфабрикатів майстру. Матеріали списуються зі складу майстра, папір — зі складу.</p>
   <div class="section-title">Зараз у виробництві</div>
   <div class="table-wrap">
     <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
@@ -528,7 +528,7 @@ a.order-link:hover { text-decoration:underline; }
       <button id="ws-worker-add-btn" class="btn btn-primary" onclick="openWorkerAddStockModal()" style="display:none;">+ Додати залишки</button>
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Матеріали, які ви передали майстрам (липучки, плівка, картон, фурнітура тощо). При запуску виробництва витратні матеріали списуються звідси, папір — зі складу. Надруковані сторінки та деталі ігор передаються через <strong>Виробництво</strong>.</p>
+  <p style="font-size:13px;color:var(--text-light);margin:8px 0;">Матеріали у майстрів. Напівфабрикати передаються через <strong>Виробництво</strong>.</p>
   <div class="filter-bar">
     <select id="ws-worker-filter" onchange="renderWorkerStock()" style="padding:8px 12px;">
       <option value="">Всі майстри</option>
@@ -3657,9 +3657,9 @@ function renderWorkerStock() {
 
   // Update titles
   wsPage.querySelector('h2').textContent = isW ? 'Мої матеріали' : 'Склад майстрів';
-  wsPage.querySelector('p').textContent = isW
-    ? 'Матеріали, передані вам для роботи (липучки, плівка, картон, фурнітура). При запуску виробництва вони списуються автоматично. Готові напівфабрикати керівник передає через Виробництво.'
-    : 'Матеріали, які ви передали майстрам (липучки, плівка, картон, фурнітура тощо). При запуску виробництва витратні матеріали списуються звідси, папір — зі складу. Надруковані сторінки та деталі ігор передаються через Виробництво.';
+  wsPage.querySelector('p').innerHTML = isW
+    ? 'Матеріали, передані вам для роботи. Напівфабрикати керівник передає через <strong>Виробництво</strong>.'
+    : 'Матеріали у майстрів. Напівфабрикати передаються через <strong>Виробництво</strong>.';
 
   // Toggle buttons for worker/owner
   var transferBtn = wsPage.querySelector('button[onclick*="transfer-to-worker"]');
