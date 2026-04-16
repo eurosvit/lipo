@@ -587,21 +587,26 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <!-- Pay Salary Modal -->
-<div id="pay-salary-modal" class="modal" style="display:none;">
-  <div class="modal-content" style="max-width:420px;">
-    <div class="modal-header"><h3>💸 Виплата зарплати</h3><button class="modal-close" onclick="closeModal('pay-salary-modal')">&times;</button></div>
+<div class="modal-overlay" id="modal-pay-salary">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3>💸 Виплата зарплати</h3><button class="modal-close" onclick="closeModal('pay-salary')">&times;</button></div>
     <div class="modal-body">
-      <label>Майстер</label>
-      <select id="pay-salary-worker" onchange="updatePaySalaryHint()" style="width:100%;padding:8px 12px;margin-bottom:12px;"></select>
-      <label>Сума (грн)</label>
-      <input type="number" id="pay-salary-amount" style="width:100%;padding:8px 12px;margin-bottom:12px;" placeholder="0">
+      <div class="form-group mb-16"><label>Майстер</label>
+        <select id="pay-salary-worker" onchange="updatePaySalaryHint()"></select>
+      </div>
+      <div class="form-group mb-16"><label>Сума (грн)</label>
+        <input type="number" id="pay-salary-amount" placeholder="0">
+      </div>
       <p id="pay-salary-hint" style="font-size:12px;color:var(--text-light);margin:-8px 0 12px;"></p>
-      <label>Коментар (необов'язково)</label>
-      <input type="text" id="pay-salary-note" style="width:100%;padding:8px 12px;margin-bottom:12px;" placeholder="Наприклад: за березень">
-      <label>Дата</label>
-      <input type="date" id="pay-salary-date" style="width:100%;padding:8px 12px;margin-bottom:12px;">
+      <div class="form-group mb-16"><label>Коментар (необов'язково)</label>
+        <input type="text" id="pay-salary-note" placeholder="Наприклад: за березень">
+      </div>
+      <div class="form-group"><label>Дата</label>
+        <input type="date" id="pay-salary-date">
+      </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('pay-salary')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveSalaryPayment()">💸 Виплатити</button>
     </div>
   </div>
@@ -3989,7 +3994,7 @@ function openPaySalaryModal() {
   document.getElementById('pay-salary-note').value = '';
   document.getElementById('pay-salary-date').value = new Date().toISOString().slice(0,10);
   updatePaySalaryHint();
-  openModal('pay-salary-modal');
+  openModal('pay-salary');
 }
 
 function updatePaySalaryHint() {
@@ -4013,7 +4018,7 @@ function saveSalaryPayment() {
   if (!db.salaryPayments) db.salaryPayments = [];
   db.salaryPayments.push({ id:uid(), worker:worker, amount:amount, note:note, date:date });
   saveDB(db);
-  closeModal('pay-salary-modal');
+  closeModal('pay-salary');
   renderSalary();
 }
 
