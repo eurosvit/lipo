@@ -123,6 +123,23 @@ textarea { resize:vertical; min-height:60px; }
 
 /* MISC */
 .section-title { font-size:16px; font-weight:600; margin:20px 0 12px; color:var(--text); }
+
+/* Colored sections for product modals */
+.modal-section { border-radius:12px; padding:14px 16px 12px; margin:14px 0; border-left:4px solid #ccc; }
+.modal-section .section-title { margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:8px; }
+.modal-section .section-hint { font-size:12px; color:var(--text-light); margin:-4px 0 10px; }
+.modal-section .form-row { margin-bottom:0; }
+.modal-section-print { background:#FFF8E1; border-left-color:#F9A825; }
+.modal-section-print .section-title { color:#8D6E00; }
+.modal-section-work { background:#E8F5E9; border-left-color:#2E7D32; }
+.modal-section-work .section-title { color:#1B5E20; }
+.modal-section-pack { background:#E3F2FD; border-left-color:#1976D2; }
+.modal-section-pack .section-title { color:#0D47A1; }
+.modal-section-recipe { background:#FFF3E0; border-left-color:#E65100; }
+.modal-section-recipe .section-title { color:#BF360C; }
+.modal-section-template { background:#F3E5F5; border-left-color:#7B1FA2; }
+.modal-section-template .section-title { color:#4A148C; }
+.modal-section-template .section-hint { font-size:12px; color:#6A1B9A; background:#fff; padding:8px 10px; border-radius:6px; margin-bottom:10px; }
 .text-danger { color:var(--danger); }
 .text-success { color:var(--success); }
 .text-warning { color:#e17055; }
@@ -1143,41 +1160,53 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-row">
         <div class="form-group"><label>Ціна продажу, грн</label><input id="prod-price" type="number" step="0.01" value="0"></div>
       </div>
-      <div class="section-title">Друк</div>
-      <p style="font-size:12px;color:var(--text-light);margin:-6px 0 8px;">💡 Вкажіть скільки сторінок А4 ви друкуєте для однієї гри. А5 рахуйте як окрему сторінку (якщо друкуєте по одній на лист). Двосторонній = 2 сторінки.</p>
-      <div class="form-row">
-        <div class="form-group"><label>Сторінок друку А4</label><input id="prod-pages" type="number" step="1" value="0" placeholder="0"></div>
-        <div class="form-group"><label>Вартість друку (авто)</label><input id="prod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
-      </div>
-      <div class="section-title">Робота майстра</div>
-      <div class="form-row">
-        <div class="form-group"><label>Тип ставки</label>
-          <select id="prod-rate-type" onchange="updateRatePreview('prod')">
-            <option value="percent">% від ціни продажу</option>
-            <option value="fixed">Фіксована сума (грн/шт)</option>
-          </select>
+      <div class="modal-section modal-section-print">
+        <div class="section-title">🖨️ Друк</div>
+        <p class="section-hint">💡 Вкажи скільки сторінок кожного формату друкуєш на 1 гру. <strong>Двосторонній = 2 сторінки</strong>. А5 рахується як пів-А4 (по витраті чорнила).</p>
+        <div class="form-row">
+          <div class="form-group"><label>Сторінок А4</label><input id="prod-pages" type="number" step="1" value="0" placeholder="0" onchange="updatePrintPreview('prod')"></div>
+          <div class="form-group"><label>Сторінок А5</label><input id="prod-pages-a5" type="number" step="1" value="0" placeholder="0" onchange="updatePrintPreview('prod')"></div>
+          <div class="form-group"><label>Вартість друку (авто)</label><input id="prod-print-cost-preview" type="text" disabled style="background:#fff;"></div>
         </div>
-        <div class="form-group"><label>Значення</label><input id="prod-rate" type="number" step="0.01" value="25" onchange="updateRatePreview('prod')"></div>
-        <div class="form-group"><label>= Робота, грн</label><input id="prod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
       </div>
-      <div class="section-title">Пакування</div>
-      <div class="form-row">
-        <div class="form-group"><label>Комплект пакування</label>
-          <select id="prod-packaging-kit" onchange="updatePackagingPreview('prod')">
-            <option value="">— Без пакування —</option>
-          </select>
+      <div class="modal-section modal-section-work">
+        <div class="section-title">👩‍🎨 Робота майстра</div>
+        <div class="form-row">
+          <div class="form-group"><label>Тип ставки</label>
+            <select id="prod-rate-type" onchange="updateRatePreview('prod')">
+              <option value="percent">% від ціни продажу</option>
+              <option value="fixed">Фіксована сума (грн/шт)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Значення</label><input id="prod-rate" type="number" step="0.01" value="25" onchange="updateRatePreview('prod')"></div>
+          <div class="form-group"><label>= Робота, грн</label><input id="prod-rate-preview" type="text" disabled style="background:#fff;"></div>
         </div>
-        <div class="form-group"><label>Вартість пакування</label><input id="prod-packaging" type="text" disabled style="background:#f5f5f5;" value="0 грн"></div>
       </div>
-      <div class="section-title">Шаблон (одноразова інвестиція)</div>
-      <div class="form-row">
-        <div class="form-group"><label>Вартість шаблону, грн</label><input id="prod-template-cost" type="number" step="0.01" value="0" placeholder="0"></div>
-        <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="prod-template-qty" type="number" step="1" value="0" placeholder="Наприклад: 100"></div>
-        <div class="form-group"><label>= На 1 виріб</label><input id="prod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      <div class="modal-section modal-section-pack">
+        <div class="section-title">📦 Пакування</div>
+        <div class="form-row">
+          <div class="form-group"><label>Комплект пакування</label>
+            <select id="prod-packaging-kit" onchange="updatePackagingPreview('prod')">
+              <option value="">— Без пакування —</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Вартість пакування</label><input id="prod-packaging" type="text" disabled style="background:#fff;" value="0 грн"></div>
+        </div>
       </div>
-      <div class="section-title">Склад виробу (на 1 шт)</div>
-      <div id="prod-recipe"></div>
-      <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
+      <div class="modal-section modal-section-recipe">
+        <div class="section-title">🧩 Склад виробу (на 1 шт)</div>
+        <div id="prod-recipe"></div>
+        <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine()">+ Додати матеріал</button>
+      </div>
+      <div class="modal-section modal-section-template">
+        <div class="section-title">💎 Шаблон (одноразова інвестиція)</div>
+        <p class="section-hint">💡 Скільки заплатила <strong>один раз</strong> (дизайнер, ліцензія, макет). Ділиться на тираж і додається до собівартості кожної гри. Якщо не використовуєш — залиш 0.</p>
+        <div class="form-row">
+          <div class="form-group"><label>Вартість шаблону, грн</label><input id="prod-template-cost" type="number" step="0.01" value="0" placeholder="0"></div>
+          <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="prod-template-qty" type="number" step="1" value="0" placeholder="Наприклад: 100"></div>
+          <div class="form-group"><label>= На 1 виріб</label><input id="prod-template-preview" type="text" disabled style="background:#fff;"></div>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-product')">Скасувати</button>
@@ -1308,41 +1337,53 @@ a.order-link:hover { text-decoration:underline; }
       <div class="form-row">
         <div class="form-group"><label>Ціна продажу</label><input id="eprod-price" type="number" step="0.01"></div>
       </div>
-      <div class="section-title">Друк</div>
-      <p style="font-size:12px;color:var(--text-light);margin:-6px 0 8px;">💡 Скільки сторінок А4 друкуєш на 1 гру. А5 = окрема сторінка (якщо друкуєш по одній на лист). Двосторонній = 2 сторінки. Вартість друку задається у <a href="#" onclick="showPage('settings');closeModal('edit-product');return false;" style="color:var(--primary);">Налаштуваннях</a>.</p>
-      <div class="form-row">
-        <div class="form-group"><label>Сторінок друку А4</label><input id="eprod-pages" type="number" step="1"></div>
-        <div class="form-group"><label>Вартість друку (авто)</label><input id="eprod-print-cost-preview" type="text" disabled style="background:#f5f5f5;"></div>
-      </div>
-      <div class="section-title">Робота майстра</div>
-      <div class="form-row">
-        <div class="form-group"><label>Тип ставки</label>
-          <select id="eprod-rate-type" onchange="updateRatePreview('eprod')">
-            <option value="percent">% від ціни продажу</option>
-            <option value="fixed">Фіксована сума (грн/шт)</option>
-          </select>
+      <div class="modal-section modal-section-print">
+        <div class="section-title">🖨️ Друк</div>
+        <p class="section-hint">💡 Скільки сторінок кожного формату друкуєш на 1 гру. <strong>Двосторонній = 2 сторінки</strong>. А5 = пів-А4 по витраті чорнила. Вартість друку — у <a href="#" onclick="showPage('settings');closeModal('edit-product');return false;" style="color:var(--primary);">Налаштуваннях</a>.</p>
+        <div class="form-row">
+          <div class="form-group"><label>Сторінок А4</label><input id="eprod-pages" type="number" step="1" onchange="updatePrintPreview('eprod')"></div>
+          <div class="form-group"><label>Сторінок А5</label><input id="eprod-pages-a5" type="number" step="1" onchange="updatePrintPreview('eprod')"></div>
+          <div class="form-group"><label>Вартість друку (авто)</label><input id="eprod-print-cost-preview" type="text" disabled style="background:#fff;"></div>
         </div>
-        <div class="form-group"><label>Значення</label><input id="eprod-rate" type="number" step="0.01" onchange="updateRatePreview('eprod')"></div>
-        <div class="form-group"><label>= Робота, грн</label><input id="eprod-rate-preview" type="text" disabled style="background:#f5f5f5;"></div>
       </div>
-      <div class="section-title">Пакування</div>
-      <div class="form-row">
-        <div class="form-group"><label>Комплект пакування</label>
-          <select id="eprod-packaging-kit" onchange="updatePackagingPreview('eprod')">
-            <option value="">— Без пакування —</option>
-          </select>
+      <div class="modal-section modal-section-work">
+        <div class="section-title">👩‍🎨 Робота майстра</div>
+        <div class="form-row">
+          <div class="form-group"><label>Тип ставки</label>
+            <select id="eprod-rate-type" onchange="updateRatePreview('eprod')">
+              <option value="percent">% від ціни продажу</option>
+              <option value="fixed">Фіксована сума (грн/шт)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Значення</label><input id="eprod-rate" type="number" step="0.01" onchange="updateRatePreview('eprod')"></div>
+          <div class="form-group"><label>= Робота, грн</label><input id="eprod-rate-preview" type="text" disabled style="background:#fff;"></div>
         </div>
-        <div class="form-group"><label>Вартість пакування</label><input id="eprod-packaging" type="text" disabled style="background:#f5f5f5;" value="0 грн"></div>
       </div>
-      <div class="section-title">Шаблон (одноразова інвестиція)</div>
-      <div class="form-row">
-        <div class="form-group"><label>Вартість шаблону, грн</label><input id="eprod-template-cost" type="number" step="0.01" value="0"></div>
-        <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="eprod-template-qty" type="number" step="1" value="0"></div>
-        <div class="form-group"><label>= На 1 виріб</label><input id="eprod-template-preview" type="text" disabled style="background:#f5f5f5;"></div>
+      <div class="modal-section modal-section-pack">
+        <div class="section-title">📦 Пакування</div>
+        <div class="form-row">
+          <div class="form-group"><label>Комплект пакування</label>
+            <select id="eprod-packaging-kit" onchange="updatePackagingPreview('eprod')">
+              <option value="">— Без пакування —</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Вартість пакування</label><input id="eprod-packaging" type="text" disabled style="background:#fff;" value="0 грн"></div>
+        </div>
       </div>
-      <div class="section-title">Склад виробу</div>
-      <div id="eprod-recipe"></div>
-      <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
+      <div class="modal-section modal-section-recipe">
+        <div class="section-title">🧩 Склад виробу</div>
+        <div id="eprod-recipe"></div>
+        <button class="btn btn-outline btn-sm mt-8" onclick="addRecipeLine('eprod-recipe')">+ Додати</button>
+      </div>
+      <div class="modal-section modal-section-template">
+        <div class="section-title">💎 Шаблон (одноразова інвестиція)</div>
+        <p class="section-hint">💡 Скільки заплатила <strong>один раз</strong> (дизайнер, ліцензія, макет). Ділиться на тираж і додається до собівартості кожної гри. Якщо не використовуєш — залиш 0.</p>
+        <div class="form-row">
+          <div class="form-group"><label>Вартість шаблону, грн</label><input id="eprod-template-cost" type="number" step="0.01" value="0"></div>
+          <div class="form-group"><label>Тираж (на скільки виробів)</label><input id="eprod-template-qty" type="number" step="1" value="0"></div>
+          <div class="form-group"><label>= На 1 виріб</label><input id="eprod-template-preview" type="text" disabled style="background:#fff;"></div>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('edit-product')">Скасувати</button>
@@ -2112,7 +2153,8 @@ function getRecipeFromContainer(containerId) {
 function saveProduct() {
   var db = getDB();
   var p = { id:uid(), sku:v('prod-sku'), name:v('prod-name'), size:v('prod-size'), category:v('prod-category'),
-    pages:parseInt(v('prod-pages'))||0, sellPrice:n('prod-price'), workerRate:n('prod-rate'),
+    pages:parseInt(v('prod-pages'))||0, pagesA5:parseInt(v('prod-pages-a5'))||0,
+    sellPrice:n('prod-price'), workerRate:n('prod-rate'),
     workerRateType: v('prod-rate-type'), packagingKitId: v('prod-packaging-kit'), packagingCost: getSelectedPackagingCost('prod'),
     templateCost: n('prod-template-cost'), templateQty: parseInt(v('prod-template-qty'))||0,
     recipe:getRecipeFromContainer('prod-recipe'), stock:0, inProgress:0, active:true };
@@ -2136,6 +2178,7 @@ function editProduct(id) {
   populateCategorySelects();
   document.getElementById('eprod-category').value = p.category||'';
   document.getElementById('eprod-pages').value = p.pages||0;
+  var eA5 = document.getElementById('eprod-pages-a5'); if (eA5) eA5.value = p.pagesA5||0;
   document.getElementById('eprod-price').value = p.sellPrice;
   document.getElementById('eprod-rate-type').value = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
   document.getElementById('eprod-rate').value = p.workerRate || (db.workerRateDefault||{}).value || 25;
@@ -2164,6 +2207,7 @@ function updateProduct() {
   if(!p) return;
   p.sku = v('eprod-sku'); p.name = v('eprod-name'); p.size = v('eprod-size');
   p.category = v('eprod-category'); p.pages = parseInt(v('eprod-pages'))||0;
+  p.pagesA5 = parseInt(v('eprod-pages-a5'))||0;
   p.sellPrice = n('eprod-price'); p.workerRate = n('eprod-rate');
   p.workerRateType = v('eprod-rate-type'); p.packagingKitId = v('eprod-packaging-kit'); p.packagingCost = getSelectedPackagingCost('eprod');
   p.templateCost = n('eprod-template-cost'); p.templateQty = parseInt(v('eprod-template-qty'))||0;
@@ -2188,19 +2232,22 @@ function updateRatePreview(prefix) {
 }
 
 function updatePrintPreview(prefix) {
-  var pages = parseInt(v(prefix+'-pages'))||0;
+  var pagesA4 = parseInt(v(prefix+'-pages'))||0;
+  var pagesA5 = parseInt(v(prefix+'-pages-a5'))||0;
   var db = getDB();
   var costPerPage = (db.printerSettings||{}).costPerPageA4 || 0;
   var el = document.getElementById(prefix+'-print-cost-preview');
-  if (el) {
-    if (pages > 0 && costPerPage > 0) {
-      el.value = fmt(pages * costPerPage) + ' грн (' + pages + ' стор. × ' + fmt(costPerPage) + ')';
-    } else if (pages > 0) {
-      el.value = 'Вкажіть вартість друку в Налаштуваннях';
-    } else {
-      el.value = 'Без друку';
-    }
-  }
+  if (!el) return;
+  var totalPages = pagesA4 + pagesA5;
+  if (totalPages === 0) { el.value = 'Без друку'; return; }
+  if (costPerPage <= 0) { el.value = 'Вкажіть вартість друку в Налаштуваннях'; return; }
+  var costA4 = pagesA4 * costPerPage;
+  var costA5 = pagesA5 * costPerPage * 0.5;
+  var total = costA4 + costA5;
+  var parts = [];
+  if (pagesA4 > 0) parts.push(pagesA4+' А4');
+  if (pagesA5 > 0) parts.push(pagesA5+' А5');
+  el.value = fmt(total) + ' грн (' + parts.join(' + ') + ')';
 }
 
 function deleteProduct(id) {
@@ -2260,11 +2307,12 @@ function calcCost(product, materials, db) {
     var mat = materials.find(function(m){return m.id===r.materialId});
     if(mat) matCost += r.qty * mat.price;
   }
-  // Print cost
+  // Print cost (A4 + A5 at half-cost)
   var printCost = 0;
   var ps = db.printerSettings || {};
-  if ((product.pages||0) > 0 && (ps.costPerPageA4||0) > 0) {
+  if ((ps.costPerPageA4||0) > 0) {
     printCost = (product.pages||0) * ps.costPerPageA4;
+    printCost += (product.pagesA5||0) * ps.costPerPageA4 * 0.5;
   }
   // Packaging — use kit price if available (always up-to-date)
   var packagingCost = 0;
@@ -4150,7 +4198,10 @@ function renderCosts() {
       }
       if (cost.print > 0) {
         var ps = db.printerSettings||{};
-        detailHTML += '<tr><td style="padding-left:30px;">🖨 Друк</td><td>'+(p.pages||0)+' стор. А4</td><td>'+fmt(ps.costPerPageA4||0)+' грн/стор.</td><td>'+fmt(cost.print)+' грн</td></tr>';
+        var printParts = [];
+        if (p.pages > 0) printParts.push(p.pages+' А4');
+        if (p.pagesA5 > 0) printParts.push(p.pagesA5+' А5');
+        detailHTML += '<tr><td style="padding-left:30px;">🖨 Друк</td><td>'+printParts.join(' + ')+'</td><td>'+fmt(ps.costPerPageA4||0)+' грн/А4</td><td>'+fmt(cost.print)+' грн</td></tr>';
       }
       if (cost.packaging > 0) {
         detailHTML += '<tr><td style="padding-left:30px;">📎 Пакування</td><td></td><td></td><td>'+fmt(cost.packaging)+' грн</td></tr>';
