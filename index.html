@@ -515,9 +515,9 @@ a.order-link:hover { text-decoration:underline; }
 
 <!-- ========== ORDERS ========== -->
 <div id="orders" class="page">
-  <div class="flex-between">
-    <h2>Замовлення</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+    <h2 style="margin:0;">Замовлення</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
       <div style="display:flex;align-items:center;gap:6px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:8px;padding:4px 8px;">
         <span style="font-size:12px;color:#4A148C;font-weight:600;">З дати:</span>
         <input type="date" id="sync-from-date" style="border:none;background:transparent;font-size:13px;padding:2px 0;color:#4A148C;" title="Завантажити замовлення з CRM починаючи з цієї дати">
@@ -573,6 +573,20 @@ a.order-link:hover { text-decoration:underline; }
   <div class="table-wrap" style="margin-top:12px;">
     <table><thead><tr id="orders-thead"></tr></thead>
     <tbody id="orders-table"></tbody></table>
+  </div>
+  <div id="orders-pagination" style="display:none;margin-top:12px;padding:8px 12px;background:var(--bg);border-radius:10px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+      <span style="color:var(--text-light);">На сторінці:</span>
+      <select id="ord-page-size" onchange="setOrdPageSize(this.value)" style="padding:4px 8px;border-radius:6px;font-size:13px;">
+        <option value="10">10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="all">Всі</option>
+      </select>
+    </div>
+    <div id="ord-page-controls" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
+    <div id="ord-page-info" style="font-size:12px;color:var(--text-light);"></div>
   </div>
 </div>
 
@@ -3989,6 +4003,28 @@ function resetOrdCols() {
   renderOrdColSettings();
 }
 
+// ==================== PAGINATION ====================
+var _ordPage = 1;
+function getOrdPageSize() {
+  var v = localStorage.getItem('lipo_ord_page_size');
+  if (v === 'all') return 'all';
+  var n = parseInt(v, 10);
+  return (n && n > 0) ? n : 25;
+}
+function setOrdPageSize(v) {
+  localStorage.setItem('lipo_ord_page_size', v);
+  _ordPage = 1;
+  renderOrders();
+}
+function setOrdPage(p) {
+  _ordPage = Math.max(1, p);
+  renderOrders();
+  try {
+    var el = document.getElementById('orders');
+    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  } catch(e){}
+}
+
 function renderOrders() {
   initSyncDateInput();
   var db = getDB();
@@ -3996,6 +4032,10 @@ function renderOrders() {
   var statusFilter = document.getElementById('ord-status-filter').value;
   var channelFilter = document.getElementById('ord-channel-filter').value;
   var crmOnly = document.getElementById('ord-crm-only').checked;
+  // Reset page if filters changed (tracked via signature)
+  var filterSig = statusFilter + '|' + channelFilter + '|' + (crmOnly?'1':'0');
+  if (renderOrders._lastSig && renderOrders._lastSig !== filterSig) _ordPage = 1;
+  renderOrders._lastSig = filterSig;
   var statuses = db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
   var statusMap = {};
   var statusColors = {};
@@ -4023,7 +4063,18 @@ function renderOrders() {
     return true;
   });
 
-  document.getElementById('ord-count').textContent = 'Показано: '+filtered.length+' з '+db.orders.length;
+  // Pagination slice
+  var pageSize = getOrdPageSize();
+  var totalFiltered = filtered.length;
+  var pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalFiltered / pageSize));
+  if (_ordPage > pageCount) _ordPage = pageCount;
+  var pageStart = pageSize === 'all' ? 0 : (_ordPage - 1) * pageSize;
+  var pageEnd = pageSize === 'all' ? totalFiltered : Math.min(totalFiltered, pageStart + pageSize);
+  var pageItems = pageSize === 'all' ? filtered : filtered.slice(pageStart, pageEnd);
+
+  document.getElementById('ord-count').textContent = totalFiltered
+    ? 'Показано: '+(pageStart+1)+'–'+pageEnd+' з '+totalFiltered+(totalFiltered!==db.orders.length?' (всього '+db.orders.length+')':'')
+    : 'Показано: 0 з '+db.orders.length;
 
   // Column config
   var ordCols = getOrdCols();
@@ -4071,7 +4122,7 @@ function renderOrders() {
     }
   }
 
-  tb.innerHTML = filtered.map(function(o) {
+  tb.innerHTML = pageItems.map(function(o) {
     var itemsStr = o.items.map(function(i){return '<span style="font-size:12px;">'+(i.sku?'<code>'+esc(i.sku)+'</code> ':'')+esc(i.name)+' x'+i.qty+'</span>'}).join('<br>');
     var statusOpts = Object.keys(statusMap).map(function(k){return '<option value="'+k+'" '+(o.status===k?'selected':'')+'>'+statusMap[k]+'</option>';}).join('');
     var workerOpts = '<option value="">— не призначено —</option>'+getAllWorkerNames().map(function(w){return '<option value="'+esc(w)+'" '+(o.worker===w?'selected':'')+'>'+esc(wLabel(w))+'</option>';}).join('');
@@ -4087,11 +4138,65 @@ function renderOrders() {
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visOrdCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
 
+  // Pagination controls
+  renderOrdPagination(totalFiltered, pageSize, pageCount);
+
   // Also render channel & status managers
   renderChannelManager();
   if (document.getElementById('status-manager').style.display==='block') renderStatusManager();
   // Populate order modal channel dropdown
   populateOrderChannels();
+}
+
+function renderOrdPagination(total, pageSize, pageCount) {
+  var wrap = document.getElementById('orders-pagination');
+  var controls = document.getElementById('ord-page-controls');
+  var info = document.getElementById('ord-page-info');
+  var sel = document.getElementById('ord-page-size');
+  if (!wrap || !controls || !sel) return;
+
+  // Sync select value
+  sel.value = String(pageSize);
+
+  // Hide entire bar if <= 10 items AND default page size (no choice needed)
+  if (total <= 10 && pageSize !== 'all') {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+
+  if (pageSize === 'all' || pageCount <= 1) {
+    controls.innerHTML = '';
+    info.textContent = total + ' замовлень';
+    return;
+  }
+
+  // Build page buttons: « 1 … (cur-1) cur (cur+1) … N »
+  var btns = [];
+  function pageBtn(p, label, opts) {
+    opts = opts || {};
+    var disabled = opts.disabled ? 'disabled' : '';
+    var active = opts.active;
+    var style = 'padding:4px 10px;border-radius:6px;font-size:13px;border:1px solid '+(active?'var(--primary)':'var(--border)')+';background:'+(active?'var(--primary)':'#fff')+';color:'+(active?'#fff':'var(--text)')+';cursor:'+(opts.disabled?'not-allowed':'pointer')+';min-width:32px;opacity:'+(opts.disabled?'0.4':'1')+';font-weight:'+(active?'600':'400')+';';
+    return '<button '+disabled+' onclick="setOrdPage('+p+')" style="'+style+'">'+label+'</button>';
+  }
+  function ellipsis(){ return '<span style="padding:0 4px;color:var(--text-light);">…</span>'; }
+
+  btns.push(pageBtn(_ordPage-1, '‹', {disabled: _ordPage<=1}));
+
+  // Always show page 1
+  btns.push(pageBtn(1, '1', {active: _ordPage===1}));
+  if (_ordPage > 3) btns.push(ellipsis());
+  for (var p = Math.max(2, _ordPage-1); p <= Math.min(pageCount-1, _ordPage+1); p++) {
+    btns.push(pageBtn(p, String(p), {active: _ordPage===p}));
+  }
+  if (_ordPage < pageCount-2) btns.push(ellipsis());
+  if (pageCount > 1) btns.push(pageBtn(pageCount, String(pageCount), {active: _ordPage===pageCount}));
+
+  btns.push(pageBtn(_ordPage+1, '›', {disabled: _ordPage>=pageCount}));
+
+  controls.innerHTML = btns.join('');
+  info.textContent = 'Стор. ' + _ordPage + ' з ' + pageCount;
 }
 
 function confirmOrder(id) {
