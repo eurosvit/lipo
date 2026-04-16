@@ -541,7 +541,7 @@ const ONBOARDING_EMAILS = [
       </p>
       <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
         <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">
-          <strong>Порада дня:</strong> Почніть з розділу <strong>Матеріали</strong> — додайте тканини, фурнітуру та витратники. Для кожного вкажіть мінімальний залишок, і система сама попередить коли пора замовляти.
+          <strong>Порада дня:</strong> Почніть з розділу <strong>Матеріали</strong> — додайте липучки, папір, плівку та інші витратники. Для кожного вкажіть мінімальний залишок, і система сама попередить коли пора замовляти.
         </p>
       </div>
       <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
