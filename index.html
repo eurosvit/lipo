@@ -766,50 +766,58 @@ a.order-link:hover { text-decoration:underline; }
     <details style="margin-bottom:16px;background:#F3E5F5;border-left:3px solid var(--primary);border-radius:6px;padding:10px 14px;">
       <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#4A148C;">💡 Як це працює? (клікни щоб розгорнути)</summary>
       <div style="font-size:13px;line-height:1.6;color:#4A148C;margin-top:10px;">
-        <p style="margin:0 0 8px;">Щоб CRM автоматично рахував собівартість <strong>друку</strong> у кожній грі, потрібно знати дві речі:</p>
+        <p style="margin:0 0 8px;">Щоб CRM рахував собівартість друку, потрібно знати дві речі:</p>
         <ol style="margin:0 0 8px 20px;padding:0;">
-          <li><strong>Скільки коштує надрукувати 1 сторінку А4</strong> (чорнило + амортизація принтера)</li>
-          <li><strong>Скільки сторінок друку</strong> є в кожній грі (заповнюється в картці гри, поле "Сторінок друку А4")</li>
+          <li><strong>Ціну 1 мл чорнила</strong> (Крок 1: ділимо ціну пляшки на об'єм)</li>
+          <li><strong>Скільки мл чорнила йде на 1 сторінку А4</strong> — <strong>сумарно зі всіх танкерів разом</strong> (Крок 2). Неважливо якого кольору друк — важливий <em>загальний об'єм</em> фарби на лист.</li>
         </ol>
-        <p style="margin:0;">CRM перемножить: <code>Сторінок × Ціна_за_сторінку = Вартість друку гри</code>. Нижче заповни <strong>Крок 1 і Крок 2</strong> — система сама порахує ціну за сторінку.</p>
+        <p style="margin:0;">Формула: <code>мл/стор × грн/мл = грн за 1 сторінку А4</code>. А далі ця сума множиться на "Сторінок друку" у кожній грі.</p>
       </div>
     </details>
 
     <!-- Крок 1 — Чорнило -->
     <div style="padding:14px;background:#FAFAFA;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">🧴 Крок 1. Чорнило</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">🧴 Крок 1. Ціна чорнила</div>
       <div class="form-row">
         <div class="form-group">
           <label>Ціна однієї пляшки (грн)</label>
-          <input id="printer-refill-price" type="number" step="0.01" placeholder="Напр.: 350" onchange="recalcPrintCost()">
+          <input id="printer-refill-price" type="number" step="0.01" placeholder="Напр.: 170" onchange="recalcPrintCost()">
         </div>
         <div class="form-group">
           <label>Об'єм пляшки (мл)</label>
-          <input id="printer-refill-volume" type="number" step="1" placeholder="Напр.: 70" onchange="recalcPrintCost()">
+          <input id="printer-refill-volume" type="number" step="1" placeholder="Напр.: 180" onchange="recalcPrintCost()">
         </div>
       </div>
       <div id="printer-ml-result" style="margin-top:6px;font-size:13px;color:var(--text-light);"></div>
     </div>
 
-    <!-- Крок 2 — Ресурс -->
+    <!-- Крок 2 — Витрата на сторінку -->
     <div style="padding:14px;background:#FAFAFA;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">📄 Крок 2. Ресурс принтера</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--primary-dark);">💧 Крок 2. Витрата чорнила на 1 сторінку А4</div>
       <div class="form-row">
         <div class="form-group">
-          <label>Кількість кольорів у принтері</label>
-          <select id="printer-colors" onchange="recalcPrintCost()">
-            <option value="4">4 кольори</option>
-            <option value="6" selected>6 кольорів</option>
-            <option value="8">8 кольорів</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Сторінок А4 з однієї пляшки (приблизно)</label>
-          <input id="printer-pages-per-refill" type="number" step="1" placeholder="Напр.: 300" onchange="recalcPrintCost()">
+          <label>Мл чорнила на 1 сторінку А4 (сумарно всі кольори)</label>
+          <input id="printer-ml-per-page" type="number" step="0.1" placeholder="Напр.: 1.2" onchange="recalcPrintCost()">
         </div>
       </div>
-      <p class="text-muted" style="font-size:12px;margin:6px 0 0;">💡 Для фото-принтерів Epson/Galaxy із щільним кольоровим друком — зазвичай 250–400 сторінок А4 з пляшки 70 мл одного кольору.</p>
+      <div style="margin-top:10px;padding:10px 12px;background:#FFF3E0;border-left:3px solid #FB8C00;border-radius:4px;font-size:12px;color:#4A148C;">
+        <strong>🎨 Чому "сумарно всі кольори"?</strong><br>
+        Неважливо якого кольору друк — 1 мл синього або 0.3×6 мл різних кольорів коштують однаково. Просто відстеж <strong>загальний об'єм фарби</strong>, що йшов на 1 лист А4.
+      </div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:12px;color:var(--primary);font-weight:600;">📏 Як приблизно оцінити?</summary>
+        <div style="padding:10px;background:#FFF;border:1px solid var(--border);border-radius:4px;margin-top:6px;font-size:12px;line-height:1.7;">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+            <div><strong>📄 Легкий друк:</strong></div><div>0.3–0.6 мл/стор (текст, дрібна графіка)</div>
+            <div><strong>🎨 Середній:</strong></div><div>0.8–1.5 мл/стор (звичайні ігрові картки з кольорами)</div>
+            <div><strong>🌈 Щільний:</strong></div><div>1.5–3.0 мл/стор (суцільні яскраві заливки, PECS)</div>
+          </div>
+          <p style="margin:8px 0 0;color:var(--text-light);">Щоб виміряти точно: запиши рівні чорнил → надрукуй 50 стор. типових ігор → подивись скільки мл пішло сумарно зі всіх танкерів → поділи на 50.</p>
+        </div>
+      </details>
     </div>
+    <!-- Приховане поле кольорів (збереження для сумісності) -->
+    <input type="hidden" id="printer-colors" value="6">
 
     <!-- Крок 3 — Результат -->
     <div id="printer-result-box" style="padding:16px;background:linear-gradient(135deg,#E8F5E9,#FFF);border:2px solid var(--success);border-radius:8px;margin-bottom:12px;">
@@ -817,8 +825,8 @@ a.order-link:hover { text-decoration:underline; }
       <div id="printer-calc-formula" style="font-size:13px;color:var(--text-light);margin-bottom:6px;">Заповни Крок 1 і Крок 2 вище — побачиш результат тут.</div>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-top:8px;">
         <div>
-          <div style="font-size:11px;text-transform:uppercase;color:var(--text-light);">Вартість чорнил</div>
-          <div style="font-size:18px;font-weight:700;color:#1B5E20;"><span id="printer-cost-ml-display">—</span> грн/мл</div>
+          <div style="font-size:11px;text-transform:uppercase;color:var(--text-light);">Ціна чорнила</div>
+          <div style="font-size:16px;font-weight:700;color:#1B5E20;"><span id="printer-cost-ml-display">—</span> грн/мл</div>
         </div>
         <div style="flex:1;min-width:200px;">
           <div style="font-size:11px;text-transform:uppercase;color:var(--text-light);">Друк 1 стор. А4</div>
@@ -4373,10 +4381,12 @@ function renderSettings() {
   loadCrmSettings();
   // Load printer settings
   var ps = db.printerSettings || {};
-  document.getElementById('printer-colors').value = ps.colors || 6;
+  var colorsEl = document.getElementById('printer-colors');
+  if (colorsEl) colorsEl.value = ps.colors || 6;
   document.getElementById('printer-refill-price').value = ps.refillPrice || '';
   document.getElementById('printer-refill-volume').value = ps.refillVolumeMl || '';
-  document.getElementById('printer-pages-per-refill').value = ps.pagesPerRefill || '';
+  var mlPerPageEl = document.getElementById('printer-ml-per-page');
+  if (mlPerPageEl) mlPerPageEl.value = ps.mlPerPage || '';
   document.getElementById('printer-cost-per-page').value = ps.costPerPageA4 || 0;
   document.getElementById('printer-ink-cost-ml').value = ps.inkCostPerMl || 0;
   document.getElementById('printer-cost-per-page-manual').value = ps.costPerPageA4 || '';
@@ -4416,7 +4426,7 @@ function savePrinterSettings() {
     colors: parseInt(v('printer-colors'))||6,
     refillPrice: parseFloat(v('printer-refill-price'))||0,
     refillVolumeMl: parseFloat(v('printer-refill-volume'))||0,
-    pagesPerRefill: parseInt(v('printer-pages-per-refill'))||0,
+    mlPerPage: parseFloat(v('printer-ml-per-page'))||0,
     costPerPageA4: parseFloat(v('printer-cost-per-page'))||0,
     inkCostPerMl: parseFloat(v('printer-ink-cost-ml'))||0
   };
@@ -4424,18 +4434,17 @@ function savePrinterSettings() {
   alert('✅ Налаштування принтера збережено!');
 }
 
-// Автоматичний розрахунок з Кроку 1 + Кроку 2
+// Автоматичний розрахунок: грн/стор = мл/стор × грн/мл
 function recalcPrintCost() {
   var refillPrice = parseFloat(v('printer-refill-price'))||0;
   var refillVolume = parseFloat(v('printer-refill-volume'))||0;
-  var pagesPerRefill = parseInt(v('printer-pages-per-refill'))||0;
-  var colors = parseInt(v('printer-colors'))||6;
+  var mlPerPage = parseFloat(v('printer-ml-per-page'))||0;
   var mlResultEl = document.getElementById('printer-ml-result');
   var formulaEl = document.getElementById('printer-calc-formula');
   var mlDisplay = document.getElementById('printer-cost-ml-display');
   var pageDisplay = document.getElementById('printer-cost-page-display');
 
-  // Порахувати ціну за мл
+  // Крок 1: грн за мл
   var costPerMl = 0;
   if (refillPrice > 0 && refillVolume > 0) {
     costPerMl = refillPrice / refillVolume;
@@ -4444,11 +4453,11 @@ function recalcPrintCost() {
     mlResultEl.innerHTML = '';
   }
 
-  // Порахувати ціну за сторінку
+  // Крок 3: грн за сторінку = мл/стор × грн/мл
   var costPerPage = 0;
-  if (refillPrice > 0 && pagesPerRefill > 0) {
-    costPerPage = (refillPrice * colors) / pagesPerRefill;
-    if (formulaEl) formulaEl.innerHTML = '('+fmt(refillPrice)+' грн × '+colors+' кольорів) ÷ '+pagesPerRefill+' сторінок';
+  if (costPerMl > 0 && mlPerPage > 0) {
+    costPerPage = mlPerPage * costPerMl;
+    if (formulaEl) formulaEl.innerHTML = fmt(mlPerPage)+' мл/стор × '+fmt(costPerMl)+' грн/мл';
   } else if (formulaEl) {
     formulaEl.innerHTML = 'Заповни Крок 1 і Крок 2 вище — побачиш результат тут.';
   }
