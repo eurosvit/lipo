@@ -3971,29 +3971,55 @@ function renderSalary() {
   renderSalaryPayments(db, isW, wName);
 }
 
+var _editingSalaryId = null;
+
 function renderSalaryPayments(db, isW, wName) {
   var payments = (db.salaryPayments||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'')});
   if (isW && wName) payments = payments.filter(function(p){return p.worker===wName});
 
   document.getElementById('salary-payments-table').innerHTML = payments.map(function(p){
     var workerTd = isW ? '' : '<td data-label="Майстер">'+esc(p.worker)+'</td>';
-    var actionsTd = isW ? '' : '<td><button class="btn btn-danger btn-sm" onclick="deleteSalaryPayment(\''+p.id+'\')">🗑</button></td>';
+    var actionsTd = isW ? '' : '<td><button class="btn btn-outline btn-sm" title="Редагувати" onclick="openPaySalaryModal(\''+p.id+'\')" style="margin-right:4px;">✏️</button><button class="btn btn-danger btn-sm" title="Видалити" onclick="deleteSalaryPayment(\''+p.id+'\')">🗑</button></td>';
     return '<tr><td data-label="Дата">'+esc(p.date)+'</td>'+workerTd+'<td data-label="Сума"><strong>'+fmt(p.amount)+' грн</strong></td><td data-label="Коментар">'+esc(p.note||'—')+'</td>'+actionsTd+'</tr>';
   }).join('') || '<tr><td colspan="'+(isW?3:5)+'" class="text-muted" style="text-align:center;padding:30px;">Виплат ще не було</td></tr>';
 }
 
-function openPaySalaryModal() {
+function openPaySalaryModal(editId) {
   var db = getDB();
+  _editingSalaryId = editId || null;
+  var editing = _editingSalaryId ? (db.salaryPayments||[]).find(function(p){return p.id===_editingSalaryId}) : null;
+
+  // Build worker list from completed production + existing payments + linked workers
   var workers = [];
   var wSet = {};
   db.production.filter(function(x){return x.status==='completed'}).forEach(function(b){
     if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);}
   });
+  (db.salaryPayments||[]).forEach(function(p){ if(!wSet[p.worker]){wSet[p.worker]=true;workers.push(p.worker);} });
+  // Ensure current worker is in the list when editing
+  if (editing && !wSet[editing.worker]) { workers.push(editing.worker); wSet[editing.worker] = true; }
+
   document.getElementById('pay-salary-worker').innerHTML = workers.map(function(w){return '<option value="'+esc(w)+'">'+esc(w)+'</option>';}).join('');
-  document.getElementById('pay-salary-amount').value = '';
-  document.getElementById('pay-salary-note').value = '';
-  document.getElementById('pay-salary-date').value = new Date().toISOString().slice(0,10);
-  updatePaySalaryHint();
+
+  // Update modal title and button label
+  var titleEl = document.querySelector('#modal-pay-salary .modal-header h3');
+  var btnEl = document.querySelector('#modal-pay-salary .modal-actions .btn-primary');
+  if (editing) {
+    if (titleEl) titleEl.textContent = '✏️ Редагувати виплату';
+    if (btnEl) btnEl.textContent = '💾 Зберегти';
+    document.getElementById('pay-salary-worker').value = editing.worker;
+    document.getElementById('pay-salary-amount').value = editing.amount;
+    document.getElementById('pay-salary-note').value = editing.note || '';
+    document.getElementById('pay-salary-date').value = editing.date || new Date().toISOString().slice(0,10);
+    document.getElementById('pay-salary-hint').textContent = '';
+  } else {
+    if (titleEl) titleEl.textContent = '💸 Виплата зарплати';
+    if (btnEl) btnEl.textContent = '💸 Виплатити';
+    document.getElementById('pay-salary-amount').value = '';
+    document.getElementById('pay-salary-note').value = '';
+    document.getElementById('pay-salary-date').value = new Date().toISOString().slice(0,10);
+    updatePaySalaryHint();
+  }
   openModal('pay-salary');
 }
 
@@ -4016,7 +4042,13 @@ function saveSalaryPayment() {
   if (!worker || !amount || amount <= 0) { alert('Вкажіть майстра та суму'); return; }
   var db = getDB();
   if (!db.salaryPayments) db.salaryPayments = [];
-  db.salaryPayments.push({ id:uid(), worker:worker, amount:amount, note:note, date:date });
+  if (_editingSalaryId) {
+    var existing = db.salaryPayments.find(function(p){return p.id===_editingSalaryId});
+    if (existing) { existing.worker = worker; existing.amount = amount; existing.note = note; existing.date = date; }
+    _editingSalaryId = null;
+  } else {
+    db.salaryPayments.push({ id:uid(), worker:worker, amount:amount, note:note, date:date });
+  }
   saveDB(db);
   closeModal('pay-salary');
   renderSalary();
