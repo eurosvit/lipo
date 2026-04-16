@@ -2036,8 +2036,13 @@ function getDB() {
 var _saveDirty = false;
 var _saveInFlight = false;
 var _saveRetryTimer = null;
+var _saveBackoffMs = 3000;       // поточна пауза між ретраями (зростає експоненційно)
+var _saveBackoffMax = 60000;     // максимум 60с
+var _saveAuthFailed = false;     // якщо сесія померла — не мучимо сервер
+var _saveLastError = null;       // для діагностики через клік на індикаторі
 
 function _doSyncSave(db, isRetry) {
+  if (_saveAuthFailed) { _updateSaveIndicator('auth-error'); return Promise.resolve(); }
   _saveInFlight = true;
   _updateSaveIndicator('saving');
   return fetch('/api/data', {
@@ -2046,36 +2051,86 @@ function _doSyncSave(db, isRetry) {
     body: JSON.stringify(db),
     keepalive: true  // allow request to finish even if tab closes
   }).then(function(r){
-    if (!r.ok) throw new Error('HTTP '+r.status);
+    if (!r.ok) {
+      var err = new Error('HTTP '+r.status);
+      err.status = r.status;
+      throw err;
+    }
     _saveInFlight = false;
     _saveDirty = false;
+    _saveBackoffMs = 3000; // reset backoff after success
+    _saveLastError = null;
     _updateSaveIndicator('saved');
     if (_saveRetryTimer) { clearTimeout(_saveRetryTimer); _saveRetryTimer = null; }
   }).catch(function(err){
     _saveInFlight = false;
+    _saveLastError = err;
+    console.warn('[lipo] save failed:', err && err.message, err);
+    // Auth failure — stop retrying, prompt re-login
+    if (err && err.status === 401) {
+      _saveAuthFailed = true;
+      _updateSaveIndicator('auth-error');
+      return;
+    }
+    // Other errors — retry with exponential backoff
     _updateSaveIndicator('error');
-    // Retry after 3s with latest data (may have been updated in the meantime)
     if (_saveRetryTimer) clearTimeout(_saveRetryTimer);
+    var delay = _saveBackoffMs;
+    _saveBackoffMs = Math.min(_saveBackoffMs * 2, _saveBackoffMax);
     _saveRetryTimer = setTimeout(function(){
-      if (_saveDirty) {
+      if (_saveDirty && !_saveAuthFailed) {
         var latest = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
         if (latest) _doSyncSave(latest, true);
       }
-    }, 3000);
+    }, delay);
   });
+}
+
+// Manual retry trigger (click on the indicator)
+function _retrySaveNow() {
+  if (_saveAuthFailed) {
+    if (confirm('Сесія завершена. Перейти на сторінку входу? (дані у цьому вкладенні залишаться)')) {
+      window.location.href = '/login?return=' + encodeURIComponent(window.location.pathname);
+    }
+    return;
+  }
+  if (_saveRetryTimer) { clearTimeout(_saveRetryTimer); _saveRetryTimer = null; }
+  _saveBackoffMs = 3000;
+  var latest = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+  if (latest) _doSyncSave(latest, false);
 }
 
 function _updateSaveIndicator(state) {
   var el = document.getElementById('save-indicator');
   if (!el) return;
-  var show = function(text, color) { el.textContent = text; el.style.color = color; el.style.opacity = '1'; };
-  var hide = function(){ el.style.opacity = '0'; setTimeout(function(){ if (el.style.opacity === '0') el.textContent = ''; }, 250); };
+  var show = function(text, color, bg, clickable) {
+    el.textContent = text;
+    el.style.color = color;
+    el.style.background = bg || 'rgba(255,255,255,0.96)';
+    el.style.opacity = '1';
+    el.style.cursor = clickable ? 'pointer' : 'default';
+    el.style.pointerEvents = clickable ? 'auto' : 'none';
+    el.onclick = clickable ? _retrySaveNow : null;
+    if (clickable) el.title = 'Натисніть, щоб повторити зараз';
+    else el.removeAttribute('title');
+  };
+  var hide = function(){
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
+    el.onclick = null;
+    setTimeout(function(){ if (el.style.opacity === '0') el.textContent = ''; }, 250);
+  };
   if (state === 'saving') { show('⏳ Збереження...', '#999'); }
   else if (state === 'saved') {
     show('✓ Збережено', '#4CAF50');
     setTimeout(function(){ if (el.textContent === '✓ Збережено') hide(); }, 1500);
   }
-  else if (state === 'error') { show('⚠ Не збережено — повтор за 3с', '#E53935'); }
+  else if (state === 'auth-error') {
+    show('🔑 Сесія завершена — увійти', '#fff', '#E53935', true);
+  }
+  else if (state === 'error') {
+    show('⚠ Не збережено — повторити', '#E53935', '#FFEBEE', true);
+  }
   else { hide(); }
 }
 
