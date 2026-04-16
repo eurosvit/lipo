@@ -85,7 +85,8 @@ input:focus, select:focus { outline:none; border-color:var(--primary); box-shado
 textarea { resize:vertical; min-height:60px; }
 
 /* BUTTONS */
-.btn { padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+.btn { padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+a.btn, a.btn:hover, a.btn:focus, a.btn:visited { text-decoration:none; }
 .btn-primary { background:var(--primary); color:#fff; }
 .btn-primary:hover { background:var(--primary-dark); }
 .btn-success { background:var(--success); color:#fff; }
@@ -360,26 +361,6 @@ a.order-link:hover { text-decoration:underline; }
     <div id="dash-top-products" style="margin-top:16px;"></div>
   </div>
 
-  <!-- Community board widget -->
-  <div class="card" style="margin-top:20px;background:linear-gradient(135deg,#F3E5F5 0%,#E1BEE7 100%);border:1px solid #CE93D8;">
-    <div class="flex-between" style="align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="section-title" style="margin:0;color:#4A148C;">🛒 Дошка спільноти LipoLand</div>
-      <span class="badge badge-ok" style="font-size:11px;">приватна ТГ-група</span>
-    </div>
-    <p style="font-size:13px;color:#4A148C;margin:6px 0 14px;">Продавай шаблони та обладнання, шукай потрібне, домовляйся про співпрацю — все в одному місці.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a class="btn btn-outline" style="background:white;" href="https://t.me/c/3902589684/4" target="_blank" rel="noopener">📐 Продаж шаблонів</a>
-      <a class="btn btn-outline" style="background:white;" href="https://t.me/c/3902589684/5" target="_blank" rel="noopener">🖨 Продаж обладнання</a>
-      <a class="btn btn-outline" style="background:white;" href="https://t.me/c/3902589684/7" target="_blank" rel="noopener">📮 Запити (шукаю)</a>
-      <a class="btn btn-outline" style="background:white;" href="https://t.me/c/3902589684/6" target="_blank" rel="noopener">🤝 Співпраця</a>
-      <a class="btn btn-primary" href="https://t.me/c/3902589684/1" target="_blank" rel="noopener">💬 Загальний чат</a>
-    </div>
-    <div style="margin-top:12px;padding:10px 12px;background:white;border-radius:6px;border:1px dashed #CE93D8;">
-      <div style="font-size:12px;color:#4A148C;margin-bottom:6px;"><strong>Ще не в групі?</strong> Приєднайся — безкоштовно, майстрині допомагають одна одній:</div>
-      <a class="btn btn-primary btn-sm" href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" rel="noopener" style="display:inline-block;">💜 Вступити в спільноту</a>
-    </div>
-  </div>
-
   <div class="section-title">Критичні залишки матеріалів</div>
   <div class="table-wrap">
     <table><thead><tr><th>Матеріал</th><th>Залишок</th><th>Мінімум</th><th>Статус</th><th>Вистачить на</th></tr></thead>
@@ -389,6 +370,26 @@ a.order-link:hover { text-decoration:underline; }
   <div class="table-wrap">
     <table><thead><tr><th>Артикул</th><th>Гра</th><th>Категорія</th><th>На складі</th><th>В роботі</th><th>Можна зібрати</th></tr></thead>
     <tbody id="dash-products"></tbody></table>
+  </div>
+
+  <!-- Community board widget (at the bottom of dashboard) -->
+  <div class="card" style="margin-top:28px;background:linear-gradient(135deg,#F3E5F5 0%,#E1BEE7 100%);border:1px solid #CE93D8;">
+    <div class="flex-between" style="align-items:center;flex-wrap:wrap;gap:8px;">
+      <div class="section-title" style="margin:0;color:#4A148C;">🛒 Дошка спільноти LipoLand</div>
+      <span class="badge badge-ok" style="font-size:11px;">приватна ТГ-група</span>
+    </div>
+    <p style="font-size:13px;color:#4A148C;margin:6px 0 14px;">Продавай шаблони та обладнання, шукай потрібне, домовляйся про співпрацю — все в одному місці.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn btn-outline" style="background:white;text-decoration:none;" href="https://t.me/c/3902589684/4" target="_blank" rel="noopener">📐 Продаж шаблонів</a>
+      <a class="btn btn-outline" style="background:white;text-decoration:none;" href="https://t.me/c/3902589684/5" target="_blank" rel="noopener">🖨 Продаж обладнання</a>
+      <a class="btn btn-outline" style="background:white;text-decoration:none;" href="https://t.me/c/3902589684/7" target="_blank" rel="noopener">📮 Запити (шукаю)</a>
+      <a class="btn btn-outline" style="background:white;text-decoration:none;" href="https://t.me/c/3902589684/6" target="_blank" rel="noopener">🤝 Співпраця</a>
+      <a class="btn btn-primary" style="text-decoration:none;" href="https://t.me/c/3902589684/1" target="_blank" rel="noopener">💬 Загальний чат</a>
+    </div>
+    <div style="margin-top:12px;padding:10px 12px;background:white;border-radius:6px;border:1px dashed #CE93D8;">
+      <div style="font-size:12px;color:#4A148C;margin-bottom:6px;"><strong>Ще не в групі?</strong> Приєднайся — безкоштовно, майстрині допомагають одна одній:</div>
+      <a class="btn btn-primary btn-sm" href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">💜 Вступити в спільноту</a>
+    </div>
   </div>
 </div>
 
