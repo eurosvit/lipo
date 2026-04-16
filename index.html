@@ -7649,11 +7649,28 @@ function renderAdminUsers(users) {
     '<th>Ім\'я</th><th>Email</th><th>Тип</th><th>Статус</th><th>Тріал до</th><th>Підписка до</th><th>Промо</th><th>Реєстрація</th><th>Останній вхід</th><th>Дії</th>' +
     '</tr></thead><tbody>';
   users.forEach(function(u) {
-    var status = '', statusClass = '';
-    if (u.role === 'admin') { status = 'Адмін'; statusClass = 'color:var(--primary);font-weight:600;'; }
-    else if (u.subscription_ends_at && new Date(u.subscription_ends_at) > now) { status = 'PRO'; statusClass = 'color:var(--success);font-weight:600;'; }
-    else if (u.trial_ends_at && new Date(u.trial_ends_at) > now) { status = 'Тріал'; statusClass = 'color:#FF9800;font-weight:600;'; }
-    else { status = 'Закінчився'; statusClass = 'color:#999;'; }
+    var status = '', statusClass = '', statusTitle = '';
+    var worksForPre = Array.isArray(u.works_for) ? u.works_for : [];
+    var hasOwnPro = u.subscription_ends_at && new Date(u.subscription_ends_at) > now;
+    var hasOwnTrial = u.trial_ends_at && new Date(u.trial_ends_at) > now;
+    var isActiveWorker = worksForPre.length > 0;
+
+    if (u.role === 'admin') {
+      status = 'Адмін'; statusClass = 'color:var(--primary);font-weight:600;';
+    } else if (hasOwnPro) {
+      status = 'PRO' + (isActiveWorker ? ' + 👷' : '');
+      statusClass = 'color:var(--success);font-weight:600;';
+      if (isActiveWorker) statusTitle = 'Має власну PRO-підписку і також є майстром';
+    } else if (isActiveWorker) {
+      // Майстер без власної PRO — доступ через власника, власний тріал не застосовується
+      status = '👷 Майстер';
+      statusClass = 'color:#E65100;font-weight:600;';
+      statusTitle = 'Доступ через підписку власника. Власний тріал — ' + (hasOwnTrial ? 'активний до ' + new Date(u.trial_ends_at).toLocaleDateString('uk-UA') + ' (не використовується)' : 'закінчився');
+    } else if (hasOwnTrial) {
+      status = 'Тріал'; statusClass = 'color:#FF9800;font-weight:600;';
+    } else {
+      status = 'Закінчився'; statusClass = 'color:#999;';
+    }
 
     var trialDate = u.trial_ends_at ? new Date(u.trial_ends_at).toLocaleDateString('uk-UA') : '—';
     var subDate = u.subscription_ends_at ? new Date(u.subscription_ends_at).toLocaleDateString('uk-UA') : '—';
@@ -7689,7 +7706,7 @@ function renderAdminUsers(users) {
       '<td>' + esc(u.name || '—') + '</td>' +
       '<td style="font-size:12px;">' + esc(u.email) + '</td>' +
       '<td style="font-size:12px;">' + typeHtml + '</td>' +
-      '<td style="' + statusClass + '">' + status + '</td>' +
+      '<td style="' + statusClass + '"' + (statusTitle ? ' title="' + esc(statusTitle) + '"' : '') + '>' + status + '</td>' +
       '<td style="font-size:12px;">' + trialDate + '</td>' +
       '<td style="font-size:12px;">' + subDate + '</td>' +
       '<td style="font-size:12px;">' + esc(u.promo_used || '—') + '</td>' +
