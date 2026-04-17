@@ -518,18 +518,18 @@ a.order-link:hover { text-decoration:underline; }
   <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
     <h2 style="margin:0;">Замовлення</h2>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-      <div style="display:flex;align-items:center;gap:6px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:8px;padding:4px 8px;">
+      <div class="crm-only" style="display:flex;align-items:center;gap:6px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:8px;padding:4px 8px;">
         <span style="font-size:12px;color:#4A148C;font-weight:600;">З дати:</span>
         <input type="date" id="sync-from-date" style="border:none;background:transparent;font-size:13px;padding:2px 0;color:#4A148C;" title="Завантажити замовлення з CRM починаючи з цієї дати">
         <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(30)" title="Останні 30 днів">30д</button>
         <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(90)" title="Останні 90 днів">90д</button>
       </div>
-      <button class="btn btn-success" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
+      <button class="btn btn-success crm-only" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
       <button class="btn btn-outline" onclick="manualRefreshNpTracking()" id="np-refresh-btn" title="Оновити статуси посилок Нової Пошти за ТТН">📍 Трекінг НП</button>
       <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-light);margin:8px 0;">Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення (зберігається між сесіями). Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
+  <p id="orders-desc" style="font-size:13px;color:var(--text-light);margin:8px 0;">Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення (зберігається між сесіями). Призначайте майстра, вказуйте канал продажу, відстежуйте статус.</p>
   <div id="sync-status" style="margin-top:8px;"></div>
   <div style="margin-top:8px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('channel-manager').style.display=document.getElementById('channel-manager').style.display==='none'?'block':'none'">📢 Канали продажів</button>
@@ -558,7 +558,7 @@ a.order-link:hover { text-decoration:underline; }
     <select id="ord-channel-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі канали</option>
     </select>
-    <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
+    <label class="crm-only" style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
     <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
     <button class="btn btn-outline btn-sm" onclick="toggleOrdColSettings()" title="Налаштування стовпчиків">⚙️</button>
   </div>
@@ -835,7 +835,7 @@ a.order-link:hover { text-decoration:underline; }
 <!-- ========== SETTINGS ========== -->
 <div id="settings" class="page">
   <h2>Налаштування</h2>
-  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Майстри, підключення CRM SalesDrive, вартість друку, сповіщення та експорт даних.</p>
+  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Майстри, вартість друку, сповіщення та експорт даних.</p>
   <div class="card" style="max-width:600px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Майстри (локальні)</div>
     <div id="workers-list" class="mb-16"></div>
@@ -906,8 +906,9 @@ a.order-link:hover { text-decoration:underline; }
     <span id="tax-settings-saved" style="font-size:13px;color:var(--success);display:none;margin-left:10px;">✅ Збережено</span>
     <div id="tax-preview" style="margin-top:12px;font-size:13px;padding:10px 12px;background:#F3E5F5;border-radius:8px;color:#4A148C;"></div>
   </div>
-  <div class="card" style="max-width:600px;margin-bottom:16px;">
-    <div class="section-title" style="margin-top:0;">SalesDrive CRM</div>
+  <div class="card" id="crm-settings-card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">🔗 Інтеграція із зовнішньою CRM</div>
+    <p style="font-size:12px;color:var(--text-light);margin:-4px 0 12px;">Підключіть SalesDrive CRM для імпорту замовлень. Якщо ви не використовуєте CRM — просто пропустіть цей блок.</p>
     <div class="form-group mb-16"><label>Домен CRM</label><input id="sd-domain" placeholder="vashdomen.salesdrive.me" value=""></div>
     <div class="form-group mb-16"><label>API-ключ</label><input id="sd-apikey" type="password" placeholder="Вставте API-ключ" value=""></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -923,7 +924,7 @@ a.order-link:hover { text-decoration:underline; }
     <details style="margin-bottom:16px;background:#F3E5F5;border-left:3px solid var(--primary);border-radius:6px;padding:10px 14px;">
       <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#4A148C;">💡 Як це працює? (клікни щоб розгорнути)</summary>
       <div style="font-size:13px;line-height:1.6;color:#4A148C;margin-top:10px;">
-        <p style="margin:0 0 8px;">Щоб CRM рахував собівартість друку, потрібно знати дві речі:</p>
+        <p style="margin:0 0 8px;">Щоб система рахувала собівартість друку, потрібно знати дві речі:</p>
         <ol style="margin:0 0 8px 20px;padding:0;">
           <li><strong>Ціну 1 мл чорнила</strong> (Крок 1: ділимо ціну пляшки на об'єм)</li>
           <li><strong>Скільки мл чорнила йде на 1 сторінку А4</strong> — <strong>сумарно зі всіх танкерів разом</strong> (Крок 2). Неважливо якого кольору друк — важливий <em>загальний об'єм</em> фарби на лист.</li>
@@ -4493,6 +4494,19 @@ function getCrmSettings() {
   try { return JSON.parse(localStorage.getItem(SD_SETTINGS_KEY)) || {}; } catch { return {}; }
 }
 
+function hasCrmKey() {
+  var s = getCrmSettings();
+  return !!(s.domain && s.apiKey);
+}
+
+function toggleCrmVisibility() {
+  var show = hasCrmKey();
+  var els = document.querySelectorAll('.crm-only');
+  for (var i = 0; i < els.length; i++) {
+    els[i].style.display = show ? '' : 'none';
+  }
+}
+
 function saveCrmSettings() {
   var settings = { domain: v('sd-domain').trim(), apiKey: v('sd-apikey').trim() };
   if(!settings.domain || !settings.apiKey) return alert('Заповніть домен та API-ключ');
@@ -4502,7 +4516,8 @@ function saveCrmSettings() {
     .then(function(data){
       if(data.ok) {
         localStorage.setItem(SD_SETTINGS_KEY, JSON.stringify(settings));
-        alert('Збережено!');
+        toggleCrmVisibility();
+        alert('Збережено! Кнопки синхронізації тепер доступні в розділі Замовлення.');
       } else {
         alert('Помилка: '+(data.error||'невідомо'));
       }
@@ -4517,7 +4532,15 @@ function loadCrmSettings() {
       document.getElementById('sd-domain').value = settings.domain;
       document.getElementById('sd-apikey').value = settings.apiKey;
     }
-  }).catch(function(){});
+    toggleCrmVisibility();
+    // Update orders description based on CRM presence
+    var desc = document.getElementById('orders-desc');
+    if (desc) {
+      desc.textContent = hasCrmKey()
+        ? 'Замовлення з CRM або створені вручну. Оберіть дату, з якої підтягти замовлення. Призначайте майстра, вказуйте канал продажу, відстежуйте статус.'
+        : 'Замовлення створені вручну. Призначайте майстра, вказуйте канал продажу, відстежуйте статус.';
+    }
+  }).catch(function(){ toggleCrmVisibility(); });
 }
 
 function testCrmConnection() {
@@ -4818,6 +4841,26 @@ function syncSalesDrive() {
   function processOrdersBatch(orders) {
 
       orders.forEach(function(o) {
+        // === DEBUG TTN: log first 5 orders FULL structure ===
+        if (_ttnDebugCount === undefined) _ttnDebugCount = 0;
+        if (_ttnDebugCount < 5) {
+          _ttnDebugCount++;
+          console.warn('[lipo] 🔍 CRM ORDER #'+o.id+' KEYS:', Object.keys(o).join(', '));
+          if (o.ord_delivery_data) console.warn('[lipo] 🔍 DELIVERY DATA:', JSON.stringify(o.ord_delivery_data));
+          // Search ALL string fields for 14-digit numbers (potential TTN)
+          var possibleTtns = [];
+          Object.keys(o).forEach(function(k) {
+            var val = String(o[k]||'');
+            if (/\d{13,14}/.test(val)) possibleTtns.push(k+'='+val.slice(0,50));
+            if (typeof o[k] === 'object' && o[k]) {
+              Object.keys(o[k]).forEach(function(k2) {
+                var v2 = String(o[k][k2]||'');
+                if (/\d{13,14}/.test(v2)) possibleTtns.push(k+'.'+k2+'='+v2.slice(0,50));
+              });
+            }
+          });
+          if (possibleTtns.length) console.warn('[lipo] 🔍 POSSIBLE TTN FIELDS:', possibleTtns.join(' | '));
+        }
         // Filter: only products with "lipoland" or "Lipoland" in name
         var lipoProducts = (o.products||[]).filter(function(p) {
           return (p.text||'').toLowerCase().indexOf('lipoland') !== -1;
@@ -4852,7 +4895,33 @@ function syncSalesDrive() {
         var shipCity = o.shipping_city || o.shippingCity || (o.ord_delivery_data && o.ord_delivery_data.cityName) || '';
         var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || (o.ord_delivery_data && (o.ord_delivery_data.branchNumber || o.ord_delivery_data.wareHouseRef)) || '';
         var shipAddress = o.shipping_address || o.shippingAddress || (o.ord_delivery_data && o.ord_delivery_data.address) || '';
-        var ttn = o.ord_delivery_data && (o.ord_delivery_data.trackingNumber || o.ord_delivery_data.ttn) || o.trackingNumber || '';
+        // TTN: try many possible field paths from SalesDrive
+        var dd = o.ord_delivery_data || {};
+        var ttn = dd.trackingNumber || dd.ttn || dd.tracking_number || dd.declarationNumber
+          || dd.declaration_number || dd.waybill || dd.IntDocNumber || dd.intDocNumber
+          || dd.number || dd.docNumber || dd.doc_number || dd.expressWaybill
+          || o.trackingNumber || o.tracking_number || o.ttn || o.declarationNumber
+          || o.waybill || o.number || o.expressWaybill || '';
+        // Also check customFields if present
+        if (!ttn && o.customFields) {
+          var cf = o.customFields;
+          Object.keys(cf).forEach(function(k) {
+            if (!ttn && /\d{13,14}/.test(String(cf[k]||''))) {
+              console.warn('[lipo] TTN found in customFields.'+k+':', cf[k]);
+              ttn = cf[k];
+            }
+          });
+        }
+        // Check any field with "ttn" or "tracking" or "декларац" in name
+        if (!ttn) {
+          Object.keys(o).forEach(function(k) {
+            if (!ttn && /ttn|track|декларац|waybill|ттн/i.test(k) && o[k]) {
+              ttn = String(o[k]);
+            }
+          });
+        }
+        ttn = String(ttn||'').trim();
+        if (ttn) console.warn('[lipo] ✅ CRM order #'+o.id+' TTN found: "'+ttn+'"');
 
         // Best-effort payment mapping
         var payMethod = o.payment_method || o.paymentMethod || '';
@@ -4900,7 +4969,14 @@ function syncSalesDrive() {
             if (!existing.city && shipCity) existing.city = shipCity;
             if (!existing.warehouse && shipWarehouse) existing.warehouse = String(shipWarehouse);
             if (!existing.address && shipAddress) existing.address = shipAddress;
-            if (!existing.ttn && ttn) existing.ttn = String(ttn);
+            // TTN: ALWAYS update from CRM (user may add TTN after initial sync)
+            if (ttn) {
+              if (existing.ttn !== ttn) {
+                console.log('[lipo] Updating TTN for order #'+existing.num+': "'+existing.ttn+'" → "'+ttn+'"');
+                existing.ttn = ttn;
+                updatedCount++;
+              }
+            }
             if (!existing.paymentType && paymentType) existing.paymentType = paymentType;
             if (!existing.paymentStatus && paymentStatus) existing.paymentStatus = paymentStatus;
           }
@@ -4940,9 +5016,22 @@ function syncSalesDrive() {
       btn.disabled = false;
       btn.textContent = '🔄 Синхронізувати з CRM';
       var cappedNote = (info && info.totalPages > MAX_PAGES) ? '<br><span class="text-muted" style="font-size:12px;">⚠ Показано перші '+MAX_PAGES+' сторінок. Виберіть новіший період, щоб охопити менше замовлень.</span>' : '';
+      // Count orders with TTN for user feedback
+      var ordersWithTtn = db.orders.filter(function(x){return x.ttn && x.ttn.length > 5;}).length;
+      var ttnNote = ordersWithTtn ? '<br><span class="text-muted" style="font-size:12px;">📦 Замовлень з ТТН: <strong>'+ordersWithTtn+'</strong></span>' : '';
       statusEl.innerHTML = '<span class="text-success">✅ Синхронізовано з '+esc(fromStr.slice(0,10))+'! Замовлень в CRM: <strong>'+totalFetched+'</strong>, нових: <strong>'+newCount+'</strong>, оновлено: '+updatedCount+'</span>' +
-        '<br><span class="text-muted" style="font-size:12px;">Останнє оновлення: '+new Date().toLocaleString('uk')+'</span>' + cappedNote;
+        '<br><span class="text-muted" style="font-size:12px;">Останнє оновлення: '+new Date().toLocaleString('uk')+'</span>' + ttnNote + cappedNote;
       renderOrders();
+      // Auto-trigger NP tracking for newly imported TTNs
+      if (ordersWithTtn > 0 && typeof trackNpOrders === 'function') {
+        console.log('[lipo] Auto-tracking NP after sync, orders with TTN:', ordersWithTtn);
+        trackNpOrders({force:true}).then(function(r){
+          if (r && r.updated > 0) {
+            statusEl.innerHTML += '<br><span class="text-success" style="font-size:12px;">🚚 Трекінг НП оновлено: <strong>'+r.updated+'</strong> замовлень</span>';
+            renderOrders();
+          }
+        }).catch(function(){});
+      }
     })
     .catch(function(err) {
       btn.disabled = false;
