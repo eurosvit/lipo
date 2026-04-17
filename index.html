@@ -2234,6 +2234,21 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
     _doSyncSave(localRaw, false);
     console.info('[lipo] Local data is newer (ts='+localTs+' vs server '+serverTs+') — pushing up');
   } else if (serverHasContent) {
+    // Merge: preserve local worker/note/channel assignments that server might be missing
+    if (localHasContent && localRaw.orders && serverData.orders) {
+      var localMap = {};
+      localRaw.orders.forEach(function(o){ if(o.id) localMap[o.id] = o; });
+      serverData.orders.forEach(function(o) {
+        var loc = localMap[o.id];
+        if (loc) {
+          if (loc.worker && !o.worker) o.worker = loc.worker;
+          if (loc.note && !o.note) o.note = loc.note;
+          if (loc.channel && !o.channel) o.channel = loc.channel;
+          if (loc.ttn && !o.ttn) o.ttn = loc.ttn;
+          if (loc.tracking && !o.tracking) o.tracking = loc.tracking;
+        }
+      });
+    }
     _dbCache = serverData;
     localStorage.setItem(DB_KEY, JSON.stringify(serverData));
   }
