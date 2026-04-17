@@ -552,6 +552,10 @@ a.order-link:hover { text-decoration:underline; }
     </div>
   </div>
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <input type="text" id="ord-search" placeholder="🔍 Пошук..." onkeyup="renderOrders()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;width:180px;">
+    <input type="date" id="ord-date-from" onchange="renderOrders()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;" title="Від дати">
+    <span style="color:var(--text-light);font-size:12px;">—</span>
+    <input type="date" id="ord-date-to" onchange="renderOrders()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;" title="До дати">
     <select id="ord-status-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі статуси</option>
     </select>
@@ -560,6 +564,7 @@ a.order-link:hover { text-decoration:underline; }
     </select>
     <label class="crm-only" style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="ord-crm-only" onchange="renderOrders()"> Тільки з CRM</label>
     <span id="ord-count" class="text-muted" style="font-size:13px;"></span>
+    <button class="btn btn-outline btn-sm" onclick="exportOrdersCsv()" title="Експорт в CSV">📥 CSV</button>
     <button class="btn btn-outline btn-sm" onclick="toggleOrdColSettings()" title="Налаштування стовпчиків">⚙️</button>
   </div>
   <div id="ord-col-settings" style="display:none;margin-top:8px;padding:16px;background:var(--bg);border-radius:10px;max-width:500px;">
@@ -4163,7 +4168,8 @@ var _defaultOrdCols = [
   { id:'delivery', label:'Доставка', visible:false },
   { id:'ttn', label:'ТТН', visible:false },
   { id:'channel', label:'Канал', visible:true },
-  { id:'worker', label:'Майстер', visible:true }
+  { id:'worker', label:'Майстер', visible:true },
+  { id:'note', label:'📝', visible:false }
 ];
 
 function getOrdCols() {
@@ -4291,6 +4297,52 @@ function resetOrdCols() {
 
 // ==================== PAGINATION ====================
 var _ordPage = 1;
+var _ordSortCol = 'date';
+var _ordSortDir = 'desc';
+function toggleOrdSort(col) {
+  if (_ordSortCol === col) _ordSortDir = _ordSortDir === 'desc' ? 'asc' : 'desc';
+  else { _ordSortCol = col; _ordSortDir = col === 'total' || col === 'date' ? 'desc' : 'asc'; }
+  renderOrders();
+}
+
+function exportOrdersCsv() {
+  var db = getDB();
+  var orders = db.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  var header = ['#','Дата','Клієнт','Телефон','Товари','Сума','Статус','Канал','Оплата','ТТН','Майстер','Нотатка'];
+  var rows = orders.map(function(o) {
+    var items = (o.items||[]).map(function(i){return (i.name||'')+'x'+i.qty}).join('; ');
+    return [o.num, o.date, o.client||((o.firstName||'')+' '+(o.lastName||'')).trim(), o.phone||'', items, o.total||0, o.status||'', o.channel||'', (o.paymentType||'')+' '+(o.paymentStatus||''), o.ttn||'', o.worker||'', o.note||''];
+  });
+  var csv = '\uFEFF' + [header].concat(rows).map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(';'); }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'orders_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function inlineEditNote(td, orderId, currentVal) {
+  if (td.querySelector('textarea')) return;
+  var ta = document.createElement('textarea');
+  ta.value = currentVal.replace(/\\n/g, '\n');
+  ta.placeholder = 'Нотатка...';
+  ta.rows = 2;
+  ta.style.cssText = 'width:100%;font-size:12px;padding:4px 8px;border:2px solid var(--primary);border-radius:6px;outline:none;resize:vertical;min-width:150px;';
+  td.innerHTML = '';
+  td.appendChild(ta);
+  ta.focus();
+  function save() {
+    var val = ta.value.trim();
+    var db = getDB();
+    var ord = db.orders.find(function(x){return x.id===orderId});
+    if (ord) { ord.note = val; saveDB(db); }
+    renderOrders();
+  }
+  ta.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') renderOrders();
+  });
+  ta.addEventListener('blur', save);
+}
 function getOrdPageSize() {
   var v = localStorage.getItem('lipo_ord_page_size');
   if (v === 'all') return 'all';
@@ -4321,7 +4373,10 @@ function renderOrders() {
   var channelFilter = document.getElementById('ord-channel-filter').value;
   var crmOnly = document.getElementById('ord-crm-only').checked;
   // Reset page if filters changed (tracked via signature)
-  var filterSig = statusFilter + '|' + channelFilter + '|' + (crmOnly?'1':'0');
+  var searchQ = (document.getElementById('ord-search') ? document.getElementById('ord-search').value || '' : '').trim().toLowerCase();
+  var dateFrom = document.getElementById('ord-date-from') ? document.getElementById('ord-date-from').value : '';
+  var dateTo = document.getElementById('ord-date-to') ? document.getElementById('ord-date-to').value : '';
+  var filterSig = statusFilter + '|' + channelFilter + '|' + (crmOnly?'1':'0') + '|' + searchQ + '|' + dateFrom + '|' + dateTo;
   if (renderOrders._lastSig && renderOrders._lastSig !== filterSig) _ordPage = 1;
   renderOrders._lastSig = filterSig;
   var statuses = db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
@@ -4340,7 +4395,17 @@ function renderOrders() {
   var curChFilter = chFilterEl.value;
   chFilterEl.innerHTML = '<option value="">Всі канали</option>' + channels.map(function(ch){ return '<option value="'+esc(ch)+'" '+(curChFilter===ch?'selected':'')+'>'+esc(ch)+'</option>'; }).join('');
 
-  var filtered = db.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || b.num - a.num; }).filter(function(o) {
+  var filtered = db.orders.slice().sort(function(a,b) {
+    var dir = _ordSortDir === 'asc' ? 1 : -1;
+    switch(_ordSortCol) {
+      case 'date': return dir * ((a.date||'').localeCompare(b.date||'') || a.num - b.num);
+      case 'total': return dir * ((Number(a.total)||0) - (Number(b.total)||0));
+      case 'client': return dir * ((a.client||a.firstName||'').localeCompare(b.client||b.firstName||''));
+      case 'status': return dir * ((a.status||'').localeCompare(b.status||''));
+      case 'ttn': return dir * ((a.ttn||'').localeCompare(b.ttn||''));
+      default: return dir * ((b.date||'').localeCompare(a.date||'') || b.num - a.num);
+    }
+  }).filter(function(o) {
     if(statusFilter && o.status!==statusFilter) return false;
     if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
@@ -4350,6 +4415,17 @@ function renderOrders() {
     }
     return true;
   });
+  if (searchQ) {
+    filtered = filtered.filter(function(o) {
+      return (o.client||'').toLowerCase().indexOf(searchQ) !== -1
+        || ((o.firstName||'')+' '+(o.lastName||'')).toLowerCase().indexOf(searchQ) !== -1
+        || (o.phone||'').indexOf(searchQ) !== -1
+        || (o.ttn||'').indexOf(searchQ) !== -1
+        || String(o.num).indexOf(searchQ) !== -1;
+    });
+  }
+  if (dateFrom) filtered = filtered.filter(function(o){ return (o.date||'') >= dateFrom; });
+  if (dateTo) filtered = filtered.filter(function(o){ return (o.date||'') <= dateTo; });
 
   // Pagination slice
   var pageSize = getOrdPageSize();
@@ -4363,8 +4439,13 @@ function renderOrders() {
   // Total sum across the filtered set (not just current page)
   var totalSum = filtered.reduce(function(s, o){ return s + (Number(o.total)||0); }, 0);
   var sumStr = fmt(totalSum) + ' грн';
-  document.getElementById('ord-count').textContent = totalFiltered
-    ? 'Показано: '+(pageStart+1)+'–'+pageEnd+' з '+totalFiltered+(totalFiltered!==db.orders.length?' (всього '+db.orders.length+')':'')+' на '+sumStr
+  var paidCount = filtered.filter(function(o){ return o.paymentStatus === 'paid'; }).length;
+  var paidSum = filtered.filter(function(o){ return o.paymentStatus === 'paid'; }).reduce(function(s,o){ return s + (Number(o.total)||0); }, 0);
+  document.getElementById('ord-count').innerHTML = totalFiltered
+    ? 'Показано: '+(pageStart+1)+'–'+pageEnd+' з '+totalFiltered+
+      (totalFiltered!==db.orders.length?' (всього '+db.orders.length+')':'')+
+      ' &nbsp;•&nbsp; <strong style="color:var(--primary);">'+sumStr+'</strong>'+
+      ' &nbsp;•&nbsp; <span style="color:var(--success);">✅ Оплачено: '+paidCount+' ('+fmt(paidSum)+' грн)</span>'
     : 'Показано: 0 з '+db.orders.length;
 
   // Column config
@@ -4373,7 +4454,10 @@ function renderOrders() {
 
   // Render thead
   var thead = document.getElementById('orders-thead');
-  thead.innerHTML = '<th>#</th>' + visOrdCols.map(function(c){ return '<th>'+c.label+'</th>'; }).join('') + '<th>Дії</th>';
+  thead.innerHTML = '<th>#</th>' + visOrdCols.map(function(c){
+    var arrow = _ordSortCol === c.id ? (_ordSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+    return '<th style="cursor:pointer;user-select:none;" onclick="toggleOrdSort(\''+c.id+'\')">'+c.label+arrow+'</th>';
+  }).join('') + '<th>Дії</th>';
 
   var channelOpts = '<option value="">—</option>' + channels.map(function(ch){ return '<option value="'+esc(ch)+'">'+esc(ch)+'</option>'; }).join('');
 
@@ -4384,7 +4468,7 @@ function renderOrders() {
       case 'date': return '<td data-label="Дата">'+o.date+'</td>';
       case 'client': {
         var cname = o.client || ((o.firstName||'') + ' ' + (o.lastName||'')).trim() || '—';
-        return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br><span class="text-muted" style="font-size:11px;">'+esc(o.phone)+'</span>':'')+'</td>';
+        return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br><a href="tel:'+esc(o.phone)+'" style="font-size:11px;color:var(--text-light);">'+esc(o.phone)+'</a>':'')+'</td>';
       }
       case 'phone': return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
       case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
@@ -4430,6 +4514,12 @@ function renderOrders() {
       }
       case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
       case 'worker': return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
+      case 'note': {
+        var noteVal = o.note || '';
+        var noteIcon = noteVal ? '📝' : '<span class="text-muted">+</span>';
+        var notePreview = noteVal ? ' <span style="font-size:11px;color:var(--text-light);max-width:100px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;white-space:nowrap;">'+esc(noteVal.slice(0,30))+'</span>' : '';
+        return '<td data-label="Нотатка" style="cursor:pointer;min-width:60px;" onclick="inlineEditNote(this,\''+o.id+'\',\''+esc(noteVal.replace(/'/g,"\\'")).replace(/\n/g,'\\n')+'\')">'+noteIcon+notePreview+'</td>';
+      }
       default: return '<td>—</td>';
     }
   }
