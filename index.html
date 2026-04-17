@@ -4963,7 +4963,10 @@ function syncSalesDrive() {
           else if (prov.indexOf('ukr') !== -1) carrier = 'ukrposhta';
         }
         // TTN: ord_delivery_data is an ARRAY in SalesDrive!
-        var dd = (Array.isArray(o.ord_delivery_data) && o.ord_delivery_data.length > 0) ? o.ord_delivery_data[0] : (typeof o.ord_delivery_data === 'object' && !Array.isArray(o.ord_delivery_data) && o.ord_delivery_data) || {};
+        var _raw = o.ord_delivery_data;
+        var dd = {};
+        if (Array.isArray(_raw) && _raw[0]) dd = _raw[0];
+        else if (_raw && typeof _raw === 'object' && !Array.isArray(_raw)) dd = _raw;
         var ttn = dd.trackingNumber || dd.ttn || dd.IntDocNumber || dd.intDocNumber || '';
         if (!ttn) ttn = o.trackingNumber || o.ttn || '';
         // Fallback: check primaryContact.comment for 14-digit numbers
