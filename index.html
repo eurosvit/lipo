@@ -4922,25 +4922,10 @@ function syncSalesDrive() {
         });
         if(lipoProducts.length === 0) return;
 
-        // DEBUG: dump FULL structure for first 5 Lipoland orders to find NP TTN field
-        if (_ttnDebugCount < 5) {
+        // Log TTN extraction for debugging (first 5 orders only)
+        if (_ttnDebugCount < 5 && ttn) {
           _ttnDebugCount++;
-          console.warn('[lipo] 📦 LIPOLAND #'+o.id+' ALL KEYS:', Object.keys(o).join(', '));
-          // Deep scan for TTN-like values in ALL nested fields
-          var found = [];
-          function scan(obj, prefix) {
-            if (!obj || typeof obj !== 'object') return;
-            Object.keys(obj).forEach(function(k) {
-              var v = obj[k];
-              var path = prefix ? prefix+'.'+k : k;
-              if (typeof v === 'string' && /\d{13,14}/.test(v)) found.push(path+'="'+v+'"');
-              else if (typeof v === 'object' && v !== null && !Array.isArray(v)) scan(v, path);
-              else if (Array.isArray(v)) v.forEach(function(item,i){ if(typeof item==='object') scan(item, path+'['+i+']'); });
-            });
-          }
-          scan(o, '');
-          if (found.length) console.warn('[lipo] 📦 LIPOLAND #'+o.id+' TTN-LIKE VALUES:', found.join(' | '));
-          console.warn('[lipo] 📦 LIPOLAND #'+o.id+' JSON:', JSON.stringify(o).slice(0,3000));
+          console.log('[lipo] ✅ TTN imported: order #'+o.id+' → '+ttn+' (carrier: '+(carrier||dd.provider||'?')+')');
         }
 
         var contact = o.primaryContact || {};
@@ -4968,48 +4953,24 @@ function syncSalesDrive() {
           else if (sm.indexOf('самовив') !== -1 || sm.indexOf('pickup') !== -1) carrier = 'pickup';
           else carrier = 'other';
         }
-        var shipCity = o.shipping_city || o.shippingCity || (o.ord_delivery_data && o.ord_delivery_data.cityName) || '';
-        var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || (o.ord_delivery_data && (o.ord_delivery_data.branchNumber || o.ord_delivery_data.wareHouseRef)) || '';
-        var shipAddress = o.shipping_address || o.shippingAddress || (o.ord_delivery_data && o.ord_delivery_data.address) || o.adresaDostavki || '';
-        // TTN: try many possible field paths from SalesDrive
-        var dd = o.ord_delivery_data || {};
-        var ttn = dd.trackingNumber || dd.ttn || dd.tracking_number || dd.declarationNumber
-          || dd.declaration_number || dd.waybill || dd.IntDocNumber || dd.intDocNumber
-          || dd.number || dd.docNumber || dd.doc_number || dd.expressWaybill
-          || o.trackingNumber || o.tracking_number || o.ttn || o.declarationNumber
-          || o.waybill || o.number || o.expressWaybill || '';
-        // Also check customFields if present
-        if (!ttn && o.customFields) {
-          var cf = o.customFields;
-          Object.keys(cf).forEach(function(k) {
-            if (!ttn && /\d{13,14}/.test(String(cf[k]||''))) {
-              console.warn('[lipo] TTN found in customFields.'+k+':', cf[k]);
-              ttn = cf[k];
-            }
-          });
+        var shipCity = o.shipping_city || o.shippingCity || dd.cityName || '';
+        var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || dd.branchNumber || dd.wareHouseRef || '';
+        var shipAddress = o.shipping_address || o.shippingAddress || dd.address || o.adresaDostavki || '';
+        // Auto-detect carrier from delivery data
+        if (!carrier && dd.provider) {
+          var prov = String(dd.provider).toLowerCase();
+          if (prov.indexOf('nova') !== -1) carrier = 'nova';
+          else if (prov.indexOf('ukr') !== -1) carrier = 'ukrposhta';
         }
-        // Check any field with "ttn" or "tracking" or "декларац" in name
+        // TTN: ord_delivery_data is an ARRAY in SalesDrive!
+        var dd = Array.isArray(o.ord_delivery_data) ? o.ord_delivery_data[0] : (o.ord_delivery_data || {});
+        var ttn = dd.trackingNumber || dd.ttn || dd.IntDocNumber || dd.intDocNumber || '';
+        if (!ttn) ttn = o.trackingNumber || o.ttn || '';
+        // Fallback: check primaryContact.comment for 14-digit numbers
         if (!ttn) {
-          Object.keys(o).forEach(function(k) {
-            if (!ttn && /ttn|track|декларац|waybill|ттн/i.test(k) && o[k]) {
-              ttn = String(o[k]);
-            }
-          });
-        }
-        // Extract TTN from primaryContact.comment (SalesDrive stores TTN there!)
-        // Format: "— 200\ndi 20451417934300\nмд 20451417935596"
-        if (!ttn) {
-          var comment = (o.primaryContact && o.primaryContact.comment) || o.comment || '';
+          var comment = (o.primaryContact && o.primaryContact.comment) || '';
           var ttnMatch = String(comment).match(/\b(\d{14})\b/);
-          if (ttnMatch) {
-            ttn = ttnMatch[1];
-            console.warn('[lipo] ✅ TTN from comment for order #'+o.id+': "'+ttn+'"');
-          }
-        }
-        // Also try adresaDostavki field
-        if (!ttn && o.adresaDostavki) {
-          var addrMatch = String(o.adresaDostavki).match(/\b(\d{14})\b/);
-          if (addrMatch) ttn = addrMatch[1];
+          if (ttnMatch) ttn = ttnMatch[1];
         }
         ttn = String(ttn||'').trim();
         // Auto-detect carrier from TTN format
