@@ -4950,7 +4950,7 @@ function syncSalesDrive() {
 
         var shipMethod = o.shipping_method || o.shippingMethod || '';
         var carrier = '';
-        if (shipMethod) {
+        if (shipMethod && isNaN(shipMethod)) {
           var sm = String(shipMethod).toLowerCase();
           if (sm.indexOf('нова') !== -1 || sm.indexOf('nova') !== -1 || sm.indexOf('np') !== -1) carrier = 'nova';
           else if (sm.indexOf('укрпошт') !== -1 || sm.indexOf('ukrposhta') !== -1 || sm.indexOf('ukr') !== -1) carrier = 'ukrposhta';
@@ -4977,8 +4977,8 @@ function syncSalesDrive() {
           if (ttnMatch) ttn = ttnMatch[1];
         }
         ttn = String(ttn||'').trim();
-        // Auto-detect carrier from TTN format
-        if (ttn && !carrier && /^\d{14}$/.test(ttn)) carrier = 'nova';
+        // Auto-detect carrier from TTN format (override 'other' too)
+        if (ttn && (!carrier || carrier === 'other') && /^\d{14}$/.test(ttn)) carrier = 'nova';
         if (ttn) console.warn('[lipo] ✅ CRM order #'+o.id+' TTN result: "'+ttn+'" carrier: '+carrier);
 
         // Best-effort payment mapping
