@@ -4866,28 +4866,31 @@ function syncSalesDrive() {
     });
   }
 
+  var _ttnDebugCount = 0;
+
   function processOrdersBatch(orders) {
 
       orders.forEach(function(o) {
-        // === DEBUG TTN: log first 5 orders FULL structure ===
-        if (_ttnDebugCount === undefined) _ttnDebugCount = 0;
-        if (_ttnDebugCount < 5) {
+        // === DEBUG TTN: log first 5 Lipoland orders with FULL structure ===
+        // Also scan ALL fields for potential TTN (13-14 digit numbers)
+        var possibleTtns = [];
+        Object.keys(o).forEach(function(k) {
+          var val = String(o[k]||'');
+          if (/\d{13,14}/.test(val)) possibleTtns.push(k+'="'+val.slice(0,50)+'"');
+          if (typeof o[k] === 'object' && o[k] !== null) {
+            Object.keys(o[k]).forEach(function(k2) {
+              var v2 = String(o[k][k2]||'');
+              if (/\d{13,14}/.test(v2)) possibleTtns.push(k+'.'+k2+'="'+v2.slice(0,50)+'"');
+            });
+          }
+        });
+        if (possibleTtns.length > 0) {
+          console.warn('[lipo] 🔍 ORDER #'+o.id+' HAS POSSIBLE TTN:', possibleTtns.join(' | '));
+        }
+        if (_ttnDebugCount < 3) {
           _ttnDebugCount++;
-          console.warn('[lipo] 🔍 CRM ORDER #'+o.id+' KEYS:', Object.keys(o).join(', '));
-          if (o.ord_delivery_data) console.warn('[lipo] 🔍 DELIVERY DATA:', JSON.stringify(o.ord_delivery_data));
-          // Search ALL string fields for 14-digit numbers (potential TTN)
-          var possibleTtns = [];
-          Object.keys(o).forEach(function(k) {
-            var val = String(o[k]||'');
-            if (/\d{13,14}/.test(val)) possibleTtns.push(k+'='+val.slice(0,50));
-            if (typeof o[k] === 'object' && o[k]) {
-              Object.keys(o[k]).forEach(function(k2) {
-                var v2 = String(o[k][k2]||'');
-                if (/\d{13,14}/.test(v2)) possibleTtns.push(k+'.'+k2+'='+v2.slice(0,50));
-              });
-            }
-          });
-          if (possibleTtns.length) console.warn('[lipo] 🔍 POSSIBLE TTN FIELDS:', possibleTtns.join(' | '));
+          console.warn('[lipo] 🔍 CRM ORDER #'+o.id+' ALL KEYS:', Object.keys(o).join(', '));
+          console.warn('[lipo] 🔍 CRM ORDER #'+o.id+' FULL:', JSON.stringify(o).slice(0,2000));
         }
         // Filter: only products with "lipoland" or "Lipoland" in name
         var lipoProducts = (o.products||[]).filter(function(p) {
