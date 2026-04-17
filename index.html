@@ -4925,7 +4925,7 @@ function syncSalesDrive() {
         }
         var shipCity = o.shipping_city || o.shippingCity || (o.ord_delivery_data && o.ord_delivery_data.cityName) || '';
         var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || (o.ord_delivery_data && (o.ord_delivery_data.branchNumber || o.ord_delivery_data.wareHouseRef)) || '';
-        var shipAddress = o.shipping_address || o.shippingAddress || (o.ord_delivery_data && o.ord_delivery_data.address) || '';
+        var shipAddress = o.shipping_address || o.shippingAddress || (o.ord_delivery_data && o.ord_delivery_data.address) || o.adresaDostavki || '';
         // TTN: try many possible field paths from SalesDrive
         var dd = o.ord_delivery_data || {};
         var ttn = dd.trackingNumber || dd.ttn || dd.tracking_number || dd.declarationNumber
@@ -4951,8 +4951,25 @@ function syncSalesDrive() {
             }
           });
         }
+        // Extract TTN from primaryContact.comment (SalesDrive stores TTN there!)
+        // Format: "— 200\ndi 20451417934300\nмд 20451417935596"
+        if (!ttn) {
+          var comment = (o.primaryContact && o.primaryContact.comment) || o.comment || '';
+          var ttnMatch = String(comment).match(/\b(\d{14})\b/);
+          if (ttnMatch) {
+            ttn = ttnMatch[1];
+            console.warn('[lipo] ✅ TTN from comment for order #'+o.id+': "'+ttn+'"');
+          }
+        }
+        // Also try adresaDostavki field
+        if (!ttn && o.adresaDostavki) {
+          var addrMatch = String(o.adresaDostavki).match(/\b(\d{14})\b/);
+          if (addrMatch) ttn = addrMatch[1];
+        }
         ttn = String(ttn||'').trim();
-        if (ttn) console.warn('[lipo] ✅ CRM order #'+o.id+' TTN found: "'+ttn+'"');
+        // Auto-detect carrier from TTN format
+        if (ttn && !carrier && /^\d{14}$/.test(ttn)) carrier = 'nova';
+        if (ttn) console.warn('[lipo] ✅ CRM order #'+o.id+' TTN result: "'+ttn+'" carrier: '+carrier);
 
         // Best-effort payment mapping
         var payMethod = o.payment_method || o.paymentMethod || '';
