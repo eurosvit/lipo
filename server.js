@@ -181,6 +181,20 @@ async function initDB() {
     )
   `);
 
+  // Announcements (admin → all users popups)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS announcements (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      image_url TEXT DEFAULT '',
+      btn_text TEXT DEFAULT '',
+      btn_url TEXT DEFAULT '',
+      active BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   // Seed default promo codes
   await pool.query(`
     INSERT INTO promo_codes (code, free_days, max_uses) VALUES ('LISICHKA2FREE', 30, NULL)
@@ -1452,6 +1466,55 @@ const server = http.createServer(async (req, res) => {
       if (!code) { sendJSON(res, 400, { error: 'code required' }); return; }
       await pool.query("UPDATE promo_codes SET active = NOT active WHERE code = $1", [code]);
       sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- ADMIN: Get announcements ----
+    if (req.method === 'GET' && url === '/api/admin/announcements') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const result = await pool.query("SELECT * FROM announcements ORDER BY created_at DESC");
+      sendJSON(res, 200, result.rows);
+      return;
+    }
+
+    // ---- ADMIN: Create/update announcement ----
+    if (req.method === 'POST' && url === '/api/admin/announcements') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const { id, title, body: text, image_url, btn_text, btn_url, active } = body;
+      if (id) {
+        await pool.query(
+          "UPDATE announcements SET title=$1, body=$2, image_url=$3, btn_text=$4, btn_url=$5, active=$6 WHERE id=$7",
+          [title||'', text||'', image_url||'', btn_text||'', btn_url||'', !!active, id]
+        );
+      } else {
+        await pool.query(
+          "INSERT INTO announcements (title, body, image_url, btn_text, btn_url, active) VALUES ($1,$2,$3,$4,$5,$6)",
+          [title||'', text||'', image_url||'', btn_text||'', btn_url||'', !!active]
+        );
+      }
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- ADMIN: Delete announcement ----
+    if (req.method === 'POST' && url === '/api/admin/announcements/delete') {
+      const user = await getSessionUser(req);
+      if (!user || user.role !== 'admin') { sendJSON(res, 403, { error: 'Forbidden' }); return; }
+      const body = JSON.parse(await readBody(req));
+      await pool.query("DELETE FROM announcements WHERE id = $1", [body.id]);
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- PUBLIC: Get active announcement (for all logged-in users) ----
+    if (req.method === 'GET' && url === '/api/announcement') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 200, { announcement: null }); return; }
+      const result = await pool.query("SELECT id, title, body, image_url, btn_text, btn_url FROM announcements WHERE active = true ORDER BY created_at DESC LIMIT 1");
+      sendJSON(res, 200, { announcement: result.rows[0] || null });
       return;
     }
 

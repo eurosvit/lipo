@@ -1176,6 +1176,31 @@ a.order-link:hover { text-decoration:underline; }
     <div style="overflow-x:auto;" id="admin-promo-table"></div>
   </div>
 
+  <!-- Announcements -->
+  <div class="card" style="padding:20px;margin-bottom:24px;">
+    <h3 style="margin:0 0 16px;">📢 Оголошення для користувачів</h3>
+    <p style="font-size:12px;color:var(--text-light);margin:-8px 0 16px;">Попап з'явиться у кожного користувача в правому нижньому куті. Активним може бути лише одне оголошення.</p>
+    <div style="background:var(--bg);border-radius:10px;padding:16px;margin-bottom:16px;">
+      <input id="ann-id" type="hidden" value="">
+      <div class="form-group mb-16"><label>Заголовок</label><input id="ann-title" placeholder="🎉 Нова функція!" maxlength="100"></div>
+      <div class="form-group mb-16"><label>Текст</label><textarea id="ann-body" rows="3" placeholder="Опишіть оновлення або акцію..." style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical;"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group" style="margin:0;"><label>URL картинки (необов'язково)</label><input id="ann-image" placeholder="https://..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin:0;"><label>Текст кнопки</label><input id="ann-btn-text" placeholder="Детальніше"></div>
+          <div class="form-group" style="margin:0;"><label>Посилання кнопки</label><input id="ann-btn-url" placeholder="https://..."></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center;">
+        <button class="btn btn-primary" onclick="saveAnnouncement(true)">📢 Опублікувати</button>
+        <button class="btn btn-outline" onclick="saveAnnouncement(false)">💾 Зберегти чернетку</button>
+        <button class="btn btn-outline" onclick="clearAnnouncementForm()" style="margin-left:auto;">↩ Очистити</button>
+      </div>
+      <div id="ann-preview" style="margin-top:12px;"></div>
+    </div>
+    <div id="ann-list"></div>
+  </div>
+
   <!-- Recent registrations -->
   <div class="card" style="padding:20px;margin-bottom:24px;">
     <h3 style="margin:0 0 16px;">🆕 Останні реєстрації</h3>
@@ -7949,6 +7974,9 @@ function renderAdmin() {
   fetch('/api/admin/promo').then(function(r){ return r.json(); }).then(function(promos){
     renderAdminPromos(promos || []);
   }).catch(function(){});
+
+  // Fetch announcements
+  loadAdminAnnouncements();
 }
 
 function updateAdminCostsSummary(paidCount) {
@@ -8169,6 +8197,156 @@ function adminDeleteUser(userId, name) {
     }).catch(function(){ alert('Помилка мережі'); });
 }
 
+// ==================== ANNOUNCEMENTS ====================
+
+function saveAnnouncement(activate) {
+  var data = {
+    id: document.getElementById('ann-id').value || null,
+    title: document.getElementById('ann-title').value.trim(),
+    body: document.getElementById('ann-body').value.trim(),
+    image_url: document.getElementById('ann-image').value.trim(),
+    btn_text: document.getElementById('ann-btn-text').value.trim(),
+    btn_url: document.getElementById('ann-btn-url').value.trim(),
+    active: !!activate
+  };
+  if (!data.title && !data.body) return alert('Заповніть заголовок або текст');
+  fetch('/api/admin/announcements', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+    .then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) {
+        clearAnnouncementForm();
+        loadAdminAnnouncements();
+        alert(activate ? '📢 Оголошення опубліковано!' : '💾 Чернетку збережено');
+      } else alert(d.error || 'Помилка');
+    }).catch(function(){ alert('Помилка мережі'); });
+}
+
+function clearAnnouncementForm() {
+  document.getElementById('ann-id').value = '';
+  document.getElementById('ann-title').value = '';
+  document.getElementById('ann-body').value = '';
+  document.getElementById('ann-image').value = '';
+  document.getElementById('ann-btn-text').value = '';
+  document.getElementById('ann-btn-url').value = '';
+  document.getElementById('ann-preview').innerHTML = '';
+}
+
+function editAnnouncement(id) {
+  fetch('/api/admin/announcements').then(function(r){return r.json()}).then(function(list){
+    var a = list.find(function(x){return x.id===id});
+    if (!a) return;
+    document.getElementById('ann-id').value = a.id;
+    document.getElementById('ann-title').value = a.title || '';
+    document.getElementById('ann-body').value = a.body || '';
+    document.getElementById('ann-image').value = a.image_url || '';
+    document.getElementById('ann-btn-text').value = a.btn_text || '';
+    document.getElementById('ann-btn-url').value = a.btn_url || '';
+    // Scroll to form
+    document.getElementById('ann-title').scrollIntoView({behavior:'smooth', block:'center'});
+    document.getElementById('ann-title').focus();
+  });
+}
+
+function deleteAnnouncement(id) {
+  if (!confirm('Видалити це оголошення?')) return;
+  fetch('/api/admin/announcements/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:id}) })
+    .then(function(r){return r.json()}).then(function(d){
+      if (d.ok) loadAdminAnnouncements();
+    });
+}
+
+function toggleAnnouncement(id, activate) {
+  fetch('/api/admin/announcements').then(function(r){return r.json()}).then(function(list){
+    var a = list.find(function(x){return x.id===id});
+    if (!a) return;
+    a.active = activate;
+    return fetch('/api/admin/announcements', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(a) });
+  }).then(function(r){return r.json()}).then(function(d){
+    if (d.ok) loadAdminAnnouncements();
+  });
+}
+
+function loadAdminAnnouncements() {
+  fetch('/api/admin/announcements').then(function(r){return r.json()}).then(function(list){
+    var el = document.getElementById('ann-list');
+    if (!list.length) { el.innerHTML = '<p class="text-muted" style="font-size:13px;">Оголошень ще немає</p>'; return; }
+    el.innerHTML = list.map(function(a){
+      var statusBadge = a.active
+        ? '<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">🟢 Активне</span>'
+        : '<span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:6px;font-size:11px;">Чернетка</span>';
+      var imgPreview = a.image_url ? '<img src="'+esc(a.image_url)+'" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:10px;">' : '';
+      var date = a.created_at ? new Date(a.created_at).toLocaleDateString('uk') : '';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;">' +
+        imgPreview +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:600;font-size:14px;">'+esc(a.title||'(без заголовка)')+'</div>' +
+          '<div style="font-size:12px;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;">'+esc((a.body||'').slice(0,80))+'</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
+          statusBadge +
+          '<span style="font-size:11px;color:var(--text-light);">'+date+'</span>' +
+          (a.active
+            ? '<button class="btn btn-outline btn-sm" onclick="toggleAnnouncement('+a.id+',false)" title="Деактивувати" style="padding:4px 8px;">⏸</button>'
+            : '<button class="btn btn-outline btn-sm" onclick="toggleAnnouncement('+a.id+',true)" title="Активувати" style="padding:4px 8px;">▶️</button>') +
+          '<button class="btn btn-outline btn-sm" onclick="editAnnouncement('+a.id+')" title="Редагувати" style="padding:4px 8px;">✏️</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="deleteAnnouncement('+a.id+')" title="Видалити" style="padding:4px 8px;color:#DC2626;">✕</button>' +
+        '</div></div>';
+    }).join('');
+  }).catch(function(){});
+}
+
+// ---- User-facing announcement popup ----
+function checkAnnouncement() {
+  fetch('/api/announcement').then(function(r){return r.json()}).then(function(d){
+    if (!d.announcement) return;
+    var a = d.announcement;
+    // Check if user already dismissed this announcement
+    var dismissed = JSON.parse(localStorage.getItem('lipo_dismissed_ann') || '[]');
+    if (dismissed.indexOf(a.id) !== -1) return;
+    showAnnouncementPopup(a);
+  }).catch(function(){});
+}
+
+function showAnnouncementPopup(a) {
+  var popup = document.getElementById('announcement-popup');
+  var imgEl = document.getElementById('ann-popup-img');
+  var titleEl = document.getElementById('ann-popup-title');
+  var textEl = document.getElementById('ann-popup-text');
+  var btnEl = document.getElementById('ann-popup-btn');
+
+  if (a.image_url) {
+    imgEl.src = a.image_url;
+    imgEl.style.display = 'block';
+  } else {
+    imgEl.style.display = 'none';
+  }
+
+  titleEl.textContent = a.title || '';
+  textEl.textContent = a.body || '';
+
+  if (a.btn_text && a.btn_url) {
+    btnEl.textContent = a.btn_text;
+    btnEl.href = a.btn_url;
+    btnEl.style.display = 'inline-block';
+  } else {
+    btnEl.style.display = 'none';
+  }
+
+  popup.dataset.annId = a.id;
+  popup.style.display = 'block';
+}
+
+function dismissAnnouncement() {
+  var popup = document.getElementById('announcement-popup');
+  var id = Number(popup.dataset.annId);
+  popup.style.display = 'none';
+  // Remember dismissed
+  var dismissed = JSON.parse(localStorage.getItem('lipo_dismissed_ann') || '[]');
+  if (dismissed.indexOf(id) === -1) dismissed.push(id);
+  // Keep only last 50 dismissed IDs
+  if (dismissed.length > 50) dismissed = dismissed.slice(-50);
+  localStorage.setItem('lipo_dismissed_ann', JSON.stringify(dismissed));
+}
+
 // ==================== ACCOUNT & NOTIFICATIONS ====================
 var _currentUser = null;
 var _linkedWorkerNames = []; // names of workers connected via CRM
@@ -8239,6 +8417,8 @@ function loadAccount() {
     } else {
       localStorage.removeItem('lipo_worker_role');
     }
+    // Check for announcements after short delay (let UI settle)
+    setTimeout(checkAnnouncement, 2000);
   }).catch(function(){});
 }
 
@@ -8763,6 +8943,28 @@ renderDashboard();
       <div id="onb-dots" class="onb-dots"></div>
       <button id="onb-next" class="btn btn-primary" style="min-width:160px;">Далі →</button>
     </div>
+  </div>
+</div>
+
+<!-- Announcement popup -->
+<div id="announcement-popup" style="display:none;position:fixed;bottom:24px;right:24px;z-index:10000;max-width:380px;width:calc(100vw - 48px);background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;animation:annSlideIn .4s ease;">
+  <style>
+    @keyframes annSlideIn { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+    #announcement-popup .ann-close { position:absolute;top:8px;right:10px;width:28px;height:28px;border:none;background:rgba(0,0,0,.08);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#666;transition:background .2s; }
+    #announcement-popup .ann-close:hover { background:rgba(0,0,0,.15); }
+    #announcement-popup .ann-img { width:100%;max-height:180px;object-fit:cover; }
+    #announcement-popup .ann-content { padding:16px 20px 20px; }
+    #announcement-popup .ann-title { font-size:17px;font-weight:700;margin:0 0 6px;color:#1a1a1a; }
+    #announcement-popup .ann-text { font-size:14px;line-height:1.5;color:#555;margin:0 0 12px;white-space:pre-line; }
+    #announcement-popup .ann-btn { display:inline-block;padding:8px 20px;background:var(--primary,#7C3AED);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;transition:opacity .2s; }
+    #announcement-popup .ann-btn:hover { opacity:.85; }
+  </style>
+  <button class="ann-close" onclick="dismissAnnouncement()" title="Закрити">&times;</button>
+  <img class="ann-img" id="ann-popup-img" src="" alt="" style="display:none;">
+  <div class="ann-content">
+    <div class="ann-title" id="ann-popup-title"></div>
+    <div class="ann-text" id="ann-popup-text"></div>
+    <a class="ann-btn" id="ann-popup-btn" href="#" target="_blank" style="display:none;"></a>
   </div>
 </div>
 
