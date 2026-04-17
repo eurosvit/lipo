@@ -4916,6 +4916,7 @@ function syncSalesDrive() {
   function processOrdersBatch(orders) {
 
       orders.forEach(function(o) {
+        try {
         // Filter: only products with "lipoland" or "Lipoland" in name
         var lipoProducts = (o.products||[]).filter(function(p) {
           return (p.text||'').toLowerCase().indexOf('lipoland') !== -1;
@@ -4939,14 +4940,13 @@ function syncSalesDrive() {
         var sdStatusMap = {1:'new', 3:'confirmed', 4:'shipped', 5:'completed', 6:'completed', 10:'new'};
         var ourStatus = sdStatusMap[o.statusId] || 'new';
 
-        // Best-effort map delivery fields from SalesDrive
-        // SalesDrive commonly uses shipping_method, shipping_address, shipping_city, shipping_warehouse,
-        // and order.ord_delivery_data. Field names may vary by account — we preserve raw for debugging.
-        // Parse delivery data FIRST (ord_delivery_data is an ARRAY in SalesDrive!)
+        // Parse delivery data (ord_delivery_data is an ARRAY in SalesDrive!)
         var _raw = o.ord_delivery_data;
         var dd = {};
-        if (Array.isArray(_raw) && _raw[0]) dd = _raw[0];
-        else if (_raw && typeof _raw === 'object' && !Array.isArray(_raw)) dd = _raw;
+        try {
+          if (Array.isArray(_raw) && _raw.length > 0 && _raw[0] && typeof _raw[0] === 'object') dd = _raw[0];
+          else if (_raw && typeof _raw === 'object' && !Array.isArray(_raw)) dd = _raw;
+        } catch(e) { console.warn('[lipo] dd parse error:', e, '_raw:', JSON.stringify(_raw).slice(0,200)); dd = {}; }
 
         var shipMethod = o.shipping_method || o.shippingMethod || '';
         var carrier = '';
@@ -5064,6 +5064,9 @@ function syncSalesDrive() {
             source: 'salesdrive'
           });
           newCount++;
+        }
+        } catch(orderErr) {
+          console.error('[lipo] ❌ Error processing CRM order #'+o.id+':', orderErr.message, orderErr.stack);
         }
       });
   } // end processOrdersBatch
