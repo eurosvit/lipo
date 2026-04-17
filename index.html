@@ -4307,6 +4307,8 @@ function toggleOrdSort(col) {
 
 function exportOrdersCsv() {
   var db = getDB();
+  var count = db.orders.length;
+  if (!confirm('Експортувати '+count+' замовлень у CSV файл?')) return;
   var orders = db.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   var header = ['#','Дата','Клієнт','Телефон','Товари','Сума','Статус','Канал','Оплата','ТТН','Майстер','Нотатка'];
   var rows = orders.map(function(o) {
