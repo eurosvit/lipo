@@ -4942,6 +4942,12 @@ function syncSalesDrive() {
         // Best-effort map delivery fields from SalesDrive
         // SalesDrive commonly uses shipping_method, shipping_address, shipping_city, shipping_warehouse,
         // and order.ord_delivery_data. Field names may vary by account — we preserve raw for debugging.
+        // Parse delivery data FIRST (ord_delivery_data is an ARRAY in SalesDrive!)
+        var _raw = o.ord_delivery_data;
+        var dd = {};
+        if (Array.isArray(_raw) && _raw[0]) dd = _raw[0];
+        else if (_raw && typeof _raw === 'object' && !Array.isArray(_raw)) dd = _raw;
+
         var shipMethod = o.shipping_method || o.shippingMethod || '';
         var carrier = '';
         if (shipMethod) {
@@ -4953,20 +4959,15 @@ function syncSalesDrive() {
           else if (sm.indexOf('самовив') !== -1 || sm.indexOf('pickup') !== -1) carrier = 'pickup';
           else carrier = 'other';
         }
-        var shipCity = o.shipping_city || o.shippingCity || dd.cityName || '';
-        var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || dd.branchNumber || dd.wareHouseRef || '';
-        var shipAddress = o.shipping_address || o.shippingAddress || dd.address || o.adresaDostavki || '';
         // Auto-detect carrier from delivery data
         if (!carrier && dd.provider) {
           var prov = String(dd.provider).toLowerCase();
           if (prov.indexOf('nova') !== -1) carrier = 'nova';
           else if (prov.indexOf('ukr') !== -1) carrier = 'ukrposhta';
         }
-        // TTN: ord_delivery_data is an ARRAY in SalesDrive!
-        var _raw = o.ord_delivery_data;
-        var dd = {};
-        if (Array.isArray(_raw) && _raw[0]) dd = _raw[0];
-        else if (_raw && typeof _raw === 'object' && !Array.isArray(_raw)) dd = _raw;
+        var shipCity = o.shipping_city || o.shippingCity || dd.cityName || '';
+        var shipWarehouse = o.shipping_warehouse || o.shippingWarehouse || dd.branchNumber || dd.wareHouseRef || '';
+        var shipAddress = o.shipping_address || o.shippingAddress || dd.address || o.adresaDostavki || '';
         var ttn = dd.trackingNumber || dd.ttn || dd.IntDocNumber || dd.intDocNumber || '';
         if (!ttn) ttn = o.trackingNumber || o.ttn || '';
         // Fallback: check primaryContact.comment for 14-digit numbers
