@@ -2049,11 +2049,14 @@ function _doSyncSave(db, isRetry) {
   if (_saveAuthFailed) { _updateSaveIndicator('auth-error'); return Promise.resolve(); }
   _saveInFlight = true;
   _updateSaveIndicator('saving');
+  var bodyStr = JSON.stringify(db);
+  // keepalive has 64KB limit in Chrome — only use for small payloads
+  var useKeepalive = bodyStr.length < 60000;
   return fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(db),
-    keepalive: true  // allow request to finish even if tab closes
+    body: bodyStr,
+    keepalive: useKeepalive
   }).then(function(r){
     if (!r.ok) {
       var err = new Error('HTTP '+r.status);
