@@ -4898,6 +4898,10 @@ function syncSalesDrive() {
         });
         if(lipoProducts.length === 0) return;
 
+        // Log EVERY Lipoland order with its comment (to debug TTN import)
+        var _cmt = (o.primaryContact && o.primaryContact.comment) || '';
+        console.log('[lipo] 📦 LIPOLAND ORDER #'+o.id+' comment="'+String(_cmt).slice(0,100)+'" products: '+lipoProducts.map(function(p){return p.text}).join(', ').slice(0,80));
+
         var contact = o.primaryContact || {};
         var firstName = (contact.fName||'').trim();
         var lastName = (contact.lName||'').trim();
