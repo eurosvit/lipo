@@ -584,6 +584,7 @@ a.order-link:hover { text-decoration:underline; }
     <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th style="width:50px;">Од.</th><th style="width:70px;">Залишок</th><th style="width:65px;">Мінімум</th><th style="width:75px;">Ціна/од.</th><th style="width:120px;">Постачальник</th><th style="width:120px;">Коментар</th><th style="width:60px;">Статус</th><th style="width:90px;white-space:nowrap;">Дії</th></tr></thead>
     <tbody id="materials-table"></tbody></table>
   </div>
+  <div id="mat-stock-summary" style="margin-top:12px;padding:14px 20px;background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-radius:10px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;font-size:14px;"></div>
   <div style="margin-top:24px;">
     <h3>Історія накладних</h3>
     <div class="table-wrap" style="margin-top:8px;">
@@ -2287,7 +2288,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -2638,14 +2639,28 @@ function populateReceiveMat() {
 }
 
 function receiveMaterial() {
-  const db = getDB();
-  const id = v('recv-mat');
-  const qty = n('recv-qty');
-  const price = document.getElementById('recv-price').value ? n('recv-price') : null;
-  const m = db.materials.find(function(x){return x.id===id});
+  var db = getDB();
+  var id = v('recv-mat');
+  var qty = n('recv-qty');
+  var price = document.getElementById('recv-price').value ? n('recv-price') : null;
+  var m = db.materials.find(function(x){return x.id===id});
   if(!m || qty<=0) return alert('Оберіть матеріал та введіть кількість');
   m.qty += qty;
+  var unitPrice = price !== null ? price : m.price;
   if(price!==null) m.price = price;
+  // Auto-create expense for material purchase
+  var totalCost = qty * unitPrice;
+  if (totalCost > 0) {
+    if (!db.expenses) db.expenses = [];
+    db.expenses.push({
+      id: uid(),
+      date: new Date().toISOString().slice(0,10),
+      category: '📦 Закупка матеріалів',
+      amount: Math.round(totalCost * 100) / 100,
+      note: 'Прихід: ' + m.name + ' × ' + qty + ' ' + (m.unit||'шт') + ' по ' + fmt(unitPrice) + ' грн',
+      auto: true
+    });
+  }
   saveDB(db);
   closeModal('receive-material');
   renderPage('materials');
@@ -2716,6 +2731,24 @@ function renderMaterials() {
   });
 
   tb.innerHTML = hasAny ? html : '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+
+  // Stock value summary
+  var summaryEl = document.getElementById('mat-stock-summary');
+  if (summaryEl) {
+    var totalValue = 0, totalItems = 0, lowStock = 0, outOfStock = 0;
+    db.materials.forEach(function(m) {
+      totalValue += (m.qty || 0) * (m.price || 0);
+      totalItems++;
+      if (m.qty <= 0) outOfStock++;
+      else if (m.qty <= m.min) lowStock++;
+    });
+    summaryEl.innerHTML =
+      '<span style="font-weight:700;color:var(--primary-dark);">💰 На складі матеріалів: <span style="font-size:18px;">' + fmt(totalValue) + ' грн</span></span>' +
+      '<span style="color:var(--text-light);">📋 ' + totalItems + ' позицій</span>' +
+      (outOfStock > 0 ? '<span style="color:var(--danger);font-weight:600;">❌ Немає: ' + outOfStock + '</span>' : '') +
+      (lowStock > 0 ? '<span style="color:#E65100;font-weight:600;">⚠️ Замовити: ' + lowStock + '</span>' : '');
+  }
+
   renderInvoiceHistory();
   renderPackagingKits();
 }
@@ -8438,6 +8471,20 @@ function applyInvoiceItems() {
   };
   if (_invoiceNumber) invRecord.number = _invoiceNumber;
   db.invoiceHistory.push(invRecord);
+
+  // Auto-create expense for invoice total
+  if (totalSum > 0) {
+    if (!db.expenses) db.expenses = [];
+    db.expenses.push({
+      id: uid(),
+      date: new Date().toISOString().slice(0,10),
+      category: '📦 Закупка матеріалів',
+      amount: Math.round(totalSum * 100) / 100,
+      note: 'Накладна' + (_invoiceNumber ? ' №' + _invoiceNumber : '') + ': ' + itemCount + ' поз., ' + fmt(totalSum) + ' грн',
+      auto: true,
+      invoiceId: invRecord.id
+    });
+  }
 
   saveDB(db);
   _lastInvoiceUndo = { actions: undoActions, invoiceId: invRecord.id, date: new Date().toISOString() };
