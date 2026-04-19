@@ -6279,7 +6279,7 @@ function renderSalary() {
   }
 
   var totalSalary = 0;
-  var colCount = isW ? 5 : 6;
+  var colCount = isW ? 5 : 7;
   var rows = filtered.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     var rate = 0;
@@ -6296,8 +6296,9 @@ function renderSalary() {
       return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
         '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
     }
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
-      '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'<span style="color:var(--danger);">? (гру видалено)</span>')+'</td>'+
+      '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td>'+
+      '<td data-label="Дії" style="white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="deleteSalaryRecord(\''+b.id+'\')" title="Видалити запис">🗑</button></td></tr>';
   });
 
   // Update thead
@@ -6305,7 +6306,7 @@ function renderSalary() {
   if (isW) {
     thead.innerHTML = '<th>Дата</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th>';
   } else {
-    thead.innerHTML = '<th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th>';
+    thead.innerHTML = '<th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th><th style="width:60px;">Дії</th>';
   }
 
   document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="'+colCount+'" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
@@ -6352,6 +6353,14 @@ function renderSalary() {
 
   // Payment history
   renderSalaryPayments(db, isW, wName);
+}
+
+function deleteSalaryRecord(batchId) {
+  if (!confirm('Видалити цей запис із нарахувань ЗП?\n\n(Запис виробництва також буде видалено)')) return;
+  var db = getDB();
+  db.production = db.production.filter(function(x){ return x.id !== batchId; });
+  saveDB(db);
+  renderSalary();
 }
 
 var _editingSalaryId = null;
