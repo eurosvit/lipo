@@ -581,7 +581,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="clearMatSelection()">Скасувати</button>
   </div>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th style="min-width:180px;">Назва</th><th style="width:50px;">Од.</th><th style="width:75px;">Залишок</th><th style="width:70px;">Мінімум</th><th style="width:80px;">Ціна/од.</th><th style="width:130px;">Постачальник</th><th style="min-width:100px;">Коментар</th><th style="width:70px;">Статус</th><th style="width:80px;">Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th style="width:50px;">Од.</th><th style="width:70px;">Залишок</th><th style="width:65px;">Мінімум</th><th style="width:75px;">Ціна/од.</th><th style="width:120px;">Постачальник</th><th style="width:120px;">Коментар</th><th style="width:60px;">Статус</th><th style="width:90px;white-space:nowrap;">Дії</th></tr></thead>
     <tbody id="materials-table"></tbody></table>
   </div>
   <div style="margin-top:24px;">
@@ -2710,7 +2710,7 @@ function renderMaterials() {
         '<td data-label="Постачальник">'+supplierHtml+'</td>'+
         '<td data-label="Коментар">'+noteHtml+'</td>'+
         '<td data-label="Статус">'+status+'</td>'+
-        '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
+        '<td data-label="Дії" style="white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
       '</tr>';
     });
   });
