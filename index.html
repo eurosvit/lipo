@@ -4559,7 +4559,17 @@ function deleteFfLocation(name) {
 // ==================== ORDER STATUSES ====================
 function getOrderStatuses() {
   var db = getDB();
-  return db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
+  var statuses = db.orderStatuses || [{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#74b9ff'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}];
+  // Міграція: додати "Відправлено" якщо його нема
+  if (!statuses.some(function(s){return s.id==='shipped'})) {
+    var compIdx = statuses.findIndex ? statuses.findIndex(function(s){return s.id==='completed'}) : -1;
+    var shippedStatus = {id:'shipped',label:'📦 Відправлено',color:'#74b9ff'};
+    if (compIdx >= 0) statuses.splice(compIdx, 0, shippedStatus);
+    else statuses.push(shippedStatus);
+    db.orderStatuses = statuses;
+    saveDB(db);
+  }
+  return statuses;
 }
 
 function toggleStatusManager() {
@@ -5514,6 +5524,25 @@ function statusToVisualNP(statusCode) {
   return null;
 }
 
+// Синхронізація статусу замовлення на основі трекінгу НП
+function syncOrderStatusFromTracking(order) {
+  if (!order.tracking || !order.tracking.StatusCode) return false;
+  var sc = parseInt(order.tracking.StatusCode, 10) || 0;
+  var statuses = getOrderStatuses();
+  var hasStatus = function(id) { return statuses.some(function(s){ return s.id === id; }); };
+  var oldStatus = order.status;
+  // Вручено (9,10,11) → completed
+  if ((sc === 9 || sc === 10 || sc === 11) && hasStatus('completed')) {
+    order.status = 'completed';
+  }
+  // У відділенні (7,8) або У дорозі (5,6) або Прийнято (4) → shipped
+  else if ((sc >= 4 && sc <= 8) && hasStatus('shipped')) {
+    order.status = 'shipped';
+  }
+  // Створено (1,2,3) → не змінюємо (ТТН створена але ще не відправлена)
+  return order.status !== oldStatus;
+}
+
 // True для ТТН що схожа на Нову Пошту (13-14 цифр).
 function ttnLooksLikeNP(ttn) {
   return /^\d{13,14}$/.test(String(ttn||'').trim());
@@ -5581,6 +5610,7 @@ function trackNpOrders(opts) {
       (db2.orders||[]).forEach(function(o){
         if (!o.ttn || !results[o.ttn]) return;
         o.tracking = results[o.ttn];
+        syncOrderStatusFromTracking(o);
         updated++;
       });
       saveDB(db2);
