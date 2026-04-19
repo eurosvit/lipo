@@ -850,7 +850,8 @@ a.order-link:hover { text-decoration:underline; }
 <div id="settings" class="page">
   <h2>Налаштування</h2>
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Майстри, вартість друку, сповіщення та експорт даних.</p>
-  <div class="card feat-workers" style="max-width:600px;margin-bottom:16px;">
+  <div style="max-width:720px;">
+  <div class="card feat-workers" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Майстри (локальні)</div>
     <div id="workers-list" class="mb-16"></div>
     <div class="form-row">
@@ -858,7 +859,7 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-primary" onclick="addWorker()">Додати</button>
     </div>
   </div>
-  <div class="card feat-workers" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
+  <div class="card feat-workers" style="margin-bottom:16px;" id="linked-workers-card">
     <div class="section-title" style="margin-top:0;">👩‍🔧 Підключені майстри <span class="badge badge-ok" style="font-size:10px;">+100 грн/місяць за місце</span></div>
     <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите. Ім'я можна змінити в будь-який момент (✏️) — це прізвисько бачите <b>тільки ви</b>.</p>
     <div style="background:#F3E5F5;border-left:3px solid var(--primary);padding:10px 12px;border-radius:6px;font-size:13px;color:#4A148C;margin-bottom:16px;">💡 <b>Як це оплачується:</b> кожен підключений майстер додає 100 грн/міс до підписки. Доплату не знімаємо одразу — до кінця вашої поточної підписки майстер працює безкоштовно. Нова вартість застосується при наступному продовженні.</div>
@@ -873,7 +874,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 
   <!-- Tax Settings -->
-  <div class="card" style="max-width:700px;margin-bottom:16px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🧾 Податки (ФОП)</div>
     <p style="font-size:12px;color:var(--text-light);margin:-8px 0 12px;">Система авто-розрахує податок за місяць для P&L у «Аналітиці». Суму за конкретний місяць можна замінити вручну (у «Витрати»).</p>
     <div class="form-row">
@@ -911,7 +912,7 @@ a.order-link:hover { text-decoration:underline; }
     <span id="tax-settings-saved" style="font-size:13px;color:var(--success);display:none;margin-left:10px;">✅ Збережено</span>
     <div id="tax-preview" style="margin-top:12px;font-size:13px;padding:10px 12px;background:#F3E5F5;border-radius:8px;color:#4A148C;"></div>
   </div>
-  <div class="card feat-crm" id="crm-settings-card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card feat-crm" id="crm-settings-card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🔗 Інтеграція із зовнішньою CRM</div>
     <p style="font-size:12px;color:var(--text-light);margin:-4px 0 12px;">Підключіть SalesDrive CRM для імпорту замовлень. Якщо ви не використовуєте CRM — просто пропустіть цей блок.</p>
     <div class="form-group mb-16"><label>Домен CRM</label><input id="sd-domain" placeholder="vashdomen.salesdrive.me" value=""></div>
@@ -922,7 +923,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div id="crm-test-result" style="margin-top:8px;"></div>
   </div>
-  <div class="card" style="max-width:760px;margin-bottom:16px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🖨 Принтер та вартість друку</div>
 
     <!-- Як це працює? -->
@@ -1024,7 +1025,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <p class="text-muted" style="font-size:12px;margin-top:12px;">💡 Журнал заправок — у розділі <a href="#" onclick="showPage('equipment');return false;" style="color:var(--primary);">Обладнання → Обслуговування</a></p>
   </div>
-  <div class="card" style="max-width:700px;margin-bottom:16px;">
+  <div class="card feat-workers" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">💰 Ставка майстра (за замовчуванням)</div>
     <p class="text-muted mb-16" style="font-size:13px;">Це значення буде використовуватись для нових ігор. Для кожної гри можна задати індивідуальну ставку.</p>
     <div class="form-row">
@@ -1038,7 +1039,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <button class="btn btn-primary" onclick="saveDefaultRate()">Зберегти</button>
   </div>
-  <div class="card" style="max-width:600px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">📥 Імпорт з Excel</div>
     <p class="text-muted mb-16" style="font-size:13px;">Швидко завантажте свої товари та матеріали з Excel-файлу. Завантажте шаблон, заповніть його та імпортуйте назад.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
@@ -1053,7 +1054,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 
   <!-- Feature Toggles -->
-  <div class="card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🧩 Модулі кабінету</div>
     <p style="font-size:13px;color:var(--text-light);margin:-8px 0 12px;">Ввімкніть або вимкніть функції. Вимкнені модулі зникають з меню.</p>
     <div id="settings-features" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -1061,7 +1062,7 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 
   <!-- Notification Preferences -->
-  <div class="card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🔔 Сповіщення</div>
     <p class="text-muted mb-16" style="font-size:13px;">Оберіть які сповіщення ви хочете отримувати.</p>
 
@@ -1116,7 +1117,7 @@ a.order-link:hover { text-decoration:underline; }
     <div id="notif-save-status" style="font-size:13px;color:var(--success);display:none;margin-top:8px;">✅ Збережено</div>
   </div>
 
-  <div class="card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Дані</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-outline" onclick="exportData()">Експорт даних</button>
@@ -1127,9 +1128,10 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 
   <!-- Danger zone -->
-  <div style="max-width:600px;margin-top:40px;padding-top:20px;border-top:1px solid var(--border);">
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid var(--border);">
     <p style="font-size:12px;color:var(--text-light);margin-bottom:8px;">Небезпечна зона</p>
     <button onclick="deleteAccount()" style="background:none;border:none;color:#999;font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline;font-family:inherit;">Видалити акаунт та всі дані</button>
+  </div>
   </div>
 </div>
 
