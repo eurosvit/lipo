@@ -1919,6 +1919,41 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- Stock Adjustment -->
+<div class="modal-overlay" id="modal-stock-adjust">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>📦 Коригування складу</h3>
+      <button class="modal-close" onclick="closeModal('stock-adjust')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="sa-product-name" style="font-weight:600;margin-bottom:4px;"></p>
+      <p id="sa-current-stock" style="font-size:13px;color:var(--text-light);margin-bottom:16px;"></p>
+      <div class="form-group">
+        <label>Тип коригування</label>
+        <select id="sa-type" onchange="updateSaPreview()">
+          <option value="add">➕ Додати на склад</option>
+          <option value="set">📊 Встановити залишок</option>
+          <option value="remove">➖ Списати зі складу</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Кількість</label>
+        <input type="number" id="sa-qty" min="0" step="1" value="1" oninput="updateSaPreview()">
+      </div>
+      <div class="form-group">
+        <label>Причина / коментар</label>
+        <input type="text" id="sa-reason" placeholder="напр. Залишки до CRM, інвентаризація...">
+      </div>
+      <div id="sa-preview" style="padding:10px 14px;border-radius:8px;background:var(--bg-card);font-size:13px;margin-top:8px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('stock-adjust')">Скасувати</button>
+      <button class="btn btn-primary" onclick="applyStockAdjust()">Застосувати</button>
+    </div>
+  </div>
+</div>
+
 <!-- Expense add/edit -->
 <div class="modal-overlay" id="modal-expense">
   <div class="modal">
@@ -3161,6 +3196,52 @@ function updateTemplatePreview(prefix) {
     '</div>';
 }
 
+var _saProductId = null;
+function openStockAdjust(id) {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===id});
+  if(!p) return;
+  _saProductId = id;
+  document.getElementById('sa-product-name').textContent = (p.sku ? p.sku+' — ' : '') + p.name;
+  document.getElementById('sa-current-stock').textContent = 'Зараз на складі: ' + (p.stock||0) + ' шт';
+  document.getElementById('sa-type').value = 'add';
+  document.getElementById('sa-qty').value = 1;
+  document.getElementById('sa-reason').value = '';
+  updateSaPreview();
+  openModal('stock-adjust');
+}
+function updateSaPreview() {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===_saProductId});
+  if(!p) return;
+  var type = v('sa-type');
+  var qty = parseInt(v('sa-qty'))||0;
+  var cur = p.stock||0;
+  var result;
+  if(type==='add') result = cur + qty;
+  else if(type==='set') result = qty;
+  else result = Math.max(0, cur - qty);
+  var el = document.getElementById('sa-preview');
+  el.innerHTML = '📊 Було: <strong>'+cur+'</strong> → Стане: <strong style="color:var(--primary);">'+result+'</strong> шт';
+}
+function applyStockAdjust() {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===_saProductId});
+  if(!p) return;
+  var type = v('sa-type');
+  var qty = parseInt(v('sa-qty'))||0;
+  var reason = v('sa-reason').trim() || 'Ручне коригування';
+  if(qty < 0) { alert('Кількість не може бути від\'ємною'); return; }
+  var oldStock = p.stock||0;
+  if(type==='add') p.stock = oldStock + qty;
+  else if(type==='set') p.stock = qty;
+  else p.stock = Math.max(0, oldStock - qty);
+  saveDB(db);
+  closeModal('stock-adjust');
+  renderProducts();
+  notify('✅ Склад «'+p.name+'»: '+oldStock+' → '+p.stock+' шт ('+reason+')');
+}
+
 function deleteProduct(id) {
   if(!confirm('Видалити цю гру?')) return;
   var db = getDB();
@@ -3540,6 +3621,7 @@ function renderProducts() {
         '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         (p.fulfillment && Object.keys(p.fulfillment).some(function(k){return p.fulfillment[k]>0}) ? '<button class="btn btn-outline btn-sm" onclick="returnFromFulfillment(\''+p.id+'\')" title="Повернути з фулфілменту" style="opacity:0.7;">↩️</button> ' : '')+
+        '<button class="btn btn-outline btn-sm" onclick="openStockAdjust(\''+p.id+'\')" title="Коригування складу">📦</button> '+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
