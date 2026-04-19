@@ -1412,6 +1412,7 @@ a.order-link:hover { text-decoration:underline; }
         <select id="mat-category">
           <option value="">— Без категорії —</option>
           <option value="paper">📄 Папір / Плівка</option>
+          <option value="velcro">🧲 Ліпучки</option>
           <option value="components">🔩 Комплектуючі</option>
           <option value="packaging">📦 Пакування</option>
           <option value="equipment">🔧 Для обладнання</option>
@@ -1810,6 +1811,7 @@ a.order-link:hover { text-decoration:underline; }
         <select id="emat-category">
           <option value="">— Без категорії —</option>
           <option value="paper">📄 Папір / Плівка</option>
+          <option value="velcro">🧲 Ліпучки</option>
           <option value="components">🔩 Комплектуючі</option>
           <option value="packaging">📦 Пакування</option>
           <option value="equipment">🔧 Для обладнання</option>
@@ -2651,6 +2653,7 @@ function receiveMaterial() {
 
 var _matCategoryLabels = {
   'paper': '📄 Папір / Плівка',
+  'velcro': '🧲 Ліпучки',
   'components': '🔩 Комплектуючі',
   'packaging': '📦 Пакування',
   'equipment': '🔧 Для обладнання',
@@ -2659,13 +2662,14 @@ var _matCategoryLabels = {
 };
 var _matCategoryColors = {
   'paper': '#E3F2FD;border-left:4px solid #1976D2',
+  'velcro': '#FCE4EC;border-left:4px solid #E91E63',
   'components': '#FFF3E0;border-left:4px solid #E65100',
   'packaging': '#E8F5E9;border-left:4px solid #2E7D32',
   'equipment': '#F3E5F5;border-left:4px solid #7B1FA2',
   'other': '#F5F5F5;border-left:4px solid #9E9E9E',
   '': '#FAFAFA;border-left:4px solid #BDBDBD'
 };
-var _matCategoryOrder = ['paper', 'components', 'packaging', 'equipment', 'other', ''];
+var _matCategoryOrder = ['paper', 'velcro', 'components', 'packaging', 'equipment', 'other', ''];
 
 function renderMaterials() {
   var db = getDB();
