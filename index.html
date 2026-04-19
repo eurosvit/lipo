@@ -810,13 +810,19 @@ a.order-link:hover { text-decoration:underline; }
 <div id="salary" class="page">
   <div class="flex-between">
     <h2 id="salary-title">Нарахування ЗП</h2>
-    <div id="salary-filters" style="display:flex;gap:8px;flex-wrap:wrap;">
-      <select id="salary-month" onchange="renderSalary()" style="padding:8px 12px;">
-        <option value="">Всі місяці</option>
-      </select>
+    <div id="salary-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select id="salary-worker" onchange="renderSalary()" style="padding:8px 12px;">
         <option value="">Всі майстри</option>
       </select>
+      <input type="date" id="salary-date-from" onchange="renderSalary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="Від дати">
+      <span style="color:var(--text-light);font-size:13px;">—</span>
+      <input type="date" id="salary-date-to" onchange="renderSalary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="До дати">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisWeek')" style="font-size:11px;padding:4px 8px;">Цей тиждень</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('lastWeek')" style="font-size:11px;padding:4px 8px;">Мин. тиждень</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisMonth')" style="font-size:11px;padding:4px 8px;">Цей місяць</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('all')" style="font-size:11px;padding:4px 8px;">Все</button>
+      </div>
     </div>
   </div>
   <p id="salary-desc" style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Автоматичний розрахунок зарплати майстрів на основі зданого виробництва та ставок.</p>
@@ -6256,23 +6262,18 @@ function renderSalary() {
   var completed = db.production.filter(function(x){return x.status==='completed'});
   if (isW && wName) completed = completed.filter(function(b){return b.worker===wName});
 
-  var months = [];
-  var monthSet = {};
-  completed.forEach(function(b){ var m=(b.completedDate||b.date).slice(0,7); if(!monthSet[m]){monthSet[m]=true;months.push(m);} });
-  months.sort().reverse();
-
   if (!isW) {
     var workers = [];
     var wSet = {};
     completed.forEach(function(b){ if(!wSet[b.worker]){wSet[b.worker]=true;workers.push(b.worker);} });
-    var selM = document.getElementById('salary-month');
     var selW = document.getElementById('salary-worker');
-    var curM = selM.value;
     var curW = selW.value;
-    selM.innerHTML = '<option value="">Всі місяці</option>' + months.map(function(m){return '<option value="'+m+'" '+(m===curM?'selected':'')+'>'+m+'</option>';}).join('');
     selW.innerHTML = '<option value="">Всі майстри</option>' + workers.map(function(w){return '<option value="'+esc(w)+'" '+(w===curW?'selected':'')+'>'+esc(wLabel(w))+'</option>';}).join('');
+    var dateFrom = document.getElementById('salary-date-from').value;
+    var dateTo = document.getElementById('salary-date-to').value;
     var filtered = completed;
-    if(curM) filtered = filtered.filter(function(b){return (b.completedDate||b.date).indexOf(curM)===0});
+    if(dateFrom) filtered = filtered.filter(function(b){ return (b.completedDate||b.date) >= dateFrom; });
+    if(dateTo) filtered = filtered.filter(function(b){ return (b.completedDate||b.date) <= dateTo; });
     if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
   } else {
     var filtered = completed;
@@ -6353,6 +6354,38 @@ function renderSalary() {
 
   // Payment history
   renderSalaryPayments(db, isW, wName);
+}
+
+function setSalaryDateRange(preset) {
+  var from = document.getElementById('salary-date-from');
+  var to = document.getElementById('salary-date-to');
+  var today = new Date();
+  var day = today.getDay(); // 0=Sun
+  var mondayOffset = day === 0 ? -6 : 1 - day;
+  if (preset === 'thisWeek') {
+    var monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    from.value = monday.toISOString().slice(0,10);
+    to.value = sunday.toISOString().slice(0,10);
+  } else if (preset === 'lastWeek') {
+    var monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset - 7);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    from.value = monday.toISOString().slice(0,10);
+    to.value = sunday.toISOString().slice(0,10);
+  } else if (preset === 'thisMonth') {
+    var y = today.getFullYear();
+    var m = ('0'+(today.getMonth()+1)).slice(-2);
+    from.value = y+'-'+m+'-01';
+    to.value = today.toISOString().slice(0,10);
+  } else {
+    from.value = '';
+    to.value = '';
+  }
+  renderSalary();
 }
 
 function deleteSalaryRecord(batchId) {

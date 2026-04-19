@@ -40,6 +40,7 @@ const FILES = {
   app: path.join(__dirname, 'index.html'),
   auth: path.join(__dirname, 'auth.html'),
   legal: path.join(__dirname, 'legal.html'),
+  guide: path.join(__dirname, 'guide.html'),
 };
 const DB_FILE = path.join(__dirname, 'data.json');
 
@@ -2284,6 +2285,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=86400' });
         res.end(data);
       });
+      return;
+    }
+
+    // Guide
+    if (url === '/guide' || url === '/guide.html') {
+      serveFile(res, FILES.guide);
       return;
     }
 

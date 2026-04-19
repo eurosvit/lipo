@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Гайд — LipoLand CRM</title>
+<meta name="description" content="Повний посібник з усіх функцій LipoLand CRM. Матеріали, виробництво, замовлення, аналітика та інше.">
+<link rel="icon" href="/favicon.png" type="image/png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+:root {
+  --pink: #C91B6E;
+  --teal: #4CBCBE;
+  --yellow: #F2C031;
+  --orange: #E89240;
+  --dark: #2D2D2D;
+  --light: #FDFBF7;
+  --gray: #7A7A7A;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',system-ui,sans-serif; color:var(--dark); background:var(--light); }
+a { text-decoration:none; color:inherit; }
+
+/* HEADER */
+.header { padding:16px 40px; display:flex; align-items:center; justify-content:space-between; position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(253,251,247,0.95); backdrop-filter:blur(10px); border-bottom:1px solid rgba(0,0,0,0.05); }
+.header-logo { display:flex; align-items:center; gap:10px; }
+.header-logo img { height:36px; width:36px; border-radius:50%; }
+.header-logo span { font-weight:800; font-size:20px; color:var(--pink); }
+.header-nav { display:flex; gap:24px; align-items:center; }
+.header-nav a { font-weight:600; font-size:15px; color:var(--gray); transition:color .2s; text-decoration:none; }
+.header-nav a:hover { color:var(--pink); }
+.header-nav a.active { color:var(--pink); border-bottom:2px solid var(--pink); padding-bottom:2px; }
+.header-nav a.btn { color:inherit; }
+.btn { padding:12px 28px; border-radius:50px; font-weight:700; font-size:15px; border:none; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:8px; text-decoration:none; }
+.btn-primary, a.btn-primary { background:var(--pink); color:#fff !important; box-shadow:0 4px 20px rgba(201,27,110,0.3); }
+.btn-primary:hover { background:#A8155B; transform:translateY(-1px); box-shadow:0 6px 24px rgba(201,27,110,0.4); }
+.btn-outline, a.btn-outline { background:#fff; border:2px solid var(--pink); color:var(--pink) !important; }
+.btn-outline:hover, a.btn-outline:hover { background:var(--pink); color:#fff !important; }
+
+/* HERO */
+.hero { padding:130px 40px 60px; text-align:center; position:relative; overflow:hidden; }
+.hero::before { content:''; position:absolute; top:-200px; right:-200px; width:500px; height:500px; border-radius:50%; background:var(--teal); opacity:0.06; }
+.hero::after { content:''; position:absolute; bottom:-150px; left:-100px; width:400px; height:400px; border-radius:50%; background:var(--yellow); opacity:0.06; }
+.hero h1 { font-size:44px; font-weight:900; line-height:1.2; margin-bottom:16px; position:relative; }
+.hero h1 span { background:linear-gradient(135deg,var(--pink),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero p { font-size:18px; color:var(--gray); max-width:560px; margin:0 auto; line-height:1.6; position:relative; }
+
+/* QUICK NAV PILLS */
+.quick-nav { padding:0 40px 40px; position:relative; z-index:1; }
+.quick-nav-inner { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:900px; margin:0 auto; }
+.pill { display:inline-block; padding:8px 18px; border-radius:50px; font-size:13px; font-weight:700; color:var(--dark); background:#fff; border:1px solid rgba(0,0,0,0.08); transition:all .2s; cursor:pointer; text-decoration:none; }
+.pill:hover { background:var(--pink); color:#fff; border-color:var(--pink); transform:translateY(-1px); box-shadow:0 4px 12px rgba(201,27,110,0.2); }
+
+/* GUIDE CONTENT */
+.guide-content { max-width:820px; margin:0 auto; padding:0 40px 60px; }
+
+/* SECTION */
+.guide-section { margin-bottom:48px; scroll-margin-top:90px; }
+.section-header { position:sticky; top:68px; z-index:10; background:var(--light); padding:16px 0 12px; border-bottom:2px solid var(--pink); margin-bottom:16px; }
+.section-header h2 { font-size:24px; font-weight:800; color:var(--dark); display:flex; align-items:center; gap:10px; }
+.section-header h2 .section-icon { font-size:28px; }
+
+/* DETAILS / SUMMARY ACCORDION */
+.guide-section details { background:#fff; border-radius:12px; margin-bottom:10px; border:1px solid rgba(0,0,0,0.06); transition:box-shadow .2s; overflow:hidden; }
+.guide-section details:hover { box-shadow:0 4px 16px rgba(0,0,0,0.06); }
+.guide-section details[open] { box-shadow:0 4px 20px rgba(0,0,0,0.08); border-color:rgba(201,27,110,0.15); }
+.guide-section summary { padding:16px 20px; font-size:16px; font-weight:700; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:12px; transition:color .2s; user-select:none; }
+.guide-section summary::-webkit-details-marker { display:none; }
+.guide-section summary::after { content:'+'; font-size:22px; font-weight:300; color:var(--pink); transition:transform .3s; flex-shrink:0; width:24px; text-align:center; }
+.guide-section details[open] summary::after { transform:rotate(45deg); }
+.guide-section summary:hover { color:var(--pink); }
+.guide-section .answer { padding:0 20px 18px; font-size:15px; color:var(--gray); line-height:1.7; }
+.guide-section .answer code { background:rgba(201,27,110,0.08); padding:2px 6px; border-radius:4px; font-size:13px; color:var(--pink); font-family:'Nunito',sans-serif; font-weight:700; }
+
+/* SCROLL TO TOP */
+.scroll-top { position:fixed; bottom:32px; right:32px; width:48px; height:48px; border-radius:50%; background:var(--pink); color:#fff; border:none; font-size:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(201,27,110,0.3); transition:all .3s; opacity:0; pointer-events:none; z-index:99; }
+.scroll-top.visible { opacity:1; pointer-events:auto; }
+.scroll-top:hover { background:#A8155B; transform:translateY(-2px); box-shadow:0 6px 24px rgba(201,27,110,0.4); }
+
+/* FOOTER */
+.footer { padding:40px; text-align:center; font-size:14px; color:var(--gray); border-top:1px solid rgba(0,0,0,0.06); }
+.footer a { color:var(--pink); font-weight:600; }
+
+/* MOBILE */
+@media(max-width:768px) {
+  .header { padding:12px 20px; }
+  .header-nav a:not(.btn) { display:none; }
+  .hero { padding:100px 20px 40px; }
+  .hero h1 { font-size:30px; }
+  .hero p { font-size:16px; }
+  .quick-nav { padding:0 20px 32px; }
+  .pill { font-size:12px; padding:6px 14px; }
+  .guide-content { padding:0 20px 40px; }
+  .section-header { top:56px; padding:12px 0 10px; }
+  .section-header h2 { font-size:20px; }
+  .guide-section summary { font-size:15px; padding:14px 16px; }
+  .guide-section .answer { padding:0 16px 16px; font-size:14px; }
+  .scroll-top { bottom:20px; right:20px; width:42px; height:42px; font-size:18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">
+    <img src="/favicon.png" alt="LipoLand">
+    <span>LipoLand</span>
+  </div>
+  <nav class="header-nav">
+    <a href="/landing.html">Головна</a>
+    <a href="/guide.html" class="active">Гайд</a>
+    <a href="/auth.html" class="btn btn-outline" style="padding:8px 20px;font-size:14px;">Увійти</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <h1>Гайд по <span>LipoLand</span></h1>
+  <p>Повний посібник з усіх функцій системи. Знайдіть відповідь на будь-яке питання.</p>
+</section>
+
+<!-- QUICK NAV PILLS -->
+<nav class="quick-nav">
+  <div class="quick-nav-inner">
+    <a href="#start" class="pill">Початок роботи</a>
+    <a href="#materials" class="pill">Матеріали</a>
+    <a href="#games" class="pill">Мої ігри</a>
+    <a href="#production" class="pill">Виробництво</a>
+    <a href="#orders" class="pill">Замовлення</a>
+    <a href="#team" class="pill">Команда</a>
+    <a href="#salary" class="pill">Зарплата</a>
+    <a href="#fulfillment" class="pill">Фулфілмент</a>
+    <a href="#crm" class="pill">CRM</a>
+    <a href="#expenses" class="pill">Витрати</a>
+    <a href="#analytics" class="pill">Аналітика</a>
+    <a href="#settings" class="pill">Налаштування</a>
+    <a href="#announcements" class="pill">Оголошення</a>
+  </div>
+</nav>
+
+<!-- GUIDE CONTENT -->
+<main class="guide-content">
+
+  <!-- 1. ПОЧАТОК РОБОТИ -->
+  <section class="guide-section" id="start">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F680;</span> Початок роботи</h2>
+    </div>
+
+    <details>
+      <summary>Як зареєструватись?</summary>
+      <div class="answer">Перейдіть на lipoland.com.ua, натисніть <code>Спробувати безкоштовно</code>, заповніть email і пароль. Після реєстрації пройдіть майстер налаштувань — оберіть які модулі вам потрібні.</div>
+    </details>
+
+    <details>
+      <summary>Що таке майстер налаштувань?</summary>
+      <div class="answer">Після реєстрації з'являється вікно де ви обираєте потрібні функції: Виробництво, Замовлення, Команда, Фулфілмент, CRM, Обладнання, Витрати. Непотрібні модулі ховаються з меню. Змінити вибір можна пізніше у <code>Налаштування</code> &rarr; <code>Модулі кабінету</code>.</div>
+    </details>
+
+    <details>
+      <summary>Як змінити які модулі ввімкнені?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Модулі кабінету</code> &rarr; увімкніть/вимкніть потрібні перемикачі.</div>
+    </details>
+  </section>
+
+  <!-- 2. МАТЕРІАЛИ -->
+  <section class="guide-section" id="materials">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4E6;</span> Матеріали (Склад)</h2>
+    </div>
+
+    <details>
+      <summary>Як додати матеріал?</summary>
+      <div class="answer"><code>Матеріали</code> &rarr; <code>+ Додати матеріал</code> &rarr; заповніть назву, одиницю виміру, ціну, постачальника, оберіть категорію (Папір/Плівка, Ліпучки, Комплектуючі, Пакування тощо).</div>
+    </details>
+
+    <details>
+      <summary>Як зробити прихід матеріалів?</summary>
+      <div class="answer"><code>Матеріали</code> &rarr; <code>Прихід</code> &rarr; оберіть матеріал, вкажіть кількість і нову ціну (якщо змінилась). Витрата автоматично створиться у розділі "Витрати".</div>
+    </details>
+
+    <details>
+      <summary>Як завантажити накладну з фото?</summary>
+      <div class="answer"><code>Матеріали</code> &rarr; <code>Накладна з фото</code> &rarr; сфотографуйте або оберіть фото накладної. Система розпізнає позиції, ви перевіряєте і підтверджуєте.</div>
+    </details>
+
+    <details>
+      <summary>Що означають категорії матеріалів?</summary>
+      <div class="answer">Матеріали групуються за категоріями для зручності: Папір/Плівка, Ліпучки, Комплектуючі, Пакування, Для обладнання, Інше. Категорію можна змінити при редагуванні матеріалу.</div>
+    </details>
+
+    <details>
+      <summary>Як рахувати собівартість коробок/пакування?</summary>
+      <div class="answer">Якщо купуєте пачками (напр. 40 коробок за 356 грн), поділіть ціну на кількість: 356 &divide; 40 = 8.90 грн/шт. Якщо є доставка — розділіть її на загальну кількість і додайте до ціни: (356 &divide; 40) + (376 &divide; 130) = 11.79 грн/шт.</div>
+    </details>
+
+    <details>
+      <summary>Де побачити вартість залишків на складі?</summary>
+      <div class="answer">Під таблицею матеріалів є фіолетова стрічка з загальною сумою: "На складі матеріалів: X грн".</div>
+    </details>
+  </section>
+
+  <!-- 3. МОЇ ІГРИ -->
+  <section class="guide-section" id="games">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F3AE;</span> Мої ігри (Каталог)</h2>
+    </div>
+
+    <details>
+      <summary>Як створити гру?</summary>
+      <div class="answer"><code>Мої ігри</code> &rarr; <code>+ Додати гру</code> &rarr; заповніть назву, артикул, розмір, категорію, ціну продажу, вартість друку, роботу майстра, склад виробу (рецепт), пакування.</div>
+    </details>
+
+    <details>
+      <summary>Що таке "Склад виробу"?</summary>
+      <div class="answer">Це рецепт — список матеріалів потрібних для однієї гри. Наприклад: ліпучка 25мм &times; 20 шт, фотопапір &times; 4 аркуші. Система автоматично рахує собівартість і скільки ігор можна зібрати.</div>
+    </details>
+
+    <details>
+      <summary>Як працює собівартість?</summary>
+      <div class="answer">Собівартість = вартість друку + робота майстра + матеріали (з рецепту) + пакування. Система рахує автоматично на основі цін матеріалів і рецепту.</div>
+    </details>
+
+    <details>
+      <summary>Що таке маржа?</summary>
+      <div class="answer">Маржа = ціна продажу &minus; собівартість. Показується в таблиці ігор у грн та %.</div>
+    </details>
+
+    <details>
+      <summary>Як налаштувати вартість друку?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Принтер та вартість друку</code>. Крок 1: ціна пляшки чорнила &divide; об'єм = ціна 1 мл. Крок 2: скільки мл на 1 сторінку А4. Система автоматично порахує вартість друку однієї сторінки.</div>
+    </details>
+
+    <details>
+      <summary>Що означає стовпчик "На фулфілменті"?</summary>
+      <div class="answer">Скільки готових ігор зараз на зовнішніх складах (Розетка, Prom тощо). Модуль Фулфілмент треба ввімкнути в <code>Налаштуваннях</code>.</div>
+    </details>
+  </section>
+
+  <!-- 4. ВИРОБНИЦТВО -->
+  <section class="guide-section" id="production">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F3ED;</span> Виробництво</h2>
+    </div>
+
+    <details>
+      <summary>Як запустити гру у виробництво?</summary>
+      <div class="answer"><code>Виробництво</code> &rarr; <code>Запустити в роботу</code> &rarr; оберіть гру, кількість, майстра. Матеріали автоматично спишуться зі складу.</div>
+    </details>
+
+    <details>
+      <summary>Як здати готову продукцію?</summary>
+      <div class="answer">Натисніть <code>Здати</code> на потрібній партії &rarr; вкажіть кількість &rarr; оберіть "Куди здати": на головний склад або одразу на фулфілмент (Розетка тощо).</div>
+    </details>
+
+    <details>
+      <summary>Чому списались не ті матеріали?</summary>
+      <div class="answer">Перевірте рецепт гри: <code>Мої ігри</code> &rarr; редагування &rarr; <code>Склад виробу</code>. Матеріали списуються згідно рецепту.</div>
+    </details>
+
+    <details>
+      <summary>Можна здати частково?</summary>
+      <div class="answer">Так, вкажіть меншу кількість ніж запущено. Решта залишиться "В роботі".</div>
+    </details>
+  </section>
+
+  <!-- 5. ЗАМОВЛЕННЯ -->
+  <section class="guide-section" id="orders">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4CB;</span> Замовлення</h2>
+    </div>
+
+    <details>
+      <summary>Як створити замовлення?</summary>
+      <div class="answer"><code>Замовлення</code> &rarr; <code>+ Нове замовлення</code> &rarr; заповніть дані клієнта, додайте ігри, оберіть спосіб доставки.</div>
+    </details>
+
+    <details>
+      <summary>Як відправити замовлення (списати зі складу)?</summary>
+      <div class="answer">Натисніть кнопку відправки на замовленні. Система спише товар: спочатку зі складу призначеного майстра, потім з головного складу.</div>
+    </details>
+
+    <details>
+      <summary>Як відстежити посилку?</summary>
+      <div class="answer">Введіть ТТН (номер накладної) &rarr; система автоматично перевіряє статус через API Нової Пошти.</div>
+    </details>
+
+    <details>
+      <summary>Як шукати замовлення?</summary>
+      <div class="answer">Використовуйте поле пошуку — шукає за іменем клієнта, телефоном, ТТН, номером замовлення.</div>
+    </details>
+
+    <details>
+      <summary>Як експортувати замовлення в CSV?</summary>
+      <div class="answer">Натисніть кнопку <code>CSV</code> у фільтрах замовлень. Система запитає підтвердження перед експортом.</div>
+    </details>
+
+    <details>
+      <summary>Як додати канал продажу?</summary>
+      <div class="answer"><code>Замовлення</code> &rarr; налаштування каналів &rarr; додайте нові канали (Instagram, Etsy, Сайт тощо).</div>
+    </details>
+  </section>
+
+  <!-- 6. КОМАНДА -->
+  <section class="guide-section" id="team">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F477;</span> Команда (Майстри)</h2>
+    </div>
+
+    <details>
+      <summary>Як додати майстра?</summary>
+      <div class="answer">Є два способи: 1) <code>Налаштування</code> &rarr; <code>Майстри</code> (локальні) — просто вкажіть ім'я. 2) <code>Налаштування</code> &rarr; <code>Підключені майстри</code> — запросіть по email, і майстер отримає власний вхід з обмеженим доступом.</div>
+    </details>
+
+    <details>
+      <summary>Що бачить підключений майстер?</summary>
+      <div class="answer">Тільки свої завдання, свій склад матеріалів, свою зарплату. Права налаштовуються власником.</div>
+    </details>
+
+    <details>
+      <summary>Як працює склад майстрів?</summary>
+      <div class="answer">Кожен майстер має свій склад матеріалів та готової продукції. Матеріали передаються при запуску виробництва, готова продукція з'являється після здачі.</div>
+    </details>
+  </section>
+
+  <!-- 7. ЗАРПЛАТА -->
+  <section class="guide-section" id="salary">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4B0;</span> Зарплата (ЗП)</h2>
+    </div>
+
+    <details>
+      <summary>Як нараховується зарплата?</summary>
+      <div class="answer">Автоматично при здачі виробництва. Ставка береться з гри: % від ціни продажу або фіксована сума за штуку.</div>
+    </details>
+
+    <details>
+      <summary>Як змінити ставку майстра?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Ставка майстра</code> (за замовчуванням). Або індивідуально для кожної гри: <code>Мої ігри</code> &rarr; редагування &rarr; <code>Робота майстра</code>.</div>
+    </details>
+
+    <details>
+      <summary>Як видалити зайвий запис ЗП?</summary>
+      <div class="answer">В таблиці нарахувань натисніть кнопку видалення навпроти запису. Це також видалить відповідний запис виробництва.</div>
+    </details>
+
+    <details>
+      <summary>Як виплатити зарплату?</summary>
+      <div class="answer"><code>ЗП</code> &rarr; <code>Виплатити</code> &rarr; оберіть майстра, вкажіть суму та коментар.</div>
+    </details>
+  </section>
+
+  <!-- 8. ФУЛФІЛМЕНТ -->
+  <section class="guide-section" id="fulfillment">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F3EC;</span> Фулфілмент</h2>
+    </div>
+
+    <details>
+      <summary>Що таке фулфілмент?</summary>
+      <div class="answer">Це зовнішні склади (Розетка, Prom тощо), куди ви відправляєте готову продукцію. Коли клієнт замовляє — фулфілмент сам відправляє.</div>
+    </details>
+
+    <details>
+      <summary>Як передати товар на фулфілмент?</summary>
+      <div class="answer">Спосіб 1: <code>Мої ігри</code> &rarr; <code>Передати на фулфілмент</code> &rarr; оберіть гру, точку, кількість. Спосіб 2: При здачі виробництва &rarr; "Куди здати" &rarr; оберіть фулфілмент-точку.</div>
+    </details>
+
+    <details>
+      <summary>Як додати нову фулфілмент-точку?</summary>
+      <div class="answer"><code>Мої ігри</code> &rarr; <code>Фулфілмент-точки</code> &rarr; введіть назву і натисніть <code>Додати</code>.</div>
+    </details>
+
+    <details>
+      <summary>Як повернути товар з фулфілменту?</summary>
+      <div class="answer">В таблиці ігор натисніть кнопку повернення навпроти товару &rarr; оберіть з якої точки і скільки повернути.</div>
+    </details>
+  </section>
+
+  <!-- 9. CRM -->
+  <section class="guide-section" id="crm">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F517;</span> CRM інтеграція (SalesDrive)</h2>
+    </div>
+
+    <details>
+      <summary>Як підключити SalesDrive?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Інтеграція із CRM</code> &rarr; вкажіть домен (vashdomen.salesdrive.me) і API-ключ &rarr; <code>Зберегти</code> &rarr; <code>Перевірити з'єднання</code>.</div>
+    </details>
+
+    <details>
+      <summary>Як імпортувати замовлення з CRM?</summary>
+      <div class="answer"><code>Замовлення</code> &rarr; оберіть дати &rarr; <code>Синхронізація з CRM</code>. Замовлення імпортуються з ТТН та даними доставки.</div>
+    </details>
+
+    <details>
+      <summary>Чому не видно кнопок CRM?</summary>
+      <div class="answer">Ввімкніть модуль "CRM інтеграція" в <code>Налаштуваннях</code> &rarr; <code>Модулі кабінету</code>. Потім додайте API-ключ.</div>
+    </details>
+  </section>
+
+  <!-- 10. ВИТРАТИ -->
+  <section class="guide-section" id="expenses">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4B8;</span> Витрати</h2>
+    </div>
+
+    <details>
+      <summary>Як додати витрату?</summary>
+      <div class="answer"><code>Витрати</code> &rarr; <code>Додати витрату</code> &rarr; дата, категорія, сума, коментар.</div>
+    </details>
+
+    <details>
+      <summary>Чи створюються витрати автоматично?</summary>
+      <div class="answer">Так, при прийомі матеріалів ("Прихід" або накладна) автоматично створюється витрата в категорії "Закупка матеріалів".</div>
+    </details>
+
+    <details>
+      <summary>Як створити шаблон витрати?</summary>
+      <div class="answer"><code>Витрати</code> &rarr; <code>Шаблони</code> &rarr; створіть шаблон з назвою, категорією і сумою для швидкого додавання повторюваних витрат.</div>
+    </details>
+  </section>
+
+  <!-- 11. АНАЛІТИКА -->
+  <section class="guide-section" id="analytics">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4C9;</span> Аналітика</h2>
+    </div>
+
+    <details>
+      <summary>Що показує P&L (звіт прибутків і збитків)?</summary>
+      <div class="answer">Виручка (з замовлень) &minus; Собівартість &minus; Зарплати &minus; Витрати &minus; Податки = Чистий прибуток. Звіт по місяцях з графіками.</div>
+    </details>
+
+    <details>
+      <summary>Як налаштувати податки?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Податки (ФОП)</code> &rarr; оберіть групу ФОП (2 або 3), вкажіть ставку. Податки автоматично рахуватимуться в P&L.</div>
+    </details>
+  </section>
+
+  <!-- 12. НАЛАШТУВАННЯ -->
+  <section class="guide-section" id="settings">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x2699;&#xFE0F;</span> Налаштування</h2>
+    </div>
+
+    <details>
+      <summary>Як експортувати/імпортувати дані?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Дані</code> &rarr; <code>Експорт даних</code> збереже JSON-файл з усіма даними. <code>Імпорт даних</code> завантажить дані з файлу.</div>
+    </details>
+
+    <details>
+      <summary>Як імпортувати з Excel?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; <code>Імпорт з Excel</code> &rarr; завантажте шаблон, заповніть, імпортуйте назад.</div>
+    </details>
+
+    <details>
+      <summary>Як видалити акаунт?</summary>
+      <div class="answer"><code>Налаштування</code> &rarr; в самому низу "Небезпечна зона" &rarr; <code>Видалити акаунт та всі дані</code>.</div>
+    </details>
+  </section>
+
+  <!-- 13. ОГОЛОШЕННЯ -->
+  <section class="guide-section" id="announcements">
+    <div class="section-header">
+      <h2><span class="section-icon">&#x1F4E2;</span> Оголошення</h2>
+    </div>
+
+    <details>
+      <summary>Що таке оголошення?</summary>
+      <div class="answer">Адміністратор може створювати popup-оголошення для всіх користувачів (нові функції, важливі зміни тощо). Оголошення з'являється один раз при вході.</div>
+    </details>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div style="margin-bottom:12px;">
+    <a href="https://t.me/+ALv7VTrV5JRmMDY6" target="_blank" style="color:var(--teal);font-weight:700;">Telegram-спільнота</a>
+    &nbsp;&middot;&nbsp;
+    <a href="mailto:hello@lipoland.top">hello@lipoland.top</a>
+  </div>
+  <div style="margin:12px 0;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:13px;">
+    <a href="/legal#terms">Умови використання</a>
+    <a href="/legal#privacy">Конфіденційність</a>
+    <a href="/legal#payment">Умови оплати</a>
+    <a href="/legal#refund">Повернення коштів</a>
+    <a href="/legal#cookies">Cookies</a>
+  </div>
+  <p>&copy; 2026 LipoLand. ФОП Алехнович Я.Г. Всі права захищені.</p>
+</footer>
+
+<!-- SCROLL TO TOP -->
+<button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Вгору">&uarr;</button>
+
+<script>
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// Scroll to top button visibility
+const scrollBtn = document.getElementById('scrollTop');
+window.addEventListener('scroll', () => {
+  scrollBtn.classList.toggle('visible', window.scrollY > 400);
+}, { passive: true });
+</script>
+
+</body>
+</html>
