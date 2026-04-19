@@ -3538,11 +3538,12 @@ function quickComplete(batchId) {
   var db = getDB();
   var batch = db.production.find(function(x){return x.id===batchId});
   if(!batch) return;
-  var p = db.products.find(function(x){return x.id===batch.productId});
-  var name = p ? esc(p.name) : '?';
-  document.getElementById('cp-batch').innerHTML = '<option value="'+batch.id+'" selected>'+name+' x '+batch.qty+' ('+esc(wLabel(batch.worker))+')</option>';
-  document.getElementById('cp-qty').value = batch.qty;
   openModal('complete-production');
+  // After openModal populates the list, select the correct batch
+  var sel = document.getElementById('cp-batch');
+  sel.value = batchId;
+  document.getElementById('cp-qty').value = batch.qty;
+  document.getElementById('cp-qty').max = batch.qty;
 }
 
 function editProductionBatch(batchId) {
