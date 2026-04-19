@@ -150,8 +150,9 @@ a.btn, a.btn:hover, a.btn:focus, a.btn:visited { text-decoration:none; }
 .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
 .progress-bar { height:8px; background:#dfe6e9; border-radius:4px; overflow:hidden; }
 .progress-fill { height:100%; border-radius:4px; transition:width .3s; }
-.note-text { font-size:11px; color:var(--text-light); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.note-text:hover { white-space:normal; overflow:visible; }
+.note-text { font-size:11px; color:var(--text-light); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; word-break:break-all; display:inline-block; vertical-align:middle; }
+.note-text:hover { white-space:normal; overflow:visible; word-break:break-word; max-width:300px; }
+td { max-width:300px; word-break:break-word; }
 th { background:#EDE7F6; color:var(--primary-dark); }
 tr:hover td { background:#F3F0FF; }
 th.sortable { cursor:pointer; user-select:none; }
