@@ -450,8 +450,8 @@ a.order-link:hover { text-decoration:underline; }
   <div style="margin-bottom:12px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
     <button class="btn btn-outline btn-sm" onclick="resetAllCosts()" style="margin-left:8px;">🧹 Скинути собівартість</button>
-    <button class="btn btn-outline btn-sm" onclick="openTransferFulfillment()" style="margin-left:8px;">📦 Передати на фулфілмент</button>
-    <button class="btn btn-outline btn-sm" onclick="document.getElementById('ff-manager').style.display=document.getElementById('ff-manager').style.display==='none'?'block':'none'" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
+    <button class="btn btn-outline btn-sm feat-fulfillment" onclick="openTransferFulfillment()" style="margin-left:8px;">📦 Передати на фулфілмент</button>
+    <button class="btn btn-outline btn-sm feat-fulfillment" onclick="document.getElementById('ff-manager').style.display=document.getElementById('ff-manager').style.display==='none'?'block':'none'" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
     <div id="cat-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="cat-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -459,7 +459,7 @@ a.order-link:hover { text-decoration:underline; }
         <button class="btn btn-primary btn-sm" onclick="addCategory()">+ Додати</button>
       </div>
     </div>
-    <div id="ff-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
+    <div id="ff-manager" class="feat-fulfillment" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="ff-locations-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="new-ff-location" placeholder="Нова точка (напр. Prom)" style="flex:1;">
@@ -850,7 +850,7 @@ a.order-link:hover { text-decoration:underline; }
 <div id="settings" class="page">
   <h2>Налаштування</h2>
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Майстри, вартість друку, сповіщення та експорт даних.</p>
-  <div class="card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card feat-workers" style="max-width:600px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Майстри (локальні)</div>
     <div id="workers-list" class="mb-16"></div>
     <div class="form-row">
@@ -858,7 +858,7 @@ a.order-link:hover { text-decoration:underline; }
       <button class="btn btn-primary" onclick="addWorker()">Додати</button>
     </div>
   </div>
-  <div class="card" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
+  <div class="card feat-workers" style="max-width:700px;margin-bottom:16px;" id="linked-workers-card">
     <div class="section-title" style="margin-top:0;">👩‍🔧 Підключені майстри <span class="badge badge-ok" style="font-size:10px;">+100 грн/місяць за місце</span></div>
     <p class="text-muted mb-16" style="font-size:13px;">Запросіть майстра по email — вона зможе увійти під власним обліковим записом і бачити тільки те, що ви дозволите. Ім'я можна змінити в будь-який момент (✏️) — це прізвисько бачите <b>тільки ви</b>.</p>
     <div style="background:#F3E5F5;border-left:3px solid var(--primary);padding:10px 12px;border-radius:6px;font-size:13px;color:#4A148C;margin-bottom:16px;">💡 <b>Як це оплачується:</b> кожен підключений майстер додає 100 грн/міс до підписки. Доплату не знімаємо одразу — до кінця вашої поточної підписки майстер працює безкоштовно. Нова вартість застосується при наступному продовженні.</div>
@@ -920,7 +920,7 @@ a.order-link:hover { text-decoration:underline; }
     <span id="tax-settings-saved" style="font-size:13px;color:var(--success);display:none;margin-left:10px;">✅ Збережено</span>
     <div id="tax-preview" style="margin-top:12px;font-size:13px;padding:10px 12px;background:#F3E5F5;border-radius:8px;color:#4A148C;"></div>
   </div>
-  <div class="card" id="crm-settings-card" style="max-width:600px;margin-bottom:16px;">
+  <div class="card feat-crm" id="crm-settings-card" style="max-width:600px;margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">🔗 Інтеграція із зовнішньою CRM</div>
     <p style="font-size:12px;color:var(--text-light);margin:-4px 0 12px;">Підключіть SalesDrive CRM для імпорту замовлень. Якщо ви не використовуєте CRM — просто пропустіть цей блок.</p>
     <div class="form-group mb-16"><label>Домен CRM</label><input id="sd-domain" placeholder="vashdomen.salesdrive.me" value=""></div>
@@ -1059,6 +1059,14 @@ a.order-link:hover { text-decoration:underline; }
       <input type="file" id="excel-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(event)">
     </div>
     <div id="excel-import-result" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- Feature Toggles -->
+  <div class="card" style="max-width:600px;margin-bottom:16px;">
+    <div class="section-title" style="margin-top:0;">🧩 Модулі кабінету</div>
+    <p style="font-size:13px;color:var(--text-light);margin:-8px 0 12px;">Ввімкніть або вимкніть функції. Вимкнені модулі зникають з меню.</p>
+    <div id="settings-features" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <button class="btn btn-outline btn-sm" onclick="showFeatureWizard()" style="margin-top:12px;">🔄 Перезапустити майстер налаштувань</button>
   </div>
 
   <!-- Notification Preferences -->
@@ -2244,6 +2252,8 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
     localStorage.removeItem(SD_SETTINGS_KEY);
     localStorage.removeItem('lipo_read_notifs');
     localStorage.removeItem('lipo_onboarding_done');
+    localStorage.removeItem('lipo_features');
+    localStorage.removeItem('lipo_features_configured');
     _dbCache = null;
   }
   if (curUser) localStorage.setItem('lipo_current_user', curUser);
@@ -4894,10 +4904,137 @@ function hasCrmKey() {
 
 function toggleCrmVisibility() {
   var show = hasCrmKey();
+  var f = getFeatures();
+  // If crm feature is off, always hide; otherwise respect hasCrmKey
+  if (!f.crm) show = false;
   var els = document.querySelectorAll('.crm-only');
   for (var i = 0; i < els.length; i++) {
     els[i].style.display = show ? '' : 'none';
   }
+}
+
+// ==================== FEATURE TOGGLES ====================
+function getFeatures() {
+  var defaults = { workers:false, production:true, orders:true, fulfillment:false, crm:false, equipment:false, costs:true };
+  try {
+    var saved = JSON.parse(localStorage.getItem('lipo_features'));
+    if (saved) {
+      for (var k in defaults) { if (saved[k] === undefined) saved[k] = defaults[k]; }
+      return saved;
+    }
+  } catch(e) {}
+  return defaults;
+}
+
+function saveFeatures(features) {
+  localStorage.setItem('lipo_features', JSON.stringify(features));
+  applyFeatures();
+}
+
+function isFeatureOn(id) {
+  return getFeatures()[id] !== false;
+}
+
+var _onboardingFeatures = [
+  { id:'production', icon:'\u{1F3ED}', name:'Виробництво', desc:'Запуск в роботу, здача готової продукції, контроль процесу', default:true },
+  { id:'orders', icon:'\u{1F4E6}', name:'Замовлення', desc:'Облік замовлень клієнтів, відправка, трекінг посилок', default:true },
+  { id:'workers', icon:'\u{1F477}', name:'Команда', desc:'Робота з майстрами, зарплата, склад майстрів', default:false },
+  { id:'fulfillment', icon:'\u{1F3EC}', name:'Фулфілмент', desc:'Передача товарів на зовнішні склади (Розетка, Prom тощо)', default:false },
+  { id:'costs', icon:'\u{1F4B0}', name:'Витрати', desc:'Облік витрат та видатків на бізнес', default:true },
+  { id:'equipment', icon:'\u{1F527}', name:'Обладнання', desc:'Облік обладнання, сервісний журнал', default:false },
+  { id:'crm', icon:'\u{1F517}', name:'CRM інтеграція', desc:'Синхронізація із SalesDrive CRM', default:false }
+];
+
+function applyFeatures() {
+  var f = getFeatures();
+  // Hide/show nav buttons by data-page
+  var navMap = {
+    'worker-stock': 'workers',
+    'production': 'production',
+    'orders': 'orders',
+    'salary': 'workers',
+    'costs': 'costs',
+    'expenses': 'costs',
+    'equipment': 'equipment'
+  };
+  document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
+    var page = btn.getAttribute('data-page');
+    var feat = navMap[page];
+    if (feat) {
+      btn.style.display = f[feat] ? '' : 'none';
+    }
+  });
+  // Mobile nav buttons
+  document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
+    var match = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
+    if (match) {
+      var page = match[1];
+      var feat = navMap[page];
+      if (feat) {
+        btn.style.display = f[feat] ? '' : 'none';
+      }
+    }
+  });
+  // Handle feat-* classed elements
+  var ids = ['workers','production','orders','fulfillment','crm','equipment','costs'];
+  ids.forEach(function(id) {
+    var els = document.querySelectorAll('.feat-'+id);
+    for (var i = 0; i < els.length; i++) {
+      els[i].style.display = f[id] ? '' : 'none';
+    }
+  });
+  // Re-apply CRM visibility (respects both feature toggle and key presence)
+  toggleCrmVisibility();
+}
+
+function showFeatureWizard() {
+  var container = document.getElementById('feat-wizard-options');
+  container.innerHTML = _onboardingFeatures.map(function(feat) {
+    var f = getFeatures();
+    var checked = f[feat.id];
+    return '<label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border-radius:12px;cursor:pointer;border:2px solid '+(checked?'var(--primary)':'transparent')+';transition:all .2s;" '+
+      'onmouseover="this.style.borderColor=\'var(--primary-light)\'" onmouseout="this.style.borderColor=this.querySelector(\'input\').checked?\'var(--primary)\':\'transparent\'">' +
+      '<input type="checkbox" data-feat="'+feat.id+'" '+(checked?'checked':'')+' style="width:20px;height:20px;accent-color:var(--primary);" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--primary)\':\'transparent\'">' +
+      '<span style="font-size:24px;">'+feat.icon+'</span>' +
+      '<div style="flex:1;"><strong style="font-size:15px;">'+feat.name+'</strong><br><span style="font-size:12px;color:var(--text-light);">'+feat.desc+'</span></div>' +
+    '</label>';
+  }).join('');
+  document.getElementById('feat-wizard-modal').style.display = 'flex';
+}
+
+function finishFeatureWizard() {
+  var features = {};
+  document.querySelectorAll('#feat-wizard-options input[data-feat]').forEach(function(cb) {
+    features[cb.getAttribute('data-feat')] = cb.checked;
+  });
+  saveFeatures(features);
+  localStorage.setItem('lipo_features_configured', '1');
+  document.getElementById('feat-wizard-modal').style.display = 'none';
+}
+
+function checkFeatureWizard() {
+  if (!localStorage.getItem('lipo_features_configured')) {
+    showFeatureWizard();
+  }
+}
+
+function renderSettingsFeatures() {
+  var f = getFeatures();
+  var container = document.getElementById('settings-features');
+  if (!container) return;
+  container.innerHTML = _onboardingFeatures.map(function(feat) {
+    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;cursor:pointer;">' +
+      '<input type="checkbox" '+(f[feat.id]?'checked':'')+' onchange="toggleFeatureSetting(\''+feat.id+'\',this.checked)" style="width:18px;height:18px;accent-color:var(--primary);">' +
+      '<span style="font-size:20px;">'+feat.icon+'</span>' +
+      '<div><strong style="font-size:14px;">'+feat.name+'</strong> <span style="font-size:12px;color:var(--text-light);">\u2014 '+feat.desc+'</span></div>' +
+    '</label>';
+  }).join('');
+}
+
+function toggleFeatureSetting(id, on) {
+  var f = getFeatures();
+  f[id] = on;
+  saveFeatures(f);
 }
 
 function saveCrmSettings() {
@@ -6306,6 +6443,8 @@ function renderSettings() {
       '<span style="flex:1;">'+esc(w)+'</span>'+
       '<button class="btn btn-danger btn-sm" onclick="removeWorker('+i+')">&#x2715;</button></div>';
   }).join('') || '<p class="text-muted">Додайте майстрів</p>';
+  // Render feature toggles in settings
+  renderSettingsFeatures();
   // Load CRM settings from server
   loadCrmSettings();
   // Load printer settings
@@ -6957,6 +7096,8 @@ function resetAllData() {
   localStorage.removeItem(SD_SETTINGS_KEY);
   localStorage.removeItem('lipo_read_notifs');
   localStorage.removeItem('lipo_onboarding_done');
+  localStorage.removeItem('lipo_features');
+  localStorage.removeItem('lipo_features_configured');
   fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(empty) }).then(function(){
     location.reload();
   }).catch(function(){ location.reload(); });
@@ -8770,6 +8911,8 @@ function loadAccount() {
     } else {
       localStorage.removeItem('lipo_worker_role');
     }
+    // Apply feature toggles
+    applyFeatures();
     // Check for announcements after short delay (let UI settle)
     setTimeout(checkAnnouncement, 2000);
   }).catch(function(){});
@@ -9262,6 +9405,10 @@ function closeOnboarding() {
   localStorage.setItem('lipo_onboarding_done', '1');
   // Clean URL
   window.history.replaceState({}, '', '/app');
+  // Show feature wizard after onboarding tour
+  if (!localStorage.getItem('lipo_features_configured')) {
+    setTimeout(showFeatureWizard, 400);
+  }
 }
 
 // Check if should show onboarding
@@ -9271,6 +9418,9 @@ function closeOnboarding() {
   var onbDone = localStorage.getItem('lipo_onboarding_done');
   if (isNewUser && !onbDone) {
     setTimeout(showOnboarding, 800);
+  } else if (onbDone && !localStorage.getItem('lipo_features_configured')) {
+    // User completed onboarding tour but never picked features
+    setTimeout(showFeatureWizard, 800);
   }
 })();
 
@@ -9278,9 +9428,23 @@ function closeOnboarding() {
 var _origRegistrationFetch = null;
 
 // ==================== INIT ====================
+applyFeatures();
 loadAccount();
 renderDashboard();
 </script>
+
+<!-- Feature Wizard Modal -->
+<div id="feat-wizard-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;max-width:520px;width:90%;max-height:90vh;overflow-y:auto;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:48px;margin-bottom:8px;">🧩</div>
+      <h2 style="margin:0 0 8px;color:var(--primary-dark);">Налаштуйте свій кабінет</h2>
+      <p style="color:var(--text-light);font-size:14px;margin:0;">Оберіть функції, які вам потрібні. Решту можна ввімкнути пізніше в Налаштуваннях.</p>
+    </div>
+    <div id="feat-wizard-options" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <button onclick="finishFeatureWizard()" style="margin-top:24px;width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">🚀 Почати роботу</button>
+  </div>
+</div>
 
 <!-- Onboarding Overlay (outside script, before body close) -->
 <div class="onboarding-overlay" id="onboarding-overlay">
