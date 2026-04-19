@@ -2301,7 +2301,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Login/Register
-    if (url === '/login' || url === '/register' || url === '/auth') {
+    if (url === '/login' || url === '/register' || url === '/auth' || url === '/auth.html') {
       const user = await getSessionUser(req);
       if (user) { redirect(res, '/app'); return; }
       serveFile(res, FILES.auth);
