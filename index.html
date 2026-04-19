@@ -1408,6 +1408,16 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div class="modal-body">
       <div class="form-group mb-16"><label>Назва</label><input id="mat-name" placeholder="Ліпучка біла 25мм"></div>
+      <div class="form-group mb-16"><label>Категорія</label>
+        <select id="mat-category">
+          <option value="">— Без категорії —</option>
+          <option value="paper">📄 Папір / Плівка</option>
+          <option value="components">🔩 Комплектуючі</option>
+          <option value="packaging">📦 Пакування</option>
+          <option value="equipment">🔧 Для обладнання</option>
+          <option value="other">📁 Інше</option>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>Одиниця виміру</label>
           <select id="mat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select>
@@ -1796,6 +1806,16 @@ a.order-link:hover { text-decoration:underline; }
     <div class="modal-body">
       <input type="hidden" id="emat-id">
       <div class="form-group mb-16"><label>Назва</label><input id="emat-name"></div>
+      <div class="form-group mb-16"><label>Категорія</label>
+        <select id="emat-category">
+          <option value="">— Без категорії —</option>
+          <option value="paper">📄 Папір / Плівка</option>
+          <option value="components">🔩 Комплектуючі</option>
+          <option value="packaging">📦 Пакування</option>
+          <option value="equipment">🔧 Для обладнання</option>
+          <option value="other">📁 Інше</option>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>Одиниця</label><select id="emat-unit"><option>шт</option><option>м.п.</option><option>м²</option><option>аркуш</option><option>рулон</option><option>упак</option><option>кг</option><option>г</option><option>л</option><option>мл</option><option>компл</option></select></div>
         <div class="form-group"><label>Залишок</label><input id="emat-qty" type="number" step="0.01"></div>
@@ -2561,12 +2581,13 @@ function closeModal(name) { document.getElementById('modal-'+name).classList.rem
 // ==================== MATERIALS ====================
 function saveMaterial() {
   const db = getDB();
-  const m = { id:uid(), name:v('mat-name'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), note:v('mat-note') };
+  const m = { id:uid(), name:v('mat-name'), category:v('mat-category'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), note:v('mat-note') };
   if(!m.name) return alert('Введіть назву');
   db.materials.push(m);
   saveDB(db);
   closeModal('add-material');
   document.getElementById('mat-name').value='';
+  document.getElementById('mat-category').value='';
   document.getElementById('mat-note').value='';
   renderPage('materials');
 }
@@ -2577,6 +2598,7 @@ function editMaterial(id) {
   if(!m) return;
   document.getElementById('emat-id').value = id;
   document.getElementById('emat-name').value = m.name;
+  document.getElementById('emat-category').value = m.category||'';
   document.getElementById('emat-unit').value = m.unit;
   document.getElementById('emat-qty').value = m.qty;
   document.getElementById('emat-min').value = m.min;
@@ -2591,7 +2613,7 @@ function updateMaterial() {
   const id = document.getElementById('emat-id').value;
   const m = db.materials.find(function(x){return x.id===id});
   if(!m) return;
-  m.name = v('emat-name'); m.unit = v('emat-unit'); m.qty = n('emat-qty');
+  m.name = v('emat-name'); m.category = v('emat-category'); m.unit = v('emat-unit'); m.qty = n('emat-qty');
   m.min = n('emat-min'); m.price = n('emat-price'); m.supplier = v('emat-supplier');
   m.note = v('emat-note');
   saveDB(db);
@@ -2627,30 +2649,69 @@ function receiveMaterial() {
   renderPage('materials');
 }
 
+var _matCategoryLabels = {
+  'paper': '📄 Папір / Плівка',
+  'components': '🔩 Комплектуючі',
+  'packaging': '📦 Пакування',
+  'equipment': '🔧 Для обладнання',
+  'other': '📁 Інше',
+  '': '📋 Без категорії'
+};
+var _matCategoryColors = {
+  'paper': '#E3F2FD;border-left:4px solid #1976D2',
+  'components': '#FFF3E0;border-left:4px solid #E65100',
+  'packaging': '#E8F5E9;border-left:4px solid #2E7D32',
+  'equipment': '#F3E5F5;border-left:4px solid #7B1FA2',
+  'other': '#F5F5F5;border-left:4px solid #9E9E9E',
+  '': '#FAFAFA;border-left:4px solid #BDBDBD'
+};
+var _matCategoryOrder = ['paper', 'components', 'packaging', 'equipment', 'other', ''];
+
 function renderMaterials() {
-  const db = getDB();
+  var db = getDB();
   var undoBtn = document.getElementById('undo-invoice-btn');
   if (undoBtn) undoBtn.style.display = (_lastInvoiceUndo && _lastInvoiceUndo.actions.length) ? 'inline-block' : 'none';
-  const tb = document.getElementById('materials-table');
-  tb.innerHTML = db.materials.map(function(m) {
-    var status = m.qty <= 0 ? '<span class="badge badge-danger">Немає!</span>'
-      : m.qty <= m.min ? '<span class="badge badge-warning">Замовити!</span>'
-      : '<span class="badge badge-ok">Ок</span>';
-    var supplierHtml = m.supplier ? esc(m.supplier) : '—';
-    var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
-    return '<tr>'+
-      '<td><input type="checkbox" class="mat-cb" value="'+m.id+'" onchange="updateMatSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
-      '<td data-label="Назва"><strong>'+esc(m.name)+'</strong></td>'+
-      '<td data-label="Од.">'+esc(m.unit)+'</td>'+
-      '<td data-label="Залишок">'+fmt(m.qty)+'</td>'+
-      '<td data-label="Мінімум">'+fmt(m.min)+'</td>'+
-      '<td data-label="Ціна/од.">'+fmt(m.price)+' грн</td>'+
-      '<td data-label="Постачальник">'+supplierHtml+'</td>'+
-      '<td data-label="Коментар">'+noteHtml+'</td>'+
-      '<td data-label="Статус">'+status+'</td>'+
-      '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
-    '</tr>';
-  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+  var tb = document.getElementById('materials-table');
+
+  // Group materials by category
+  var groups = {};
+  db.materials.forEach(function(m) {
+    var cat = m.category || '';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(m);
+  });
+
+  // Build rows grouped by category
+  var html = '';
+  var hasAny = false;
+  _matCategoryOrder.forEach(function(cat) {
+    if (!groups[cat] || groups[cat].length === 0) return;
+    hasAny = true;
+    var label = _matCategoryLabels[cat] || cat;
+    var color = _matCategoryColors[cat] || '#FAFAFA;border-left:4px solid #BDBDBD';
+    html += '<tr><td colspan="10" style="background:'+color+';padding:10px 16px;font-weight:700;font-size:14px;letter-spacing:0.3px;">'+label+' <span style="font-weight:400;font-size:12px;color:var(--text-light);">('+groups[cat].length+')</span></td></tr>';
+    groups[cat].forEach(function(m) {
+      var status = m.qty <= 0 ? '<span class="badge badge-danger">Немає!</span>'
+        : m.qty <= m.min ? '<span class="badge badge-warning">Замовити!</span>'
+        : '<span class="badge badge-ok">Ок</span>';
+      var supplierHtml = m.supplier ? esc(m.supplier) : '—';
+      var noteHtml = m.note ? '<span class="note-text" title="'+esc(m.note)+'">'+esc(m.note)+'</span>' : '—';
+      html += '<tr>'+
+        '<td><input type="checkbox" class="mat-cb" value="'+m.id+'" onchange="updateMatSelection()" style="width:18px;height:18px;accent-color:var(--primary);"></td>'+
+        '<td data-label="Назва"><strong>'+esc(m.name)+'</strong></td>'+
+        '<td data-label="Од.">'+esc(m.unit)+'</td>'+
+        '<td data-label="Залишок">'+fmt(m.qty)+'</td>'+
+        '<td data-label="Мінімум">'+fmt(m.min)+'</td>'+
+        '<td data-label="Ціна/од.">'+fmt(m.price)+' грн</td>'+
+        '<td data-label="Постачальник">'+supplierHtml+'</td>'+
+        '<td data-label="Коментар">'+noteHtml+'</td>'+
+        '<td data-label="Статус">'+status+'</td>'+
+        '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="editMaterial(\''+m.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteMaterial(\''+m.id+'\')">&#x1F5D1;</button></td>'+
+      '</tr>';
+    });
+  });
+
+  tb.innerHTML = hasAny ? html : '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
   renderInvoiceHistory();
   renderPackagingKits();
 }
