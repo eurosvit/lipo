@@ -810,18 +810,18 @@ a.order-link:hover { text-decoration:underline; }
 <div id="salary" class="page">
   <div class="flex-between">
     <h2 id="salary-title">Нарахування ЗП</h2>
-    <div id="salary-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <div id="salary-filters" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <select id="salary-worker" onchange="renderSalary()" style="padding:8px 12px;">
         <option value="">Всі майстри</option>
       </select>
       <input type="date" id="salary-date-from" onchange="renderSalary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="Від дати">
       <span style="color:var(--text-light);font-size:13px;">—</span>
       <input type="date" id="salary-date-to" onchange="renderSalary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="До дати">
-      <div style="display:flex;gap:4px;flex-wrap:wrap;">
-        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisWeek')" style="font-size:11px;padding:4px 8px;">Цей тиждень</button>
-        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('lastWeek')" style="font-size:11px;padding:4px 8px;">Мин. тиждень</button>
-        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisMonth')" style="font-size:11px;padding:4px 8px;">Цей місяць</button>
-        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('all')" style="font-size:11px;padding:4px 8px;">Все</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:4px;">
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisWeek')" style="font-size:11px;padding:5px 10px;">Цей тиждень</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('lastWeek')" style="font-size:11px;padding:5px 10px;">Мин. тиждень</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisMonth')" style="font-size:11px;padding:5px 10px;">Цей місяць</button>
+        <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('all')" style="font-size:11px;padding:5px 10px;">Все</button>
       </div>
     </div>
   </div>
