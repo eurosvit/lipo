@@ -299,8 +299,9 @@ a.order-link:hover { text-decoration:underline; }
   /* Modal sections */
   .modal-section { padding:12px 14px 10px; margin:10px 0; }
 
-  /* Flex-between */
-  .flex-between { gap:8px; }
+  /* Flex-between: prevent description text overlapping with wrapped buttons */
+  .flex-between { gap:8px; margin-bottom:8px; }
+  .flex-between + p { margin-top:0 !important; }
 }
 
 /* ==================== MOBILE ENHANCED (<768px) ==================== */
@@ -354,6 +355,10 @@ a.order-link:hover { text-decoration:underline; }
 
   /* Onboarding adjustments */
   .onboarding-card { width:96vw; }
+
+  /* Fix description text overlapping with wrapped buttons */
+  .flex-between { margin-bottom:8px; }
+  .flex-between + p { margin-top:0 !important; }
 }
 
 /* Cards 2-col between 481px and 767px (existing 480px rule gives 1fr) */
