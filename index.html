@@ -450,11 +450,20 @@ a.order-link:hover { text-decoration:underline; }
   <div style="margin-bottom:12px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
     <button class="btn btn-outline btn-sm" onclick="resetAllCosts()" style="margin-left:8px;">🧹 Скинути собівартість</button>
+    <button class="btn btn-outline btn-sm" onclick="openTransferFulfillment()" style="margin-left:8px;">📦 Передати на фулфілмент</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('ff-manager').style.display=document.getElementById('ff-manager').style.display==='none'?'block':'none'" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
     <div id="cat-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="cat-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input id="new-cat-name" placeholder="Нова категорія" style="flex:1;">
         <button class="btn btn-primary btn-sm" onclick="addCategory()">+ Додати</button>
+      </div>
+    </div>
+    <div id="ff-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
+      <div id="ff-locations-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="new-ff-location" placeholder="Нова точка (напр. Prom)" style="flex:1;">
+        <button class="btn btn-primary btn-sm" onclick="addFfLocation()">+ Додати</button>
       </div>
     </div>
   </div>
@@ -1424,6 +1433,12 @@ a.order-link:hover { text-decoration:underline; }
     <div class="modal-body">
       <div class="form-group mb-16"><label>Виробництво</label><select id="cp-batch"></select></div>
       <div class="form-group mb-16"><label>Фактично виконано, шт</label><input id="cp-qty" type="number" min="1"></div>
+      <div class="form-group mb-16"><label>Куди здати</label>
+        <select id="cp-destination" onchange="document.getElementById('cp-dest-hint').textContent=this.value==='main'?'На ваш головний склад':'Товар одразу буде на фулфілменті'">
+          <option value="main">📦 Мій склад (головний)</option>
+        </select>
+        <span id="cp-dest-hint" class="text-muted" style="font-size:12px;margin-top:4px;display:block;">На ваш головний склад</span>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('complete-production')">Скасувати</button>
@@ -1996,6 +2011,23 @@ a.order-link:hover { text-decoration:underline; }
       <div style="margin-top:12px;">
         <img src="https://www.wayforpay.com/public/img/logo_wfp.svg" alt="WayForPay" style="height:20px;opacity:0.5;" onerror="this.style.display='none'">
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer to Fulfillment Modal -->
+<div class="modal-overlay" id="modal-transfer-fulfillment">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>📦 Передати на фулфілмент</h3>
+      <button class="modal-close" onclick="closeModal('transfer-fulfillment')">&times;</button>
+    </div>
+    <div class="form-group"><label>Гра</label><select id="tf-product" onchange="updateTfMax()"></select></div>
+    <div class="form-group"><label>Фулфілмент-точка</label><select id="tf-location"></select></div>
+    <div class="form-group"><label>Кількість</label><input id="tf-qty" type="number" min="1" value="1"><span id="tf-avail" class="text-muted" style="font-size:12px;margin-top:4px;display:block;"></span></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('transfer-fulfillment')">Скасувати</button>
+      <button class="btn btn-primary" onclick="transferToFulfillment()">📦 Передати</button>
     </div>
   </div>
 </div>
@@ -2973,6 +3005,7 @@ var _defaultProdCols = [
   { id:'size', label:'Розмір', sortable:false, visible:true },
   { id:'category', label:'Категорія', sortable:false, visible:true },
   { id:'stock', label:'Мій склад', sortable:true, visible:true },
+  { id:'fulfillment', label:'На фулфілменті', sortable:true, visible:true },
   { id:'atWorker', label:'У майстрів', sortable:true, visible:true },
   { id:'inProgress', label:'В роботі', sortable:true, visible:true },
   { id:'cost', label:'Собівартість', sortable:true, visible:true },
@@ -3138,6 +3171,11 @@ function renderProducts() {
         case 'sellPrice': va = a.sellPrice||0; vb = b.sellPrice||0; break;
         case 'margin': va = (a.sellPrice||0) - calcCost(a, db.materials, db).total; vb = (b.sellPrice||0) - calcCost(b, db.materials, db).total; break;
         case 'canProduce': va = calcCanProduce(a, db.materials); vb = calcCanProduce(b, db.materials); break;
+        case 'fulfillment':
+          var ffa = a.fulfillment||{}, ffb = b.fulfillment||{};
+          va = Object.keys(ffa).reduce(function(s,k){return s+(ffa[k]||0);},0);
+          vb = Object.keys(ffb).reduce(function(s,k){return s+(ffb[k]||0);},0);
+          break;
         default: va = 0; vb = 0;
       }
       if (typeof va === 'string') {
@@ -3165,6 +3203,11 @@ function renderProducts() {
       case 'size': return '<td data-label="Розмір">'+esc(p.size||'—')+'</td>';
       case 'category': return '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>';
       case 'stock': return '<td data-label="Мій склад">'+(p.stock||0)+'</td>';
+      case 'fulfillment':
+        var ff = p.fulfillment || {};
+        var ffTotal = Object.keys(ff).reduce(function(s,k){ return s + (ff[k]||0); }, 0);
+        var ffParts = Object.keys(ff).filter(function(k){return ff[k]>0}).map(function(k){ return esc(k)+': '+ff[k]; });
+        return '<td data-label="На фулфілменті">'+(ffTotal > 0 ? '<span style="color:#7B1FA2;font-weight:600;" title="'+esc(ffParts.join(', '))+'">'+ffTotal+'</span>' : '0')+'</td>';
       case 'atWorker': return '<td data-label="У майстрів">'+(atW > 0 ? '<span style="color:var(--primary);font-weight:600;">'+atW+'</span>' : '0')+'</td>';
       case 'inProgress': return '<td data-label="В роботі">'+(p.inProgress||0)+'</td>';
       case 'cost': return '<td data-label="Собівартість">'+fmt(cost.total)+' грн</td>';
@@ -3190,9 +3233,12 @@ function renderProducts() {
       '<td data-label="Дії" style="white-space:nowrap;">'+(p.active===false?
         '<button class="btn btn-success btn-sm" onclick="toggleProduct(\''+p.id+'\',true)" title="Активувати">&#x25B6;</button> ':
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
+        (p.fulfillment && Object.keys(p.fulfillment).some(function(k){return p.fulfillment[k]>0}) ? '<button class="btn btn-outline btn-sm" onclick="returnFromFulfillment(\''+p.id+'\')" title="Повернути з фулфілменту" style="opacity:0.7;">↩️</button> ' : '')+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+
+  renderFulfillmentLocations();
 }
 
 function toggleAllProducts(checked) {
@@ -3395,6 +3441,15 @@ function populateCompleteProd() {
       document.getElementById('cp-qty').max = batch.qty;
     }
   };
+  // Populate destination select with fulfillment locations
+  var destSel = document.getElementById('cp-destination');
+  if (destSel) {
+    var locs = db.fulfillmentLocations || ['Розетка'];
+    destSel.innerHTML = '<option value="main">📦 Мій склад (головний)</option>' +
+      locs.map(function(l){ return '<option value="ff:'+esc(l)+'">🏬 '+esc(l)+' (фулфілмент)</option>'; }).join('');
+    destSel.value = 'main';
+    document.getElementById('cp-dest-hint').textContent = 'На ваш головний склад';
+  }
 }
 
 function completeProduction() {
@@ -3405,8 +3460,17 @@ function completeProduction() {
   if(!batch || qty<=0) return alert('Оберіть партію');
   if(qty > batch.qty) return alert('Не можна здати більше ніж в роботі ('+batch.qty+' шт)');
   var p = db.products.find(function(x){return x.id===batch.productId});
+  var destination = v('cp-destination') || 'main';
   if(p) {
-    p.stock = (p.stock||0) + qty;
+    if (destination.indexOf('ff:') === 0) {
+      // Send directly to fulfillment
+      var ffLoc = destination.substring(3);
+      if (!p.fulfillment) p.fulfillment = {};
+      p.fulfillment[ffLoc] = (p.fulfillment[ffLoc]||0) + qty;
+    } else {
+      // Main stock
+      p.stock = (p.stock||0) + qty;
+    }
     p.inProgress = Math.max(0, (p.inProgress||0) - qty);
     // Template fast-amortization: advance the covered counter (capped at templateQty)
     if ((p.templateCost||0) > 0 && (p.templateQty||0) > 0) {
@@ -3416,13 +3480,15 @@ function completeProduction() {
   }
   if(qty < batch.qty) {
     // Partial completion: create completed record, reduce batch
-    db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10) });
+    var destLabel = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
+    db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10), fulfillmentDest:destLabel });
     batch.qty -= qty;
   } else {
     // Full completion
     batch.status = 'completed';
     batch.completedQty = qty;
     batch.completedDate = new Date().toISOString().slice(0,10);
+    batch.fulfillmentDest = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
   }
   saveDB(db);
   closeModal('complete-production');
@@ -3449,7 +3515,7 @@ function renderProduction() {
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
-      '<td data-label="Статус"><span class="badge badge-success">Готово</span></td>'+
+      '<td data-label="Статус"><span class="badge badge-success">Готово</span>'+(b.fulfillmentDest?' <span class="badge" style="background:#E1BEE7;color:#4A148C;font-size:10px;">🏬 '+esc(b.fulfillmentDest)+'</span>':'')+'</td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-outline btn-sm" onclick="editCompletedBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
         '<button class="btn btn-danger btn-sm" onclick="deleteCompletedBatch(\''+b.id+'\')" title="Видалити">🗑</button>'+
@@ -3795,6 +3861,19 @@ function orderStockHint(ord) {
   if (totalMaster > 0) parts.push('<span style="color:#2E7D32;">👷 '+esc(wLabel(ord.worker))+': '+totalMaster+'</span>');
   if (totalMain > 0) parts.push('<span style="color:#1565C0;">📦 LipoLand: '+totalMain+'</span>');
   if (totalShortage > 0) parts.push('<span style="color:#C62828;">❌ не вистачає: '+totalShortage+'</span>');
+  // Add fulfillment stock hint
+  plan.forEach(function(p) {
+    if (p.productId) {
+      var prod = db.products.find(function(x){return x.id===p.productId});
+      if (prod && prod.fulfillment) {
+        var ffParts = [];
+        Object.keys(prod.fulfillment).forEach(function(loc) {
+          if (prod.fulfillment[loc] > 0) ffParts.push(loc+': '+prod.fulfillment[loc]);
+        });
+        if (ffParts.length) parts.push('<span style="color:#7B1FA2;">🏬 '+ffParts.join(', ')+'</span>');
+      }
+    }
+  });
   return parts.length ? parts.join(' • ') : '<span class="text-muted">—</span>';
 }
 
@@ -3952,6 +4031,140 @@ function deleteChannel(name) {
   db.orders.forEach(function(o) { if (o.channel === name) o.channel = ''; });
   saveDB(db);
   renderPage('orders');
+}
+
+// ==================== FULFILLMENT STOCK ====================
+function openTransferFulfillment(productId) {
+  var db = getDB();
+  var sel = document.getElementById('tf-product');
+  sel.innerHTML = db.products.filter(function(p){return p.active!==false && (p.stock||0)>0}).map(function(p){
+    return '<option value="'+p.id+'">'+(p.sku?p.sku+' — ':'')+esc(p.name)+' ('+( p.stock||0)+' шт)</option>';
+  }).join('');
+  if (productId) sel.value = productId;
+
+  var locs = db.fulfillmentLocations || ['Розетка'];
+  var locSel = document.getElementById('tf-location');
+  locSel.innerHTML = locs.map(function(l){ return '<option value="'+esc(l)+'">'+esc(l)+'</option>'; }).join('');
+
+  updateTfMax();
+  openModal('transfer-fulfillment');
+}
+
+function updateTfMax() {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===v('tf-product')});
+  var avail = p ? (p.stock||0) : 0;
+  document.getElementById('tf-qty').max = avail;
+  document.getElementById('tf-avail').textContent = 'Доступно на складі: ' + avail + ' шт';
+}
+
+function transferToFulfillment() {
+  var db = getDB();
+  var productId = v('tf-product');
+  var location = v('tf-location');
+  var qty = parseInt(v('tf-qty')) || 0;
+
+  if (!productId || !location || qty <= 0) return alert('Заповніть всі поля');
+
+  var p = db.products.find(function(x){return x.id===productId});
+  if (!p) return alert('Гру не знайдено');
+  if (qty > (p.stock||0)) return alert('На складі лише ' + (p.stock||0) + ' шт');
+
+  // Deduct from main stock
+  p.stock = (p.stock||0) - qty;
+
+  // Add to fulfillment
+  if (!p.fulfillment) p.fulfillment = {};
+  p.fulfillment[location] = (p.fulfillment[location]||0) + qty;
+
+  saveDB(db);
+  closeModal('transfer-fulfillment');
+  renderPage('products');
+  alert('✅ Передано ' + qty + ' шт на "' + location + '"');
+}
+
+function returnFromFulfillment(productId) {
+  var db = getDB();
+  var p = db.products.find(function(x){return x.id===productId});
+  if (!p || !p.fulfillment) return;
+
+  var locs = Object.keys(p.fulfillment).filter(function(k){return p.fulfillment[k]>0});
+  if (!locs.length) return alert('На фулфілменті немає товарів');
+
+  var loc = locs.length === 1 ? locs[0] : prompt('З якої точки повернути?\n' + locs.map(function(l){return l+': '+p.fulfillment[l]+' шт'}).join('\n'));
+  if (!loc || !p.fulfillment[loc]) return;
+
+  var max = p.fulfillment[loc];
+  var qty = parseInt(prompt('Повернути зі "'+loc+'" (макс '+max+' шт):', max));
+  if (!qty || qty <= 0) return;
+  if (qty > max) qty = max;
+
+  p.fulfillment[loc] -= qty;
+  if (p.fulfillment[loc] <= 0) delete p.fulfillment[loc];
+  p.stock = (p.stock||0) + qty;
+
+  saveDB(db);
+  renderPage('products');
+}
+
+// ==================== FULFILLMENT LOCATIONS ====================
+function renderFulfillmentLocations() {
+  var db = getDB();
+  var locs = db.fulfillmentLocations || ['Розетка'];
+  var container = document.getElementById('ff-locations-list');
+  if (!container) return;
+  container.innerHTML = locs.map(function(l) {
+    return '<span class="badge badge-ok" style="padding:6px 12px;font-size:13px;">'+esc(l)+
+      ' <button onclick="renameFfLocation(\''+esc(l.replace(/'/g,"\\'"))+'\')" style="border:none;background:none;cursor:pointer;font-size:11px;" title="Перейменувати">✏️</button>'+
+      ' <button onclick="deleteFfLocation(\''+esc(l.replace(/'/g,"\\'"))+'\')" style="border:none;background:none;cursor:pointer;font-size:11px;color:#c00;" title="Видалити">✕</button>'+
+      '</span>';
+  }).join(' ');
+}
+
+function addFfLocation() {
+  var name = v('new-ff-location').trim();
+  if (!name) return;
+  var db = getDB();
+  if (!db.fulfillmentLocations) db.fulfillmentLocations = ['Розетка'];
+  if (db.fulfillmentLocations.indexOf(name) !== -1) return alert('Така точка вже є');
+  db.fulfillmentLocations.push(name);
+  saveDB(db);
+  document.getElementById('new-ff-location').value = '';
+  renderFulfillmentLocations();
+}
+
+function renameFfLocation(oldName) {
+  var newName = prompt('Нова назва для "'+oldName+'":', oldName);
+  if (!newName || newName === oldName) return;
+  var db = getDB();
+  var idx = (db.fulfillmentLocations||[]).indexOf(oldName);
+  if (idx === -1) return;
+  db.fulfillmentLocations[idx] = newName;
+  // Update all products
+  db.products.forEach(function(p) {
+    if (p.fulfillment && p.fulfillment[oldName] !== undefined) {
+      p.fulfillment[newName] = (p.fulfillment[newName]||0) + (p.fulfillment[oldName]||0);
+      delete p.fulfillment[oldName];
+    }
+  });
+  saveDB(db);
+  renderFulfillmentLocations();
+}
+
+function deleteFfLocation(name) {
+  if (!confirm('Видалити фулфілмент-точку "'+name+'"? Залишки повернуться на головний склад.')) return;
+  var db = getDB();
+  db.fulfillmentLocations = (db.fulfillmentLocations||[]).filter(function(l){return l!==name});
+  // Return stock to main
+  db.products.forEach(function(p) {
+    if (p.fulfillment && p.fulfillment[name]) {
+      p.stock = (p.stock||0) + p.fulfillment[name];
+      delete p.fulfillment[name];
+    }
+  });
+  saveDB(db);
+  renderFulfillmentLocations();
+  renderPage('products');
 }
 
 // ==================== ORDER STATUSES ====================
@@ -6738,7 +6951,7 @@ function importData(event) {
 }
 
 function resetAllData() {
-  var empty = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 } };
+  var empty = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, fulfillmentLocations:['Розетка'] };
   _dbCache = null;
   localStorage.removeItem(DB_KEY);
   localStorage.removeItem(SD_SETTINGS_KEY);
