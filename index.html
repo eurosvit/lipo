@@ -1930,6 +1930,12 @@ a.order-link:hover { text-decoration:underline; }
       <p id="sa-product-name" style="font-weight:600;margin-bottom:4px;"></p>
       <p id="sa-current-stock" style="font-size:13px;color:var(--text-light);margin-bottom:16px;"></p>
       <div class="form-group">
+        <label>Склад</label>
+        <select id="sa-warehouse" onchange="updateSaPreview()">
+          <option value="main">📦 Мій склад</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Тип коригування</label>
         <select id="sa-type" onchange="updateSaPreview()">
           <option value="add">➕ Додати на склад</option>
@@ -3203,12 +3209,23 @@ function openStockAdjust(id) {
   if(!p) return;
   _saProductId = id;
   document.getElementById('sa-product-name').textContent = (p.sku ? p.sku+' — ' : '') + p.name;
-  document.getElementById('sa-current-stock').textContent = 'Зараз на складі: ' + (p.stock||0) + ' шт';
+  // Populate warehouse selector
+  var locs = db.fulfillmentLocations || ['Розетка'];
+  var whSel = document.getElementById('sa-warehouse');
+  whSel.innerHTML = '<option value="main">📦 Мій склад</option>' + locs.map(function(l){ return '<option value="ff:'+esc(l)+'">🏬 '+esc(l)+'</option>'; }).join('');
+  whSel.value = 'main';
+  document.getElementById('sa-current-stock').textContent = 'Мій склад: ' + (p.stock||0) + ' шт';
   document.getElementById('sa-type').value = 'add';
   document.getElementById('sa-qty').value = 1;
   document.getElementById('sa-reason').value = '';
   updateSaPreview();
   openModal('stock-adjust');
+}
+function _saGetCurrentStock(p) {
+  var wh = v('sa-warehouse');
+  if (wh === 'main') return p.stock || 0;
+  var loc = wh.substring(3);
+  return (p.fulfillment && p.fulfillment[loc]) || 0;
 }
 function updateSaPreview() {
   var db = getDB();
@@ -3216,7 +3233,10 @@ function updateSaPreview() {
   if(!p) return;
   var type = v('sa-type');
   var qty = parseInt(v('sa-qty'))||0;
-  var cur = p.stock||0;
+  var cur = _saGetCurrentStock(p);
+  var wh = v('sa-warehouse');
+  var whLabel = wh === 'main' ? 'Мій склад' : wh.substring(3);
+  document.getElementById('sa-current-stock').textContent = whLabel + ': ' + cur + ' шт';
   var result;
   if(type==='add') result = cur + qty;
   else if(type==='set') result = qty;
@@ -3231,15 +3251,29 @@ function applyStockAdjust() {
   var type = v('sa-type');
   var qty = parseInt(v('sa-qty'))||0;
   var reason = v('sa-reason').trim() || 'Ручне коригування';
+  var wh = v('sa-warehouse');
   if(qty < 0) { alert('Кількість не може бути від\'ємною'); return; }
-  var oldStock = p.stock||0;
-  if(type==='add') p.stock = oldStock + qty;
-  else if(type==='set') p.stock = qty;
-  else p.stock = Math.max(0, oldStock - qty);
+  var newStock;
+  if (wh === 'main') {
+    var oldStock = p.stock||0;
+    if(type==='add') p.stock = oldStock + qty;
+    else if(type==='set') p.stock = qty;
+    else p.stock = Math.max(0, oldStock - qty);
+    newStock = p.stock;
+  } else {
+    var loc = wh.substring(3);
+    if (!p.fulfillment) p.fulfillment = {};
+    var oldStock = p.fulfillment[loc] || 0;
+    if(type==='add') p.fulfillment[loc] = oldStock + qty;
+    else if(type==='set') p.fulfillment[loc] = qty;
+    else p.fulfillment[loc] = Math.max(0, oldStock - qty);
+    newStock = p.fulfillment[loc];
+  }
   saveDB(db);
   closeModal('stock-adjust');
   renderProducts();
-  notify('✅ Склад «'+p.name+'»: '+oldStock+' → '+p.stock+' шт ('+reason+')');
+  var whLabel = wh === 'main' ? '' : ' ('+wh.substring(3)+')';
+  notify('✅ Склад'+whLabel+' «'+p.name+'»: '+oldStock+' → '+newStock+' шт ('+reason+')');
 }
 
 function deleteProduct(id) {
