@@ -3276,7 +3276,7 @@ function applyStockAdjust() {
   closeModal('stock-adjust');
   renderProducts();
   var whLabel = wh === 'main' ? '' : ' ('+wh.substring(3)+')';
-  notify('✅ Склад'+whLabel+' «'+p.name+'»: '+oldStock+' → '+newStock+' шт ('+reason+')');
+  alert('✅ Склад'+whLabel+' «'+p.name+'»: '+oldStock+' → '+newStock+' шт ('+reason+')');
 }
 
 function deleteProduct(id) {
@@ -5328,7 +5328,7 @@ function returnOrderToStock(id) {
   o.returnedToStock = true;
   saveDB(db);
   renderPage('orders');
-  notify('📦↩ Товар з замовлення #'+o.num+' повернено на склад');
+  alert('📦↩ Товар з замовлення #'+o.num+' повернено на склад');
 }
 
 function deleteOrder(id) {
@@ -7306,7 +7306,7 @@ function renderLinkedWorkers(workers, invites) {
       var aliasHint = hasAlias
         ? '<div style="font-size:11px;color:var(--text-light);margin-top:2px;">👤 Справжнє ім\'я: <em>'+esc(realName)+'</em> · вона не бачить цього прізвиська</div>'
         : '';
-      return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">'+
+      return '<div class="worker-perm-card" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap;">'+
           '<div style="flex:1;min-width:200px;">'+
             '<strong>'+ esc(displayName) +'</strong> '+
@@ -7367,13 +7367,13 @@ function inviteWorker() {
 
 function updateWorkerPerm(linkId, key, value) {
   // Read current perms from DOM and update
-  var card = event.target.closest('div[style*="border:1px"]');
+  var card = event.target.closest('.worker-perm-card');
+  if (!card) { console.error('[perm save] card not found'); return; }
   var checkboxes = card.querySelectorAll('input[type="checkbox"]');
   var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','salary','equipment','settings'];
   var perms = {};
   permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
 
-  var originalBorder = card.style.borderColor;
   card.style.borderColor = '#FFC107';
   fetch('/api/workers/permissions', {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -7382,8 +7382,10 @@ function updateWorkerPerm(linkId, key, value) {
     .then(function(w){
       if (w.status === 200 && w.body.ok) {
         card.style.borderColor = '#4CAF50';
-        notify('✅ Права збережено. Майстру потрібно перезайти, щоб побачити зміни.');
-        setTimeout(function(){ card.style.borderColor = originalBorder || 'var(--border)'; }, 2000);
+        setTimeout(function(){
+          card.style.borderColor = 'var(--border)';
+          loadLinkedWorkers(); // refresh diagnostic line
+        }, 1500);
       } else {
         card.style.borderColor = '#F44336';
         alert('❌ Не вдалось зберегти права: ' + (w.body.error || 'HTTP '+w.status));
