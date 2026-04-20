@@ -5398,34 +5398,39 @@ var _onboardingFeatures = [
 
 function applyFeatures() {
   var f = getFeatures();
-  // Hide/show nav buttons by data-page
-  var navMap = {
-    'worker-stock': 'workers',
-    'production': 'production',
-    'orders': 'orders',
-    'salary': 'workers',
-    'costs': 'costs',
-    'expenses': 'costs',
-    'equipment': 'equipment'
-  };
-  document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
-    var page = btn.getAttribute('data-page');
-    var feat = navMap[page];
-    if (feat) {
-      btn.style.display = f[feat] ? '' : 'none';
-    }
-  });
-  // Mobile nav buttons
-  document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
-    var match = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
-    if (match) {
-      var page = match[1];
+  // For workers, nav visibility is controlled by permissions, not feature toggles.
+  // Skip nav hiding — applyWorkerPermissions() handles it.
+  var isWorker = _currentUser && _currentUser.isWorker;
+  if (!isWorker) {
+    // Hide/show nav buttons by data-page
+    var navMap = {
+      'worker-stock': 'workers',
+      'production': 'production',
+      'orders': 'orders',
+      'salary': 'workers',
+      'costs': 'costs',
+      'expenses': 'costs',
+      'equipment': 'equipment'
+    };
+    document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
+      var page = btn.getAttribute('data-page');
       var feat = navMap[page];
       if (feat) {
         btn.style.display = f[feat] ? '' : 'none';
       }
-    }
-  });
+    });
+    // Mobile nav buttons
+    document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
+      var match = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
+      if (match) {
+        var page = match[1];
+        var feat = navMap[page];
+        if (feat) {
+          btn.style.display = f[feat] ? '' : 'none';
+        }
+      }
+    });
+  }
   // Handle feat-* classed elements
   var ids = ['workers','production','orders','fulfillment','crm','equipment','costs'];
   ids.forEach(function(id) {
@@ -9485,12 +9490,12 @@ function loadAccount() {
       if (statusEl) statusEl.textContent = u.ownerHasAccess !== false ? 'Активний' : 'Обмежено';
       var untilEl = document.getElementById('acc-until');
       if (untilEl) untilEl.textContent = 'Доступ через ' + (u.ownerName || '—');
-      applyWorkerPermissions();
     } else {
       localStorage.removeItem('lipo_worker_role');
     }
-    // Apply feature toggles
+    // Apply feature toggles first, then worker permissions (permissions win for workers)
     applyFeatures();
+    if (u && u.isWorker) applyWorkerPermissions();
     // Check for announcements after short delay (let UI settle)
     setTimeout(checkAnnouncement, 2000);
   }).catch(function(){});
