@@ -675,6 +675,12 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-primary" onclick="openModal('start-production')">Запустити в роботу</button>
   </div>
   <p style="font-size:13px;color:var(--text-light);margin:8px 0;">Запуск в роботу = передача напівфабрикатів майстру. Матеріали списуються зі складу майстра, папір — зі складу.</p>
+  <div id="prod-filters" style="display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap;">
+    <label style="font-size:13px;color:var(--text-light);">Майстер:</label>
+    <select id="prod-worker-filter" onchange="renderProduction()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;min-width:160px;">
+      <option value="">Всі майстри</option>
+    </select>
+  </div>
   <div class="section-title">Зараз у виробництві</div>
   <div class="table-wrap">
     <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
@@ -3938,8 +3944,29 @@ function renderProduction() {
     var xw = (x.worker||'').trim().toLowerCase();
     return myNames.indexOf(xw) !== -1;
   };
-  var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x)});
-  var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x)}).reverse().slice(0,50);
+  // Owner-side worker filter dropdown
+  var prodWorkerFilter = '';
+  var wfWrap = document.getElementById('prod-filters');
+  if (wfWrap) wfWrap.style.display = isW ? 'none' : 'flex';
+  var wfSel = document.getElementById('prod-worker-filter');
+  if (wfSel && !isW) {
+    var curVal = wfSel.value;
+    // Collect worker names used in production
+    var usedSet = {};
+    db.production.forEach(function(x){ if (x.worker) usedSet[x.worker] = true; });
+    // Merge with known workers to keep list stable even if nothing in production yet
+    (getAllWorkerNames ? getAllWorkerNames() : []).forEach(function(w){ if (w) usedSet[w] = true; });
+    var workerOpts = Object.keys(usedSet).sort();
+    wfSel.innerHTML = '<option value="">Всі майстри</option>' +
+      workerOpts.map(function(w){ return '<option value="'+esc(w)+'" '+(curVal===w?'selected':'')+'>'+esc(typeof wLabel==='function'?wLabel(w):w)+'</option>'; }).join('');
+    prodWorkerFilter = curVal;
+  }
+  var byFilter = function(x) {
+    if (!prodWorkerFilter) return true;
+    return (x.worker||'') === prodWorkerFilter;
+  };
+  var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x) && byFilter(x)});
+  var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x) && byFilter(x)}).reverse().slice(0,50);
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
