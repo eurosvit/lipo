@@ -3931,8 +3931,15 @@ function completeProduction() {
 
 function renderProduction() {
   var db = getDB();
-  var active = db.production.filter(function(x){return x.status==='in_progress'});
-  var history = db.production.filter(function(x){return x.status==='completed'}).reverse().slice(0,50);
+  var isW = _currentUser && _currentUser.isWorker;
+  var myNames = isW
+    ? ((_currentUser.workerAliases && _currentUser.workerAliases.length)
+        ? _currentUser.workerAliases
+        : [_currentUser.linkedWorkerName || _currentUser.name || ''].filter(Boolean))
+    : [];
+  var byWorker = function(x) { return !isW || myNames.indexOf(x.worker||'') !== -1; };
+  var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x)});
+  var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x)}).reverse().slice(0,50);
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
@@ -5089,9 +5096,12 @@ function renderOrders() {
     if(statusFilter && o.status!==statusFilter) return false;
     if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
-    // Worker sees only their assigned orders
-    if (_currentUser && _currentUser.isWorker && _currentUser.linkedWorkerName) {
-      if ((o.worker||'') !== _currentUser.linkedWorkerName) return false;
+    // Worker sees only their assigned orders (match any of her aliases)
+    if (_currentUser && _currentUser.isWorker) {
+      var myNames = (_currentUser.workerAliases && _currentUser.workerAliases.length)
+        ? _currentUser.workerAliases
+        : [_currentUser.linkedWorkerName || _currentUser.name || ''].filter(Boolean);
+      if (myNames.length && myNames.indexOf(o.worker||'') === -1) return false;
     }
     return true;
   });

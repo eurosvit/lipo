@@ -842,6 +842,10 @@ async function getSessionUser(req) {
     user.ownerId = wl.rows[0].owner_id;
     user.ownerName = wl.rows[0].owner_name;
     user.linkedWorkerName = wl.rows[0].worker_name || '';
+    user.ownerAlias = wl.rows[0].owner_alias || '';
+    // All names this worker may have been assigned under in owner's data
+    var aliases = [user.linkedWorkerName, user.ownerAlias, user.name].filter(function(n){ return n && n.trim(); });
+    user.workerAliases = Array.from(new Set(aliases));
     user.workerPermissions = wl.rows[0].permissions || {};
     // Worker access depends on owner's subscription
     const owner = await pool.query("SELECT * FROM users WHERE id = $1", [user.ownerId]);
@@ -1327,6 +1331,7 @@ const server = http.createServer(async (req, res) => {
         response.ownerId = user.ownerId;
         response.ownerName = user.ownerName;
         response.linkedWorkerName = user.linkedWorkerName;
+        response.workerAliases = user.workerAliases || [];
         response.workerPermissions = user.workerPermissions;
         response.ownerHasAccess = user.ownerHasAccess !== false;
       } else if (pool) {
