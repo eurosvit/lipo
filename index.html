@@ -4770,6 +4770,10 @@ var ORD_PAY_STATUS_LABELS = { unpaid:'Не оплачено', partial:'Част�
 
 function orderDeliverySummary(o) {
   if (!o) return '';
+  // For workers hide destination details — only show carrier
+  if (isCurrentUserWorker()) {
+    return o.carrier ? (ORD_CARRIER_LABELS[o.carrier] || o.carrier) : '';
+  }
   var parts = [];
   if (o.carrier) parts.push(ORD_CARRIER_LABELS[o.carrier] || o.carrier);
   if (o.city) parts.push(esc(o.city));
@@ -5092,10 +5096,10 @@ function renderOrders() {
     if(statusFilter && o.status!==statusFilter) return false;
     if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
-    // Worker sees only their assigned orders (match any of her aliases)
+    // Worker sees ONLY orders explicitly assigned to her (unassigned hidden too)
     if (isCurrentUserWorker()) {
       var myNames = getCurrentWorkerAliases();
-      if (myNames.length && myNames.indexOf(o.worker||'') === -1) return false;
+      if (myNames.indexOf(o.worker||'') === -1) return false;
     }
     return true;
   });
@@ -5151,10 +5155,16 @@ function renderOrders() {
       case 'status': return '<td data-label="Статус" style="min-width:130px;"><select onchange="setOrderStatus(\''+o.id+'\',this.value)" style="padding:4px 22px 4px 8px;border-radius:6px;font-size:12px;background:'+(statusColors[o.status]||'#fff')+';width:100%;min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;">'+statusOpts+'</select></td>';
       case 'date': return '<td data-label="Дата">'+o.date+'</td>';
       case 'client': {
+        if (isCurrentUserWorker()) {
+          return '<td data-label="Клієнт"><span class="text-muted">Замовлення #'+o.num+'</span></td>';
+        }
         var cname = o.client || ((o.firstName||'') + ' ' + (o.lastName||'')).trim() || '—';
         return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br><a href="tel:'+esc(o.phone)+'" style="font-size:11px;color:var(--text-light);">'+esc(o.phone)+'</a>':'')+'</td>';
       }
-      case 'phone': return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
+      case 'phone': {
+        if (isCurrentUserWorker()) return '<td data-label="Телефон"><span class="text-muted">—</span></td>';
+        return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
+      }
       case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
       case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
       case 'payment': {
