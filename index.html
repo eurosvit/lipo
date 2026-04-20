@@ -2305,6 +2305,7 @@ a.order-link:hover { text-decoration:underline; }
         'worker-stock': p.workerStock === true,
         'salary': p.salary === true,
         'costs': p.costs === true,
+        'expenses': false,
         'equipment': p.equipment === true,
         'analytics': false,
         'settings': p.settings === true
@@ -2312,12 +2313,14 @@ a.order-link:hover { text-decoration:underline; }
       document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
         var page = btn.getAttribute('data-page');
         if (navMap[page] === false) btn.style.display = 'none';
+        else if (navMap[page] === true) btn.style.display = '';
         if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
       });
       // Also hide in mobile nav
       document.querySelectorAll('.mobile-nav button[data-page]').forEach(function(btn) {
         var page = btn.getAttribute('data-page');
         if (navMap[page] === false) btn.style.display = 'none';
+        else if (navMap[page] === true) btn.style.display = '';
         if (page === 'worker-stock') btn.textContent = '📦 Мої матеріали';
       });
       // Show worker banner instantly
@@ -7433,15 +7436,18 @@ function applyWorkerPermissions() {
     'worker-stock': p.workerStock === true,
     'salary': p.salary === true,
     'costs': p.costs === true,
+    'expenses': false, // workers don't see expenses
     'equipment': p.equipment === true,
     'analytics': false, // workers don't see analytics
     'settings': p.settings === true
   };
 
-  document.querySelectorAll('.nav button[data-page]').forEach(function(btn) {
+  document.querySelectorAll('.nav-links button[data-page], .nav button[data-page], .mobile-nav button[data-page]').forEach(function(btn) {
     var page = btn.getAttribute('data-page');
     if (navMap[page] === false) {
       btn.style.display = 'none';
+    } else if (navMap[page] === true) {
+      btn.style.display = '';
     }
     // Rename "Майстри" to "Мій склад" for worker
     if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
