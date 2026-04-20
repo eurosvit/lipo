@@ -7297,6 +7297,9 @@ function renderLinkedWorkers(workers, invites) {
         return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;min-width:170px;">'+
           '<input type="checkbox" '+checked+' onchange="updateWorkerPerm(\''+w.id+'\',\''+key+'\',this.checked)"> '+permLabels[key]+'</label>';
       }).join('');
+      // Diagnostic: show currently saved permissions (from DB)
+      var activeList = Object.keys(permLabels).filter(function(k){return perms[k]===true}).map(function(k){return permLabels[k].replace(/^[^\s]+\s/,'')}).join(', ') || '—';
+      var dbHint = '<div style="font-size:10px;color:#999;margin-top:4px;font-style:italic;">🔍 В базі зараз: '+esc(activeList)+'</div>';
       var realName = w.worker_name || w.user_name || '—';
       var displayName = w.owner_alias || realName;
       var hasAlias = !!(w.owner_alias && w.owner_alias !== realName);
@@ -7314,6 +7317,7 @@ function renderLinkedWorkers(workers, invites) {
           '<button class="btn btn-danger btn-sm" onclick="removeLinkedWorker(\''+w.id+'\')">✕ Відключити</button>'+
         '</div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;">'+permHtml+'</div>'+
+        dbHint +
       '</div>';
     }).join('');
   } else {
