@@ -5585,8 +5585,10 @@ function statusToVisualNP(statusCode) {
 
 // Синхронізація статусу замовлення на основі трекінгу НП
 function syncOrderStatusFromTracking(order) {
-  if (!order.tracking || !order.tracking.StatusCode) return false;
-  var sc = parseInt(order.tracking.StatusCode, 10) || 0;
+  if (!order.tracking) return false;
+  var rawSc = order.tracking.statusCode != null ? order.tracking.statusCode : order.tracking.StatusCode;
+  if (rawSc == null || rawSc === '') return false;
+  var sc = parseInt(rawSc, 10) || 0;
   var statuses = getOrderStatuses();
   var hasStatus = function(id) { return statuses.some(function(s){ return s.id === id; }); };
   var oldStatus = order.status;
@@ -5712,9 +5714,17 @@ function manualRefreshNpTracking() {
   btn.innerHTML = '⏳ Оновлення...';
   if (statusEl) statusEl.innerHTML = '<span class="text-muted">📍 Запитую статуси НП...</span>';
   trackNpOrders({force:true}).then(function(r){
+    // Пере-синхронізація статусів для ВСІХ замовлень з наявним трекінгом
+    // (не тільки щойно отриманих — охоплює старі закешовані результати)
+    var db3 = getDB();
+    var statusChanges = 0;
+    (db3.orders||[]).forEach(function(o){
+      if (o.tracking && syncOrderStatusFromTracking(o)) statusChanges++;
+    });
+    if (statusChanges > 0) saveDB(db3);
     var msg = '';
     if (r.updated > 0) {
-      msg = '✅ Трекінг НП: оновлено <b>'+r.updated+'</b> з '+r.sent+' ТТН';
+      msg = '✅ Трекінг НП: оновлено <b>'+r.updated+'</b> з '+r.sent+' ТТН'+(statusChanges>0?' • статусів змінено: <b>'+statusChanges+'</b>':'');
       btn.innerHTML = '✓ Оновлено '+r.updated;
     } else if (r.sent > 0) {
       msg = '⚠ Трекінг НП: відправлено '+r.sent+' ТТН, але НП не повернула статусів. Перевірте що ТТН дійсні.';
