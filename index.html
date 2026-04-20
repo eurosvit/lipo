@@ -5212,7 +5212,13 @@ function renderOrders() {
         return '<td data-label="ТТН" style="cursor:pointer;min-width:130px;" onclick="inlineEditTtn(this,\''+o.id+'\',\''+esc(ttnVal)+'\')">'+ttnDisplay+'</td>';
       }
       case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
-      case 'worker': return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
+      case 'worker': {
+        if (isCurrentUserWorker()) {
+          // Workers can't reassign — just show the assigned name as text
+          return '<td data-label="Майстер">'+(o.worker ? esc(o.worker) : '<span class="text-muted">—</span>')+'</td>';
+        }
+        return '<td data-label="Майстер"><select onchange="setOrderWorker(\''+o.id+'\',this.value)" style="padding:4px 8px;border-radius:6px;font-size:12px;width:100%;">'+workerOpts+'</select></td>';
+      }
       case 'note': {
         var noteVal = o.note || '';
         var noteIcon = noteVal ? '📝' : '<span class="text-muted">+</span>';
@@ -7541,7 +7547,7 @@ function applyWorkerPermissions() {
   var banner = document.getElementById('worker-banner');
   if (banner) {
     var _aliases = getCurrentWorkerAliases();
-    var _diag = _aliases.length ? ' <span style="font-size:11px;color:#777;">· фільтр по іменам: '+esc(_aliases.join(', '))+'</span>' : ' <span style="font-size:11px;color:#c00;">· УВАГА: список імен порожній — зверніться до власника</span>';
+    var _diag = _aliases.length ? '' : ' <span style="font-size:11px;color:#c00;">· УВАГА: список імен порожній — зверніться до власника</span>';
     banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>' + _diag;
     banner.style.display = 'block';
   }
