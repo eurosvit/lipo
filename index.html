@@ -3932,8 +3932,12 @@ function completeProduction() {
 function renderProduction() {
   var db = getDB();
   var isW = isCurrentUserWorker();
-  var myNames = isW ? getCurrentWorkerAliases() : [];
-  var byWorker = function(x) { return !isW || (myNames.length && myNames.indexOf(x.worker||'') !== -1); };
+  var myNames = isW ? getCurrentWorkerAliases().map(function(n){return (n||'').trim().toLowerCase();}) : [];
+  var byWorker = function(x) {
+    if (!isW) return true;
+    var xw = (x.worker||'').trim().toLowerCase();
+    return myNames.indexOf(xw) !== -1;
+  };
   var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x)});
   var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x)}).reverse().slice(0,50);
   document.getElementById('production-active').innerHTML = active.map(function(b) {
@@ -5098,8 +5102,9 @@ function renderOrders() {
     if(crmOnly && !o.crmId) return false;
     // Worker sees ONLY orders explicitly assigned to her (unassigned hidden too)
     if (isCurrentUserWorker()) {
-      var myNames = getCurrentWorkerAliases();
-      if (myNames.indexOf(o.worker||'') === -1) return false;
+      var myNames = getCurrentWorkerAliases().map(function(n){return (n||'').trim().toLowerCase();});
+      var ow = (o.worker||'').trim().toLowerCase();
+      if (myNames.indexOf(ow) === -1) return false;
     }
     return true;
   });
@@ -7535,7 +7540,9 @@ function applyWorkerPermissions() {
   // Update worker info banner (already in DOM)
   var banner = document.getElementById('worker-banner');
   if (banner) {
-    banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>';
+    var _aliases = getCurrentWorkerAliases();
+    var _diag = _aliases.length ? ' <span style="font-size:11px;color:#777;">· фільтр по іменам: '+esc(_aliases.join(', '))+'</span>' : ' <span style="font-size:11px;color:#c00;">· УВАГА: список імен порожній — зверніться до власника</span>';
+    banner.innerHTML = '👩‍🔧 Ви працюєте як майстер у <b>' + esc(_currentUser.ownerName || '—') + '</b>' + _diag;
     banner.style.display = 'block';
   }
 
