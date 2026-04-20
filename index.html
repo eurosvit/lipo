@@ -3931,13 +3931,9 @@ function completeProduction() {
 
 function renderProduction() {
   var db = getDB();
-  var isW = _currentUser && _currentUser.isWorker;
-  var myNames = isW
-    ? ((_currentUser.workerAliases && _currentUser.workerAliases.length)
-        ? _currentUser.workerAliases
-        : [_currentUser.linkedWorkerName || _currentUser.name || ''].filter(Boolean))
-    : [];
-  var byWorker = function(x) { return !isW || myNames.indexOf(x.worker||'') !== -1; };
+  var isW = isCurrentUserWorker();
+  var myNames = isW ? getCurrentWorkerAliases() : [];
+  var byWorker = function(x) { return !isW || (myNames.length && myNames.indexOf(x.worker||'') !== -1); };
   var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x)});
   var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x)}).reverse().slice(0,50);
   document.getElementById('production-active').innerHTML = active.map(function(b) {
@@ -5097,10 +5093,8 @@ function renderOrders() {
     if(channelFilter && (o.channel||'')!==channelFilter) return false;
     if(crmOnly && !o.crmId) return false;
     // Worker sees only their assigned orders (match any of her aliases)
-    if (_currentUser && _currentUser.isWorker) {
-      var myNames = (_currentUser.workerAliases && _currentUser.workerAliases.length)
-        ? _currentUser.workerAliases
-        : [_currentUser.linkedWorkerName || _currentUser.name || ''].filter(Boolean);
+    if (isCurrentUserWorker()) {
+      var myNames = getCurrentWorkerAliases();
       if (myNames.length && myNames.indexOf(o.worker||'') === -1) return false;
     }
     return true;
@@ -9464,6 +9458,32 @@ function dismissAnnouncement() {
 // ==================== ACCOUNT & NOTIFICATIONS ====================
 var _currentUser = null;
 var _linkedWorkerNames = []; // names of workers connected via CRM
+
+// Returns the current worker's known aliases for filtering (or []).
+// Falls back to localStorage if _currentUser hasn't loaded yet — prevents
+// a brief "shows everything" flash when a worker navigates fast.
+function getCurrentWorkerAliases() {
+  if (_currentUser && _currentUser.isWorker) {
+    if (_currentUser.workerAliases && _currentUser.workerAliases.length) return _currentUser.workerAliases;
+    var one = _currentUser.linkedWorkerName || _currentUser.name || '';
+    return one ? [one] : [];
+  }
+  try {
+    var wr = JSON.parse(localStorage.getItem('lipo_worker_role') || 'null');
+    if (wr && wr.isWorker) {
+      if (wr.workerAliases && wr.workerAliases.length) return wr.workerAliases;
+      return wr.linkedWorkerName ? [wr.linkedWorkerName] : [];
+    }
+  } catch(e) {}
+  return [];
+}
+function isCurrentUserWorker() {
+  if (_currentUser) return !!_currentUser.isWorker;
+  try {
+    var wr = JSON.parse(localStorage.getItem('lipo_worker_role') || 'null');
+    return !!(wr && wr.isWorker);
+  } catch(e) { return false; }
+}
 var _workerAliasMap = {};    // realName -> owner_alias (for display only, owner view)
 
 // Returns display label for a worker name (alias if set by owner, else original name).
@@ -9517,8 +9537,18 @@ function loadAccount() {
         isWorker: true,
         permissions: u.workerPermissions || {},
         linkedWorkerName: u.linkedWorkerName || '',
+        workerAliases: u.workerAliases || [],
         ownerName: u.ownerName || ''
       }));
+      // Re-render data pages that depend on worker filtering (they may have
+      // rendered before _currentUser was set, showing unfiltered data).
+      try {
+        var _cp = localStorage.getItem('lipo_current_page');
+        if (_cp === 'orders' && typeof renderOrders === 'function') renderOrders();
+        if (_cp === 'production' && typeof renderProduction === 'function') renderProduction();
+        if (_cp === 'salary' && typeof renderSalary === 'function') renderSalary();
+        if (_cp === 'worker-stock' && typeof renderWorkerStock === 'function') renderWorkerStock();
+      } catch(e) {}
       document.getElementById('acc-role').textContent = 'Майстер у ' + (u.ownerName || '—');
       // Hide payment button and subscription info for workers
       var payBtn = document.getElementById('acc-pay-btn');
