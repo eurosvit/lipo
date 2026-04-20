@@ -2305,7 +2305,7 @@ a.order-link:hover { text-decoration:underline; }
         'worker-stock': p.workerStock === true,
         'salary': p.salary === true,
         'costs': p.costs === true,
-        'expenses': false,
+        'expenses': p.expenses === true,
         'equipment': p.equipment === true,
         'analytics': false,
         'settings': p.settings === true
@@ -2316,9 +2316,18 @@ a.order-link:hover { text-decoration:underline; }
         else if (navMap[page] === true) btn.style.display = '';
         if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
       });
-      // Also hide in mobile nav
+      // Also hide in mobile nav (if present)
       document.querySelectorAll('.mobile-nav button[data-page]').forEach(function(btn) {
         var page = btn.getAttribute('data-page');
+        if (navMap[page] === false) btn.style.display = 'none';
+        else if (navMap[page] === true) btn.style.display = '';
+        if (page === 'worker-stock') btn.textContent = '📦 Мої матеріали';
+      });
+      // Mobile menu panel (uses onclick="mobileNav('page')", no data-page attribute)
+      document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
+        var m = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
+        if (!m) return;
+        var page = m[1];
         if (navMap[page] === false) btn.style.display = 'none';
         else if (navMap[page] === true) btn.style.display = '';
         if (page === 'worker-stock') btn.textContent = '📦 Мої матеріали';
@@ -7293,7 +7302,7 @@ function renderLinkedWorkers(workers, invites) {
       dashboard:'📊 Дашборд', orders:'📋 Замовлення', production:'🔧 Виробництво',
       workerStock:'📦 Склад майстрів', materials:'🧵 Матеріали (залишки)',
       materialPrices:'💰 Ціни матеріалів', sellPrices:'🏷 Ціни продажу',
-      costs:'📈 Собівартість', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
+      costs:'📈 Собівартість', expenses:'💸 Витрати', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
     };
     listEl.innerHTML = workers.map(function(w) {
       var perms = w.permissions || {};
@@ -7376,7 +7385,7 @@ function updateWorkerPerm(linkId, key, value, ev) {
   var card = target ? target.closest('.worker-perm-card') : null;
   if (!card) { console.error('[perm save] card not found', e); alert('Технічна помилка (card not found). Напишіть в підтримку.'); return; }
   var checkboxes = card.querySelectorAll('input[type="checkbox"]');
-  var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','salary','equipment','settings'];
+  var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','expenses','salary','equipment','settings'];
   var perms = {};
   permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
 
@@ -7393,7 +7402,7 @@ function updateWorkerPerm(linkId, key, value, ev) {
             dashboard:'📊 Дашборд', orders:'📋 Замовлення', production:'🔧 Виробництво',
             workerStock:'📦 Склад майстрів', materials:'🧵 Матеріали (залишки)',
             materialPrices:'💰 Ціни матеріалів', sellPrices:'🏷 Ціни продажу',
-            costs:'📈 Собівартість', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
+            costs:'📈 Собівартість', expenses:'💸 Витрати', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
           };
           var activeList = Object.keys(permLabels).filter(function(k){return perms[k]===true}).map(function(k){return permLabels[k].replace(/^[^\s]+\s/,'')}).join(', ') || '—';
           hintEl.textContent = '🔍 В базі зараз: ' + activeList;
@@ -7470,7 +7479,7 @@ function applyWorkerPermissions() {
     'worker-stock': p.workerStock === true,
     'salary': p.salary === true,
     'costs': p.costs === true,
-    'expenses': false, // workers don't see expenses
+    'expenses': p.expenses === true,
     'equipment': p.equipment === true,
     'analytics': false, // workers don't see analytics
     'settings': p.settings === true
@@ -7485,6 +7494,19 @@ function applyWorkerPermissions() {
     }
     // Rename "Майстри" to "Мій склад" for worker
     if (page === 'worker-stock') btn.innerHTML = '📦 Мої матеріали';
+  });
+
+  // Mobile menu panel (no data-page attr — matched by mobileNav('page') in onclick)
+  document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
+    var m = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
+    if (!m) return;
+    var page = m[1];
+    if (navMap[page] === false) {
+      btn.style.display = 'none';
+    } else if (navMap[page] === true) {
+      btn.style.display = '';
+    }
+    if (page === 'worker-stock') btn.textContent = '📦 Мої матеріали';
   });
 
   // Hide linked workers card (only for owners)
