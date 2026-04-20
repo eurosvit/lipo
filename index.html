@@ -6482,7 +6482,8 @@ function renderSalary() {
       return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
         '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
     }
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'<span style="color:var(--danger);">? (гру видалено)</span>')+'</td>'+
+    var dateVal = b.completedDate || b.date;
+    return '<tr><td data-label="Дата"><input type="date" value="'+dateVal+'" onchange="updateSalaryDate(\''+b.id+'\', this.value)" style="border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="this.style.borderColor=\'transparent\'" title="Клікни щоб змінити дату здачі"></td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'<span style="color:var(--danger);">? (гру видалено)</span>')+'</td>'+
       '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td>'+
       '<td data-label="Дії" style="white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="deleteSalaryRecord(\''+b.id+'\')" title="Видалити запис">🗑</button></td></tr>';
   });
@@ -6577,6 +6578,16 @@ function deleteSalaryRecord(batchId) {
   if (!confirm('Видалити цей запис із нарахувань ЗП?\n\n(Запис виробництва також буде видалено)')) return;
   var db = getDB();
   db.production = db.production.filter(function(x){ return x.id !== batchId; });
+  saveDB(db);
+  renderSalary();
+}
+
+function updateSalaryDate(batchId, newDate) {
+  if (!newDate) return;
+  var db = getDB();
+  var b = db.production.find(function(x){ return x.id === batchId; });
+  if (!b) return;
+  b.completedDate = newDate;
   saveDB(db);
   renderSalary();
 }
