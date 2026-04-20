@@ -7384,10 +7384,15 @@ function updateWorkerPerm(linkId, key, value, ev) {
   var target = e && e.target;
   var card = target ? target.closest('.worker-perm-card') : null;
   if (!card) { console.error('[perm save] card not found', e); alert('Технічна помилка (card not found). Напишіть в підтримку.'); return; }
-  var checkboxes = card.querySelectorAll('input[type="checkbox"]');
-  var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','expenses','salary','equipment','settings'];
+  // Read perms by KEY from each checkbox's onchange attribute (robust to HTML/JS version drift).
   var perms = {};
-  permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
+  card.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+    var oc = cb.getAttribute('onchange') || '';
+    var m = oc.match(/updateWorkerPerm\([^,]+,\s*'([^']+)'/);
+    if (m) perms[m[1]] = cb.checked;
+  });
+  // Safety net: ensure the key being toggled is recorded even if attribute parsing failed.
+  if (key) perms[key] = value;
 
   fetch('/api/workers/permissions', {
     method:'POST', headers:{'Content-Type':'application/json'},
