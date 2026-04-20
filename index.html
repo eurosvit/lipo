@@ -7295,7 +7295,7 @@ function renderLinkedWorkers(workers, invites) {
       var permHtml = Object.keys(permLabels).map(function(key) {
         var checked = perms[key] ? 'checked' : '';
         return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;min-width:170px;">'+
-          '<input type="checkbox" '+checked+' onchange="updateWorkerPerm(\''+w.id+'\',\''+key+'\',this.checked)"> '+permLabels[key]+'</label>';
+          '<input type="checkbox" '+checked+' onchange="updateWorkerPerm(\''+w.id+'\',\''+key+'\',this.checked,event)"> '+permLabels[key]+'</label>';
       }).join('');
       // Diagnostic: show currently saved permissions (from DB)
       var activeList = Object.keys(permLabels).filter(function(k){return perms[k]===true}).map(function(k){return permLabels[k].replace(/^[^\s]+\s/,'')}).join(', ') || '—';
@@ -7365,35 +7365,30 @@ function inviteWorker() {
   }).catch(function(){ resultEl.innerHTML = '<span class="text-danger">Помилка з\'єднання</span>'; });
 }
 
-function updateWorkerPerm(linkId, key, value) {
-  // Read current perms from DOM and update
-  var card = event.target.closest('.worker-perm-card');
-  if (!card) { console.error('[perm save] card not found'); return; }
+function updateWorkerPerm(linkId, key, value, ev) {
+  var e = ev || (typeof event !== 'undefined' ? event : null);
+  var target = e && e.target;
+  var card = target ? target.closest('.worker-perm-card') : null;
+  if (!card) { console.error('[perm save] card not found', e); alert('Технічна помилка (card not found). Напишіть в підтримку.'); return; }
   var checkboxes = card.querySelectorAll('input[type="checkbox"]');
   var permKeys = ['dashboard','orders','production','workerStock','materials','materialPrices','sellPrices','costs','salary','equipment','settings'];
   var perms = {};
   permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
 
-  card.style.borderColor = '#FFC107';
   fetch('/api/workers/permissions', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ linkId: linkId, permissions: perms })
   }).then(function(r){ return r.json().then(function(b){ return {status:r.status, body:b}; }); })
     .then(function(w){
       if (w.status === 200 && w.body.ok) {
-        card.style.borderColor = '#4CAF50';
-        setTimeout(function(){
-          card.style.borderColor = 'var(--border)';
-          loadLinkedWorkers(); // refresh diagnostic line
-        }, 1500);
+        // soft refresh diagnostic
+        setTimeout(function(){ loadLinkedWorkers(); }, 400);
       } else {
-        card.style.borderColor = '#F44336';
         alert('❌ Не вдалось зберегти права: ' + (w.body.error || 'HTTP '+w.status));
         console.error('[perm save]', w);
       }
     })
     .catch(function(e){
-      card.style.borderColor = '#F44336';
       alert('❌ Помилка з\'єднання при збереженні прав: ' + e.message);
       console.error('[perm save]', e);
     });
