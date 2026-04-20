@@ -7299,7 +7299,7 @@ function renderLinkedWorkers(workers, invites) {
       }).join('');
       // Diagnostic: show currently saved permissions (from DB)
       var activeList = Object.keys(permLabels).filter(function(k){return perms[k]===true}).map(function(k){return permLabels[k].replace(/^[^\s]+\s/,'')}).join(', ') || '—';
-      var dbHint = '<div style="font-size:10px;color:#999;margin-top:4px;font-style:italic;">🔍 В базі зараз: '+esc(activeList)+'</div>';
+      var dbHint = '<div class="worker-perm-hint" style="font-size:10px;color:#999;margin-top:4px;font-style:italic;">🔍 В базі зараз: '+esc(activeList)+'</div>';
       var realName = w.worker_name || w.user_name || '—';
       var displayName = w.owner_alias || realName;
       var hasAlias = !!(w.owner_alias && w.owner_alias !== realName);
@@ -7381,8 +7381,18 @@ function updateWorkerPerm(linkId, key, value, ev) {
   }).then(function(r){ return r.json().then(function(b){ return {status:r.status, body:b}; }); })
     .then(function(w){
       if (w.status === 200 && w.body.ok) {
-        // soft refresh diagnostic
-        setTimeout(function(){ loadLinkedWorkers(); }, 400);
+        // Update diagnostic line in place without re-rendering (avoids interrupting rapid clicks)
+        var hintEl = card.querySelector('.worker-perm-hint');
+        if (hintEl) {
+          var permLabels = {
+            dashboard:'📊 Дашборд', orders:'📋 Замовлення', production:'🔧 Виробництво',
+            workerStock:'📦 Склад майстрів', materials:'🧵 Матеріали (залишки)',
+            materialPrices:'💰 Ціни матеріалів', sellPrices:'🏷 Ціни продажу',
+            costs:'📈 Собівартість', salary:'💵 ЗП', equipment:'🖨 Обладнання', settings:'⚙️ Налаштування'
+          };
+          var activeList = Object.keys(permLabels).filter(function(k){return perms[k]===true}).map(function(k){return permLabels[k].replace(/^[^\s]+\s/,'')}).join(', ') || '—';
+          hintEl.textContent = '🔍 В базі зараз: ' + activeList;
+        }
       } else {
         alert('❌ Не вдалось зберегти права: ' + (w.body.error || 'HTTP '+w.status));
         console.error('[perm save]', w);
