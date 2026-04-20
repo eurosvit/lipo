@@ -7369,10 +7369,28 @@ function updateWorkerPerm(linkId, key, value) {
   var perms = {};
   permKeys.forEach(function(k, i) { perms[k] = checkboxes[i] ? checkboxes[i].checked : false; });
 
+  var originalBorder = card.style.borderColor;
+  card.style.borderColor = '#FFC107';
   fetch('/api/workers/permissions', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ linkId: linkId, permissions: perms })
-  }).catch(function(){});
+  }).then(function(r){ return r.json().then(function(b){ return {status:r.status, body:b}; }); })
+    .then(function(w){
+      if (w.status === 200 && w.body.ok) {
+        card.style.borderColor = '#4CAF50';
+        notify('✅ Права збережено. Майстру потрібно перезайти, щоб побачити зміни.');
+        setTimeout(function(){ card.style.borderColor = originalBorder || 'var(--border)'; }, 2000);
+      } else {
+        card.style.borderColor = '#F44336';
+        alert('❌ Не вдалось зберегти права: ' + (w.body.error || 'HTTP '+w.status));
+        console.error('[perm save]', w);
+      }
+    })
+    .catch(function(e){
+      card.style.borderColor = '#F44336';
+      alert('❌ Помилка з\'єднання при збереженні прав: ' + e.message);
+      console.error('[perm save]', e);
+    });
 }
 
 function removeLinkedWorker(linkId) {
