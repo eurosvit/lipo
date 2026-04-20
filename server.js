@@ -898,7 +898,12 @@ function sendJSON(res, status, data) {
 function serveFile(res, filePath) {
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) { res.writeHead(500); res.end('Error'); return; }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
     res.end(data);
   });
 }
