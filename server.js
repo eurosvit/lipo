@@ -162,6 +162,18 @@ async function initDB() {
     )
   `);
 
+  // Password reset tokens
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets(user_id)`).catch(()=>{});
+
   // CRM settings (SalesDrive)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS crm_settings (
@@ -1210,6 +1222,74 @@ const server = http.createServer(async (req, res) => {
 
       await createSession(res, user.id);
       sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- AUTH: Request password reset ----
+    if (req.method === 'POST' && url === '/api/auth/request-reset') {
+      if (!pool) { sendJSON(res, 400, { error: 'Auth not available locally' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const email = (body.email || '').toLowerCase().trim();
+      if (!email) { sendJSON(res, 400, { error: 'Введіть email' }); return; }
+      try {
+        const r = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [email]);
+        if (r.rows.length && r.rows[0].id) {
+          const u = r.rows[0];
+          const token = crypto.randomBytes(32).toString('hex');
+          const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+          await pool.query(
+            "INSERT INTO password_resets(token, user_id, expires_at) VALUES($1, $2, $3)",
+            [token, u.id, expires]
+          );
+          const resetLink = `${BASE_URL}/auth/reset?token=${token}`;
+          const html = emailTemplate(`
+            <h2 style="margin:0 0 16px;color:#4A148C;">Скидання пароля</h2>
+            <p>Вітаємо, ${u.name || ''}!</p>
+            <p>Ви (або хтось інший) запросили скидання пароля для вашого акаунта LipoLand CRM.</p>
+            <p style="margin:24px 0;">
+              <a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;">Скинути пароль →</a>
+            </p>
+            <p style="color:#666;font-size:13px;">Посилання діє 1 годину. Якщо ви не запитували скидання — просто проігноруйте цей лист.</p>
+            <p style="color:#999;font-size:12px;word-break:break-all;">Або скопіюйте посилання: ${resetLink}</p>
+          `);
+          sendEmail(u.email, 'LipoLand — скидання пароля', html).catch(function(e){ console.error('reset email failed', e); });
+        }
+        // Always return ok to prevent user enumeration
+        sendJSON(res, 200, { ok: true });
+      } catch (e) {
+        console.error('request-reset error', e);
+        sendJSON(res, 500, { error: 'Помилка сервера' });
+      }
+      return;
+    }
+
+    // ---- AUTH: Reset password (execute) ----
+    if (req.method === 'POST' && url === '/api/auth/reset-password') {
+      if (!pool) { sendJSON(res, 400, { error: 'Auth not available locally' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const token = (body.token || '').trim();
+      const password = body.password || '';
+      if (!token || !password) { sendJSON(res, 400, { error: 'Недійсний запит' }); return; }
+      if (password.length < 6) { sendJSON(res, 400, { error: 'Пароль має бути не менше 6 символів' }); return; }
+      try {
+        const r = await pool.query(
+          "SELECT user_id, expires_at, used_at FROM password_resets WHERE token = $1",
+          [token]
+        );
+        if (!r.rows.length) { sendJSON(res, 400, { error: 'Недійсний або застарілий токен' }); return; }
+        const row = r.rows[0];
+        if (row.used_at) { sendJSON(res, 400, { error: 'Це посилання вже використано' }); return; }
+        if (new Date(row.expires_at) < new Date()) { sendJSON(res, 400, { error: 'Термін дії посилання закінчився' }); return; }
+        const hash = await bcrypt.hash(password, 10);
+        await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [hash, row.user_id]);
+        await pool.query("UPDATE password_resets SET used_at = NOW() WHERE token = $1", [token]);
+        // Invalidate all existing sessions for this user
+        await pool.query("DELETE FROM sessions WHERE user_id = $1", [row.user_id]).catch(function(){});
+        sendJSON(res, 200, { ok: true });
+      } catch (e) {
+        console.error('reset-password error', e);
+        sendJSON(res, 500, { error: 'Помилка сервера' });
+      }
       return;
     }
 
@@ -2307,6 +2387,72 @@ const server = http.createServer(async (req, res) => {
     // Legal
     if (url.startsWith('/legal')) {
       serveFile(res, FILES.legal);
+      return;
+    }
+
+    // Password reset page
+    if (url === '/auth/reset' || url.startsWith('/auth/reset?')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html>
+<html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Скидання пароля — LipoLand</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(135deg,#4A148C,#7B1FA2);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{background:#fff;border-radius:20px;padding:40px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+h1{color:#4A148C;margin-bottom:8px;font-size:24px}
+p.sub{color:#666;margin-bottom:24px;font-size:14px}
+label{display:block;margin-bottom:6px;color:#333;font-weight:600;font-size:14px}
+input{width:100%;padding:12px 14px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;margin-bottom:16px;outline:none;transition:border-color .2s}
+input:focus{border-color:#7B1FA2}
+button{width:100%;padding:14px;background:linear-gradient(135deg,#4A148C,#7B1FA2);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .1s}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.msg{padding:12px;border-radius:8px;margin-bottom:16px;font-size:14px}
+.msg.err{background:#ffebee;color:#c62828}
+.msg.ok{background:#e8f5e9;color:#2e7d32}
+.link{text-align:center;margin-top:16px;font-size:14px}
+.link a{color:#7B1FA2;text-decoration:none;font-weight:600}
+</style></head><body>
+<div class="box">
+<h1>Скидання пароля</h1>
+<p class="sub">Введіть новий пароль для вашого акаунта.</p>
+<div id="msg"></div>
+<form id="form">
+<label>Новий пароль</label>
+<input type="password" id="pwd" required minlength="6" placeholder="Мінімум 6 символів">
+<label>Підтвердження</label>
+<input type="password" id="pwd2" required minlength="6" placeholder="Повторіть пароль">
+<button type="submit" id="btn">Зберегти новий пароль</button>
+</form>
+<div class="link"><a href="/auth">← Повернутися до входу</a></div>
+</div>
+<script>
+const params = new URLSearchParams(location.search);
+const token = params.get('token');
+const msg = document.getElementById('msg');
+const btn = document.getElementById('btn');
+if (!token) { msg.className='msg err'; msg.textContent='Недійсне посилання'; document.getElementById('form').style.display='none'; }
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  msg.textContent=''; msg.className='';
+  const p1 = document.getElementById('pwd').value;
+  const p2 = document.getElementById('pwd2').value;
+  if (p1 !== p2) { msg.className='msg err'; msg.textContent='Паролі не співпадають'; return; }
+  btn.disabled = true; btn.textContent = 'Збереження...';
+  try {
+    const r = await fetch('/api/auth/reset-password', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token, password: p1 })
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.className='msg err'; msg.textContent = data.error || 'Помилка'; btn.disabled=false; btn.textContent='Зберегти новий пароль'; return; }
+    msg.className='msg ok'; msg.textContent='Пароль змінено! Перенаправляємо на вхід...';
+    document.getElementById('form').style.display='none';
+    setTimeout(()=>{ location.href='/auth'; }, 1800);
+  } catch(err) { msg.className='msg err'; msg.textContent='Помилка мережі'; btn.disabled=false; btn.textContent='Зберегти новий пароль'; }
+});
+</script>
+</body></html>`);
       return;
     }
 
