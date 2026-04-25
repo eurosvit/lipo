@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipoLand — Можливості</title>
+<link rel="icon" href="/favicon.png" type="image/png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+:root { --pink: #C91B6E; --teal: #4CBCBE; --dark: #2D2D2D; --light: #FDFBF7; --gray: #7A7A7A; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',system-ui,sans-serif; color:var(--dark); background:var(--light); }
+a { color:var(--pink); }
+.header { padding:16px 40px; display:flex; align-items:center; justify-content:space-between; background:var(--light); border-bottom:1px solid rgba(0,0,0,0.05); }
+.header-logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit; }
+.header-logo img { height:36px; width:36px; border-radius:50%; }
+.header-logo span { font-weight:800; font-size:20px; color:var(--pink); }
+.content { max-width:900px; margin:0 auto; padding:40px 20px 80px; }
+h1 { font-size:36px; font-weight:800; margin-bottom:8px; }
+.subtitle { color:var(--gray); margin-bottom:40px; font-size:16px; }
+.section { background:#fff; border:1px solid rgba(0,0,0,0.06); border-radius:16px; padding:28px; margin-bottom:20px; }
+.section h2 { font-size:22px; font-weight:800; margin-bottom:8px; color:var(--pink); display:flex; align-items:center; gap:10px; }
+.section .lead { color:var(--gray); font-size:14px; margin-bottom:16px; }
+.section ul { padding-left:0; list-style:none; }
+.section li { font-size:15px; line-height:1.7; color:#333; padding:8px 0 8px 28px; position:relative; }
+.section li::before { content:"✓"; position:absolute; left:0; top:8px; color:var(--teal); font-weight:800; }
+.formula { background:linear-gradient(135deg,#FFF5F8,#F0FFFE); border-radius:12px; padding:14px 18px; font-size:14px; color:#444; margin-top:8px; line-height:1.6; }
+.cta-bottom { text-align:center; margin-top:40px; padding:32px; background:linear-gradient(135deg,var(--pink),#E91E63); border-radius:20px; color:#fff; }
+.cta-bottom h3 { font-size:24px; margin-bottom:12px; }
+.cta-bottom p { margin-bottom:20px; opacity:0.95; }
+.cta-bottom a { display:inline-block; background:#fff; color:var(--pink); padding:14px 32px; border-radius:50px; font-weight:700; text-decoration:none; }
+.footer { text-align:center; padding:24px; font-size:13px; color:var(--gray); border-top:1px solid rgba(0,0,0,0.06); }
+@media(max-width:768px) {
+  .header { padding:12px 20px; }
+  h1 { font-size:26px; }
+  .section { padding:20px; }
+  .section h2 { font-size:18px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="/" class="header-logo">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQW7b7lDuX9_YMpD2F7ayKrhtZLV8B-yUyf9A&s" alt="LipoLand">
+    <span>LipoLand</span>
+  </a>
+  <a href="/" style="font-weight:600;font-size:15px;color:var(--gray);text-decoration:none;">На головну</a>
+</header>
+
+<div class="content">
+  <h1>🚀 Що вже вміє LipoLand</h1>
+  <p class="subtitle">Повний список можливостей системи. Все, що тут перелічено — вже працює і доступно з першого дня.</p>
+
+  <div class="section">
+    <h2>🔐 Акаунт і команда</h2>
+    <ul>
+      <li>Реєстрація та вхід через email або Google</li>
+      <li>Скидання паролю — посилання на пошту, новий пароль за 30 секунд</li>
+      <li>Запрошення майстринь у твою систему по email</li>
+      <li>Гнучкі права доступу — кожна майстриня бачить тільки те, що їй треба</li>
+      <li>Безпека: майстри не мають доступу до даних клієнтів інших майстринь</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>📦 Склад і матеріали</h2>
+    <ul>
+      <li>Облік матеріалів з категоріями (паперові, тканинні, фурнітура — як зручно)</li>
+      <li>Мінімальні залишки — система підкаже, коли треба докупити</li>
+      <li>Прийом нових надходжень одним кліком</li>
+      <li>Ціни закупки автоматично потрапляють у собівартість</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>🎨 Ігри (товари)</h2>
+    <ul>
+      <li>Каталог з артикулами (SKU), розмірами, категоріями</li>
+      <li>Рецептура: які матеріали і скільки йде на гру</li>
+      <li>Окремо вартість друку A4 та A5</li>
+      <li>Ставка майстра за виріб</li>
+      <li>Активні / неактивні товари</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>🧮 Собівартість</h2>
+    <p class="lead">Реальна собівартість, а не "на око":</p>
+    <div class="formula">матеріали + чорнило (друк) + шаблон + робота майстра = <strong>собівартість</strong> → автоматично рахує маржу і %</div>
+  </div>
+
+  <div class="section">
+    <h2>📋 Замовлення</h2>
+    <ul>
+      <li>Створення вручну або автопідтягування з SalesDrive</li>
+      <li>Канали продажів (Instagram, OLX, сайт — налаштовуються самостійно)</li>
+      <li>Власні статуси замовлень з кольорами</li>
+      <li>Призначення майстра на замовлення</li>
+      <li>Інтеграція з Новою Поштою — вставив ТТН, бачиш статус посилки</li>
+      <li>Налаштовувані колонки: drag & drop, перемикач видимості</li>
+      <li>Сортування, пошук, фільтри по даті / статусу / каналу</li>
+      <li>Експорт у CSV</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>🛠 Виробництво</h2>
+    <ul>
+      <li>Партії "в роботі" / "готові"</li>
+      <li>Фільтр по майстру</li>
+      <li>Майстриня бачить тільки свої партії</li>
+      <li>Списання матеріалів за рецептурою при запуску партії</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>💰 Витрати (OpEx)</h2>
+    <ul>
+      <li>Шаблони для повторюваних витрат — оренда, реклама, підписки</li>
+      <li>Категорії та місячні зведення</li>
+      <li>Топ-категорія місяця в один погляд</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>👷 Зарплата майстринь</h2>
+    <ul>
+      <li>Автоматичний розрахунок за виконані вироби</li>
+      <li>Виплати з історією</li>
+      <li>Майстриня бачить свою ЗП, не бачить чужих</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>📊 Аналітика (P&L)</h2>
+    <p class="lead">Класичний звіт про прибутки та збитки:</p>
+    <div class="formula">Виручка → Собівартість → Валовий прибуток → Операційні витрати → Податки → <strong>Чистий прибуток</strong></div>
+    <ul style="margin-top:12px;">
+      <li>Перемикання періоду: 3 / 6 / 12 місяців або весь час</li>
+      <li>Маржинальність по місяцях</li>
+      <li>Топ товарів</li>
+      <li>Статистика по каналах продажу</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>⚙️ Налаштування</h2>
+    <ul>
+      <li>Податки ФОП (1, 2, 3 група або без розрахунку)</li>
+      <li>Принтер: ціна чорнила, об'єм пляшки, витрата на A4 — автоматичний розрахунок вартості друку</li>
+      <li>Інтеграція з SalesDrive (CRM)</li>
+      <li>Telegram-сповіщення (опційно)</li>
+    </ul>
+  </div>
+
+  <div class="cta-bottom">
+    <h3>Готова спробувати?</h3>
+    <p>30 днів безкоштовно. Без прив'язки картки.</p>
+    <a href="/auth">Створити акаунт →</a>
+  </div>
+</div>
+
+<footer class="footer">
+  <p>&copy; 2026 LipoLand. ФОП Алехнович Я.Г. Всі права захищені.</p>
+</footer>
+
+</body>
+</html>
