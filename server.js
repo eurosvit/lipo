@@ -41,6 +41,7 @@ const FILES = {
   auth: path.join(__dirname, 'auth.html'),
   legal: path.join(__dirname, 'legal.html'),
   guide: path.join(__dirname, 'guide.html'),
+  features: path.join(__dirname, 'features.html'),
 };
 const DB_FILE = path.join(__dirname, 'data.json');
 
@@ -2496,6 +2497,12 @@ const server = http.createServer(async (req, res) => {
     // Legal
     if (url.startsWith('/legal')) {
       serveFile(res, FILES.legal);
+      return;
+    }
+
+    // Features
+    if (url === '/features' || url === '/features.html') {
+      serveFile(res, FILES.features);
       return;
     }
 
