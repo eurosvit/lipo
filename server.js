@@ -2341,6 +2341,63 @@ const server = http.createServer(async (req, res) => {
       // Workers read owner's data
       const dataUserId = user.isWorker ? user.ownerId : user.id;
       const data = await readUserData(dataUserId);
+      // Server-side filter & redaction for workers (defense in depth — UI also masks)
+      if (user.isWorker) {
+        const perms = user.workerPermissions || {};
+        const aliases = (user.workerAliases || []).map(function(n){ return (n||'').trim().toLowerCase(); }).filter(Boolean);
+        const isMine = function(name) {
+          if (!aliases.length) return false;
+          return aliases.indexOf((name||'').trim().toLowerCase()) !== -1;
+        };
+        // Orders: keep only worker's own; redact client PII
+        if (Array.isArray(data.orders)) {
+          data.orders = data.orders.filter(function(o){ return isMine(o.worker); }).map(function(o){
+            return Object.assign({}, o, {
+              client: '',
+              firstName: '',
+              phone: '',
+              address: '',
+              city: '',
+              email: '',
+              comment: '',
+              ttn: o.ttn ? '***' : ''
+            });
+          });
+        }
+        // Production: keep only worker's own
+        if (Array.isArray(data.production)) {
+          data.production = data.production.filter(function(p){ return isMine(p.worker); });
+        }
+        // Hide sellPrices if not permitted
+        if (perms.sellPrices === false && Array.isArray(data.products)) {
+          data.products = data.products.map(function(p){ var c = Object.assign({}, p); delete c.sellPrice; return c; });
+        }
+        // Hide material prices if not permitted
+        if (perms.materialPrices === false && Array.isArray(data.materials)) {
+          data.materials = data.materials.map(function(m){ var c = Object.assign({}, m); delete c.price; return c; });
+        }
+        // Hide expenses entirely if not permitted
+        if (perms.expenses === false || perms.costs === false) {
+          data.expenses = [];
+          data.expenseTemplates = [];
+          data.expenseCategories = [];
+        }
+        // Salary: keep only own payments
+        if (Array.isArray(data.salaryPayments)) {
+          data.salaryPayments = data.salaryPayments.filter(function(s){ return isMine(s.worker); });
+        }
+        // Worker stock: keep only own
+        if (Array.isArray(data.workerStock)) {
+          data.workerStock = data.workerStock.filter(function(s){ return isMine(s.worker); });
+        }
+        if (Array.isArray(data.workerStockHistory)) {
+          data.workerStockHistory = data.workerStockHistory.filter(function(s){ return isMine(s.worker); });
+        }
+        // Hide other workers' rates list
+        if (Array.isArray(data.workers)) {
+          data.workers = data.workers.filter(function(n){ return isMine(n); });
+        }
+      }
       sendJSON(res, 200, data);
       return;
     }
@@ -2349,11 +2406,63 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/api/data') {
       const user = await getSessionUser(req);
       if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
-      // Workers write to owner's data
+      // Workers write to owner's data — but only specific safe fields, merged on top of existing
       const dataUserId = user.isWorker ? user.ownerId : user.id;
       const body = await readBody(req);
-      const data = JSON.parse(body);
-      await writeUserData(dataUserId, data);
+      const incoming = JSON.parse(body);
+      if (user.isWorker) {
+        // Defensive merge: read existing owner data, accept only worker-allowed mutations
+        const existing = await readUserData(dataUserId);
+        const aliases = (user.workerAliases || []).map(function(n){ return (n||'').trim().toLowerCase(); }).filter(Boolean);
+        const isMine = function(name) {
+          if (!aliases.length) return false;
+          return aliases.indexOf((name||'').trim().toLowerCase()) !== -1;
+        };
+        // Orders: keep all existing orders; allow worker to update only their own orders' status/completedQty/etc
+        if (Array.isArray(incoming.orders) && Array.isArray(existing.orders)) {
+          const incomingById = {};
+          incoming.orders.forEach(function(o){ if (o && o.id) incomingById[o.id] = o; });
+          existing.orders = existing.orders.map(function(o){
+            if (!isMine(o.worker)) return o; // not worker's order — leave untouched
+            const inc = incomingById[o.id];
+            if (!inc) return o;
+            // Allow updating only safe fields on own orders
+            const safe = ['status','crmStatus','paymentStatus','workerNote','completedQty'];
+            const merged = Object.assign({}, o);
+            safe.forEach(function(k){ if (inc[k] !== undefined) merged[k] = inc[k]; });
+            return merged;
+          });
+        }
+        // Production: same pattern
+        if (Array.isArray(incoming.production) && Array.isArray(existing.production)) {
+          const incById = {};
+          incoming.production.forEach(function(p){ if (p && p.id) incById[p.id] = p; });
+          existing.production = existing.production.map(function(p){
+            if (!isMine(p.worker)) return p;
+            const inc = incById[p.id];
+            if (!inc) return p;
+            const safe = ['status','completedQty','workerNote'];
+            const merged = Object.assign({}, p);
+            safe.forEach(function(k){ if (inc[k] !== undefined) merged[k] = inc[k]; });
+            return merged;
+          });
+        }
+        // Worker stock: replace only own entries
+        if (Array.isArray(incoming.workerStock)) {
+          const otherStock = (existing.workerStock || []).filter(function(s){ return !isMine(s.worker); });
+          const myIncoming = incoming.workerStock.filter(function(s){ return isMine(s.worker); });
+          existing.workerStock = otherStock.concat(myIncoming);
+        }
+        if (Array.isArray(incoming.workerStockHistory)) {
+          const otherHist = (existing.workerStockHistory || []).filter(function(s){ return !isMine(s.worker); });
+          const myHist = incoming.workerStockHistory.filter(function(s){ return isMine(s.worker); });
+          existing.workerStockHistory = otherHist.concat(myHist);
+        }
+        existing._updatedAt = Date.now();
+        await writeUserData(dataUserId, existing);
+      } else {
+        await writeUserData(dataUserId, incoming);
+      }
       sendJSON(res, 200, { ok: true });
       return;
     }
