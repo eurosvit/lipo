@@ -6206,6 +6206,8 @@ function transferToWorker() {
   } else {
     var prod = db.products.find(function(p){return p.id===itemId});
     if (!prod) return;
+    if ((prod.stock||0) < qty) { if(!confirm('На складі лише '+(prod.stock||0)+' шт. Все одно передати?')) return; }
+    prod.stock = Math.max(0, (prod.stock||0) - qty);
     itemName = prod.sku + ' — ' + prod.name;
   }
 
@@ -6314,10 +6316,13 @@ function returnFromWorker(stockId) {
   var qty = parseFloat(qtyStr) || 0;
   if (qty <= 0 || qty > item.qty) return alert('Невірна кількість');
 
-  // Return material to main stock
+  // Return to main stock (materials → mat.qty, products → p.stock)
   if (item.type === 'material') {
     var mat = db.materials.find(function(m){return m.id===item.itemId});
     if (mat) mat.qty += qty;
+  } else if (item.type === 'product') {
+    var prod = db.products.find(function(p){return p.id===item.itemId});
+    if (prod) prod.stock = (prod.stock||0) + qty;
   }
 
   item.qty -= qty;
