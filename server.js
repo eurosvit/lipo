@@ -2434,19 +2434,78 @@ const server = http.createServer(async (req, res) => {
             return merged;
           });
         }
-        // Production: same pattern
+        // Production: allow status/qty updates, allow new completed splits, and apply stock side-effects
         if (Array.isArray(incoming.production) && Array.isArray(existing.production)) {
           const incById = {};
           incoming.production.forEach(function(p){ if (p && p.id) incById[p.id] = p; });
+          const existingById = {};
+          existing.production.forEach(function(p){ if (p && p.id) existingById[p.id] = p; });
+
+          // Accumulate stock changes per product+destination
+          const stockDeltas = {}; // { productId: { main: n, ff: { loc: n }, total: n } }
+          function bumpStock(productId, qty, ffDest) {
+            if (!productId || !qty) return;
+            if (!stockDeltas[productId]) stockDeltas[productId] = { main: 0, ff: {}, total: 0 };
+            if (ffDest) {
+              stockDeltas[productId].ff[ffDest] = (stockDeltas[productId].ff[ffDest] || 0) + qty;
+            } else {
+              stockDeltas[productId].main += qty;
+            }
+            stockDeltas[productId].total += qty;
+          }
+
+          // 1) Update existing batches with safe fields, detect transitions to completed
           existing.production = existing.production.map(function(p){
             if (!isMine(p.worker)) return p;
             const inc = incById[p.id];
             if (!inc) return p;
-            const safe = ['status','completedQty','workerNote'];
+            const safe = ['status','completedQty','workerNote','qty','completedDate','fulfillmentDest'];
             const merged = Object.assign({}, p);
             safe.forEach(function(k){ if (inc[k] !== undefined) merged[k] = inc[k]; });
+            if (p.status !== 'completed' && merged.status === 'completed') {
+              const qty = merged.completedQty || merged.qty || 0;
+              bumpStock(p.productId, qty, merged.fulfillmentDest || '');
+            }
             return merged;
           });
+
+          // 2) Accept NEW completed batches (partial completion creates a new completed record)
+          incoming.production.forEach(function(inc) {
+            if (!inc || !inc.id) return;
+            if (existingById[inc.id]) return; // already handled
+            if (!isMine(inc.worker)) return;
+            if (inc.status !== 'completed') return; // only completed splits allowed
+            existing.production.push({
+              id: inc.id,
+              productId: inc.productId,
+              qty: inc.qty || 0,
+              worker: inc.worker,
+              date: inc.date || new Date().toISOString().slice(0,10),
+              status: 'completed',
+              completedQty: inc.completedQty || inc.qty || 0,
+              completedDate: inc.completedDate || new Date().toISOString().slice(0,10),
+              fulfillmentDest: inc.fulfillmentDest || ''
+            });
+            bumpStock(inc.productId, inc.completedQty || inc.qty || 0, inc.fulfillmentDest || '');
+          });
+
+          // 3) Apply stock deltas to products (main stock, fulfillment, inProgress, template coverage)
+          if (Array.isArray(existing.products) && Object.keys(stockDeltas).length) {
+            Object.keys(stockDeltas).forEach(function(pid) {
+              const p = existing.products.find(function(x){ return x.id === pid; });
+              if (!p) return;
+              const d = stockDeltas[pid];
+              if (d.main) p.stock = (p.stock || 0) + d.main;
+              Object.keys(d.ff).forEach(function(loc) {
+                if (!p.fulfillment) p.fulfillment = {};
+                p.fulfillment[loc] = (p.fulfillment[loc] || 0) + d.ff[loc];
+              });
+              if (d.total) p.inProgress = Math.max(0, (p.inProgress || 0) - d.total);
+              if ((p.templateCost||0) > 0 && (p.templateQty||0) > 0 && d.total) {
+                p.templateCovered = Math.min((p.templateCovered||0) + d.total, p.templateQty);
+              }
+            });
+          }
         }
         // Worker stock: replace only own entries
         if (Array.isArray(incoming.workerStock)) {
