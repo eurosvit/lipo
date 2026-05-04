@@ -4604,6 +4604,19 @@ function shipOrderFromStock(id) {
 // ===== CRM SKU mapper =====
 var _crmSkuMapDraft = {}; // { crmSku: productId }
 
+// Спроба автоматично знайти товар у каталозі за CRM SKU
+// (та сама логіка що й при синку SalesDrive)
+function autoMatchCrmSku(db, crmSku) {
+  if (!crmSku) return null;
+  var sku = String(crmSku).replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'').trim();
+  var match = db.products.find(function(p){
+    if (!p.sku) return false;
+    return p.sku === sku || p.sku === crmSku
+        || sku.indexOf(p.sku) === 0 || p.sku.indexOf(sku) === 0;
+  });
+  return match ? match.id : null;
+}
+
 function openCrmSkuMapper() {
   var db = getDB();
   if (!db.crmSkuMap) db.crmSkuMap = {};
@@ -4614,7 +4627,9 @@ function openCrmSkuMapper() {
       if (!it.sku) return;
       var key = it.sku;
       if (!skuStats[key]) {
-        skuStats[key] = { sku: key, sampleName: it.name||'', count: 0, productId: it.productId || db.crmSkuMap[key] || null, sampleOrderNum: o.num };
+        // Пріоритет: вже в замовленні → ручний мапінг → автоматичний матч проти каталогу
+        var pid = it.productId || db.crmSkuMap[key] || autoMatchCrmSku(db, key);
+        skuStats[key] = { sku: key, sampleName: it.name||'', count: 0, productId: pid, sampleOrderNum: o.num };
       }
       skuStats[key].count++;
       if (!skuStats[key].productId && it.productId) skuStats[key].productId = it.productId;
@@ -4641,12 +4656,11 @@ function renderCrmSkuMapper(list) {
     'Унікальних SKU з CRM: <strong>'+list.length+'</strong> • Не привʼязано: <strong style="color:'+(unlinkedCount?'#C62828':'#2E7D32')+';">'+unlinkedCount+'</strong>'+
     '<br>Обери для кожного CRM-SKU відповідник у твоєму каталозі. Привʼязка збережеться: всі минулі і майбутні замовлення з цим SKU автоматично знайдуть товар.</p>';
 
-  if (unlinkedCount > 0) {
-    html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'+
-      '<button class="btn btn-success btn-sm" onclick="bulkCreateUnlinked()">⚡ Створити ВСІ '+unlinkedCount+' одразу</button>'+
-      '<button class="btn btn-outline btn-sm" onclick="importProductsFromSalesDrive()" title="Підтягнути товари з SalesDrive (з SKU, назвою, ціною)">📥 Імпортувати з SalesDrive</button>'+
-    '</div>';
-  }
+  html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'+
+    '<button class="btn btn-primary btn-sm" onclick="rematchAllOrders()" title="Перевірити всі замовлення і привʼязати товари за поточними правилами матчингу">🔄 Перематчити всі замовлення</button>'+
+    (unlinkedCount > 0 ? '<button class="btn btn-success btn-sm" onclick="bulkCreateUnlinked()">⚡ Створити ВСІ '+unlinkedCount+' у каталозі</button>' : '')+
+    (unlinkedCount > 0 ? '<button class="btn btn-outline btn-sm" onclick="importProductsFromSalesDrive()" title="Підтягнути товари з SalesDrive (з SKU, назвою, ціною)">📥 Імпортувати з SalesDrive</button>' : '')+
+  '</div>';
 
   list.forEach(function(s){
     var picked = _crmSkuMapDraft[s.sku] || '';
@@ -4725,6 +4739,40 @@ function quickCreateProductFromCrm(sku, name) {
   saveDB(db);
   _crmSkuMapDraft[sku] = newP.id;
   openCrmSkuMapperRefresh();
+}
+
+function rematchAllOrders() {
+  var db = getDB();
+  if (!db.crmSkuMap) db.crmSkuMap = {};
+  var linked = 0, alreadyLinked = 0, stillUnlinked = 0;
+  var examplesUnlinked = [];
+  (db.orders||[]).forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      if (!it.sku) return;
+      if (it.productId) { alreadyLinked++; return; }
+      // 1) Ручна мапа
+      var pid = db.crmSkuMap[it.sku];
+      // 2) Автоматичний матч
+      if (!pid) pid = autoMatchCrmSku(db, it.sku);
+      if (pid) {
+        it.productId = pid;
+        linked++;
+      } else {
+        stillUnlinked++;
+        if (examplesUnlinked.indexOf(it.sku) === -1 && examplesUnlinked.length < 5) examplesUnlinked.push(it.sku);
+      }
+    });
+  });
+  saveDB(db);
+  var msg = '🔄 Перематчинг завершено:\n\n'+
+    '• Привʼязано тепер: '+linked+'\n'+
+    '• Вже були привʼязані: '+alreadyLinked+'\n'+
+    '• Все ще без товару: '+stillUnlinked;
+  if (stillUnlinked > 0) {
+    msg += '\n\nЦих SKU справді немає в каталозі (приклади): '+examplesUnlinked.join(', ');
+  }
+  alert(msg);
+  openCrmSkuMapper();
 }
 
 function bulkCreateUnlinked() {
