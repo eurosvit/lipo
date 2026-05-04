@@ -3807,6 +3807,25 @@ function filterSpProducts() {
   dd.style.display = 'block';
 }
 
+// Швидке відкриття модалки виробництва з пре-заповненням з замовлення
+function openProductionForOrder(productId, qty, worker) {
+  openModal('start-production');
+  setTimeout(function(){
+    if (productId) selectSpProduct(productId);
+    var qtyEl = document.getElementById('sp-qty');
+    if (qtyEl) { qtyEl.value = qty || 1; }
+    if (worker) {
+      var wEl = document.getElementById('sp-worker');
+      if (wEl) {
+        for (var i=0; i<wEl.options.length; i++) {
+          if (wEl.options[i].value === worker) { wEl.selectedIndex = i; break; }
+        }
+      }
+    }
+    if (typeof checkCanProduce === 'function') checkCanProduce();
+  }, 100);
+}
+
 function selectSpProduct(id) {
   var db = getDB();
   var p = db.products.find(function(x){ return x.id === id; });
@@ -4490,11 +4509,17 @@ function shipOrderFromStock(id) {
   });
 
   if (!hasAny && !hasShortage) { alert('Немає чого списати.'); return; }
-  // Один склад + достатньо залишку → списуємо без зайвих питань
-  // Якщо не вистачає — попереджаємо і питаємо
+  // Замовлення відправляємо тільки повністю. Якщо не вистачає — пропонуємо запустити у виробництво.
   if (hasShortage) {
-    var msg = '⚠ Не вистачає на складі для замовлення #'+ord.num+':\n\n'+msgParts.join('\n')+'\n\nСписати що є?';
-    if (!confirm(msg)) return;
+    var shortItems = plan.filter(function(p){ return p.shortage > 0; });
+    var shortLines = shortItems.map(function(p){ return '• '+p.name+' — не вистачає '+p.shortage+' шт'; });
+    var doProduce = confirm('⚠ Не вистачає на складі для замовлення #'+ord.num+':\n\n'+shortLines.join('\n')+
+      '\n\nЗапустити у 🛠 Виробництво зараз?\n(Після здачі готових ігор натисни 📤 ще раз для відправки)');
+    if (doProduce && shortItems.length) {
+      var first = shortItems[0];
+      openProductionForOrder(first.productId, first.shortage, ord.worker);
+    }
+    return;
   }
 
   if (!db.workerStockHistory) db.workerStockHistory = [];
@@ -4655,7 +4680,7 @@ function confirmPickShipment() {
   var ord = db.orders.find(function(x){ return x.id === ctx.orderId; });
   if (!ord) { closeModal('pick-shipment'); return; }
 
-  // Валідація
+  // Валідація: відправляємо тільки повністю
   var totalShortage = 0;
   ctx.items.forEach(function(it){
     var sum = 0;
@@ -4663,7 +4688,8 @@ function confirmPickShipment() {
     totalShortage += Math.max(0, it.need - sum);
   });
   if (totalShortage > 0) {
-    if (!confirm('⚠ Не вистачає '+totalShortage+' шт. Списати тільки те що обрано?')) return;
+    alert('⚠ Не вистачає '+totalShortage+' шт. Додай партію у 🛠 Виробництво — після здачі натисни 📤 ще раз.');
+    return;
   }
 
   if (!db.workerStockHistory) db.workerStockHistory = [];
