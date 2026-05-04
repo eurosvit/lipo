@@ -4641,6 +4641,13 @@ function renderCrmSkuMapper(list) {
     'Унікальних SKU з CRM: <strong>'+list.length+'</strong> • Не привʼязано: <strong style="color:'+(unlinkedCount?'#C62828':'#2E7D32')+';">'+unlinkedCount+'</strong>'+
     '<br>Обери для кожного CRM-SKU відповідник у твоєму каталозі. Привʼязка збережеться: всі минулі і майбутні замовлення з цим SKU автоматично знайдуть товар.</p>';
 
+  if (unlinkedCount > 0) {
+    html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'+
+      '<button class="btn btn-success btn-sm" onclick="bulkCreateUnlinked()">⚡ Створити ВСІ '+unlinkedCount+' одразу</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="importProductsFromSalesDrive()" title="Підтягнути товари з SalesDrive (з SKU, назвою, ціною)">📥 Імпортувати з SalesDrive</button>'+
+    '</div>';
+  }
+
   list.forEach(function(s){
     var picked = _crmSkuMapDraft[s.sku] || '';
     var unlinked = !picked;
@@ -4718,6 +4725,94 @@ function quickCreateProductFromCrm(sku, name) {
   saveDB(db);
   _crmSkuMapDraft[sku] = newP.id;
   openCrmSkuMapperRefresh();
+}
+
+function bulkCreateUnlinked() {
+  var db = getDB();
+  // Зібрати всі непривʼязані з замовлень
+  var skus = {};
+  (db.orders||[]).forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      if (!it.sku) return;
+      if (_crmSkuMapDraft[it.sku]) return;
+      // Забираємо ціну з замовлення для дефолту
+      if (!skus[it.sku]) skus[it.sku] = { sku: it.sku, name: it.name||'', price: it.price||0 };
+    });
+  });
+  var keys = Object.keys(skus);
+  if (!keys.length) { alert('Немає непривʼязаних SKU'); return; }
+  if (!confirm('Створити '+keys.length+' нових товарів у каталозі?\n\n(SKU, назва і ціна з CRM — рецептуру, ставку майстра і собівартість заповниш у 📦 Склад пізніше)')) return;
+  var created = 0;
+  keys.forEach(function(sku){
+    var info = skus[sku];
+    var existing = db.products.find(function(p){ return p.sku === sku; });
+    if (existing) {
+      _crmSkuMapDraft[sku] = existing.id;
+      return;
+    }
+    var newP = {
+      id: uid(), sku: sku, name: info.name || sku, category:'', size:'',
+      sellPrice: info.price || 0, stock: 0, inProgress: 0, recipe: [],
+      workerRate: null, active: true
+    };
+    db.products.push(newP);
+    _crmSkuMapDraft[sku] = newP.id;
+    created++;
+  });
+  saveDB(db);
+  alert('✅ Створено '+created+' товарів. Натисни "Зберегти і привʼязати" щоб привʼязати замовлення.');
+  openCrmSkuMapperRefresh();
+}
+
+function importProductsFromSalesDrive() {
+  var db = getDB();
+  var settings = {};
+  try { settings = JSON.parse(localStorage.getItem('lipo_sd_settings')||'{}'); } catch(e){}
+  if (!settings.domain || !settings.apiKey) {
+    alert('Спочатку налаштуй CRM у ⚙️ Налаштування → CRM');
+    return;
+  }
+  var statusEl = document.getElementById('crm-sku-mapper-body');
+  var origHtml = statusEl.innerHTML;
+  statusEl.innerHTML = '<div style="text-align:center;padding:40px;">Завантаження товарів з SalesDrive…</div>';
+
+  fetch('/api/salesdrive/proxy', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ path: '/api/products/list/' })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var products = (data && data.data) || (data && data.products) || [];
+    if (!Array.isArray(products) || !products.length) {
+      alert('SalesDrive не повернув товарів. Перевір чи в CRM є товари.');
+      openCrmSkuMapper();
+      return;
+    }
+    var existingSkus = {};
+    db.products.forEach(function(p){ if (p.sku) existingSkus[p.sku] = p; });
+    var created = 0, skipped = 0;
+    products.forEach(function(sp){
+      var sku = sp.sku || sp.article || '';
+      if (!sku) { skipped++; return; }
+      if (existingSkus[sku]) { skipped++; return; }
+      var newP = {
+        id: uid(), sku: sku, name: sp.name || sp.title || sku,
+        category: '', size: '',
+        sellPrice: parseFloat(sp.price) || parseFloat(sp.priceUah) || 0,
+        stock: 0, inProgress: 0, recipe: [],
+        workerRate: null, active: true
+      };
+      db.products.push(newP);
+      created++;
+    });
+    saveDB(db);
+    alert('📥 Імпорт з SalesDrive:\n• Створено товарів: '+created+'\n• Пропущено (вже є): '+skipped);
+    openCrmSkuMapper();
+  })
+  .catch(function(e){
+    alert('Помилка імпорту: '+e.message);
+    openCrmSkuMapper();
+  });
 }
 
 function applyCrmSkuMap() {
