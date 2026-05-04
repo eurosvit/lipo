@@ -4649,12 +4649,14 @@ function renderCrmSkuMapper(list) {
         (p.sku?p.sku+' — ':'')+esc(p.name)+
       '</option>';
     }).join('');
+    var createBtn = unlinked ? '<button class="btn btn-success btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="quickCreateProductFromCrm(\''+esc(s.sku).replace(/'/g,"\\'")+'\',\''+esc(s.sampleName).replace(/'/g,"\\'")+'\')">+ Створити в каталозі</button>' : '';
     html += '<div style="border:1px solid '+(unlinked?'#FFCDD2':'#C8E6C9')+';border-radius:10px;padding:12px;margin-bottom:10px;background:'+(unlinked?'#FFF8F8':'#F1F8E9')+';">'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">'+
         '<div>'+
           '<div style="font-size:11px;color:var(--text-light);margin-bottom:2px;">CRM SKU (з SalesDrive)</div>'+
           '<div><code style="font-size:13px;background:#fff;padding:2px 6px;border-radius:4px;">'+esc(s.sku)+'</code> <span style="font-size:11px;color:var(--text-light);">×'+s.count+' замовл.</span></div>'+
           '<div style="font-size:11px;color:var(--text-light);margin-top:4px;">Назва з CRM: <em>'+esc(s.sampleName.slice(0,80))+'</em></div>'+
+          createBtn+
         '</div>'+
         '<div>'+
           '<div style="font-size:11px;color:var(--text-light);margin-bottom:2px;">Товар з твого каталогу</div>'+
@@ -4687,6 +4689,35 @@ function openCrmSkuMapperRefresh() {
     return b.count - a.count;
   });
   renderCrmSkuMapper(list);
+}
+
+function quickCreateProductFromCrm(sku, name) {
+  var db = getDB();
+  // Перевірка дублікату
+  var existing = db.products.find(function(p){ return p.sku === sku; });
+  if (existing) {
+    _crmSkuMapDraft[sku] = existing.id;
+    openCrmSkuMapperRefresh();
+    return;
+  }
+  if (!confirm('Створити в каталозі:\n\nSKU: '+sku+'\nНазва: '+name+'\n\n(Ціну, рецепт і ставку майстра задаси пізніше у 📦 Склад → редагування товара)')) return;
+  var newP = {
+    id: uid(),
+    sku: sku,
+    name: name || sku,
+    category: '',
+    size: '',
+    sellPrice: 0,
+    stock: 0,
+    inProgress: 0,
+    recipe: [],
+    workerRate: null,
+    active: true
+  };
+  db.products.push(newP);
+  saveDB(db);
+  _crmSkuMapDraft[sku] = newP.id;
+  openCrmSkuMapperRefresh();
 }
 
 function applyCrmSkuMap() {
