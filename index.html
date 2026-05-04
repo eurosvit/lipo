@@ -1452,6 +1452,21 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- Pick Shipment (multi-source manual allocation) -->
+<div class="modal-overlay" id="modal-pick-shipment">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header">
+      <h3>📤 Списати зі складу — оберіть звідки</h3>
+      <button class="modal-close" onclick="closeModal('pick-shipment')">&times;</button>
+    </div>
+    <div class="modal-body" id="pick-shipment-body" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('pick-shipment')">Скасувати</button>
+      <button class="btn btn-success" id="pick-shipment-confirm" onclick="confirmPickShipment()">Списати</button>
+    </div>
+  </div>
+</div>
+
 <!-- Receive Material -->
 <div class="modal-overlay" id="modal-receive-material">
   <div class="modal">
@@ -4397,6 +4412,25 @@ function orderStockHint(ord) {
   return parts.length ? parts.join(' • ') : '<span class="text-muted">—</span>';
 }
 
+// Збираємо список джерел для позиції замовлення з залишками
+function gatherShipmentSources(db, ord, item) {
+  var sources = []; // { key, label, available, type, location?, wsId? }
+  var p = (db.products||[]).find(function(x){ return x.id === item.productId; });
+  if (!p) return sources;
+  if ((p.stock||0) > 0) sources.push({ key:'main', label:'📦 Мій склад', available:p.stock||0, type:'main' });
+  if (ord.worker) {
+    var ws = (db.workerStock||[]).find(function(s){ return s.worker===ord.worker && s.itemId===item.productId && s.type==='product'; });
+    if (ws && ws.qty > 0) sources.push({ key:'worker', label:'👷 '+wLabel(ord.worker), available:ws.qty, type:'worker', wsId:ws.id });
+  }
+  if (p.fulfillment) {
+    Object.keys(p.fulfillment).forEach(function(loc){
+      var q = p.fulfillment[loc] || 0;
+      if (q > 0) sources.push({ key:'ff:'+loc, label:'🏬 '+loc, available:q, type:'fulfillment', location:loc });
+    });
+  }
+  return sources;
+}
+
 function shipOrderFromStock(id) {
   var db = getDB();
   var ord = db.orders.find(function(x){return x.id===id});
@@ -4405,6 +4439,32 @@ function shipOrderFromStock(id) {
     alert('Замовлення вже відвантажене. Спочатку скасуйте відправку.');
     return;
   }
+  if (!ord.items || !ord.items.length) { alert('У замовленні немає товарів.'); return; }
+
+  // Перевіряємо чи всі позиції привʼязані до товару
+  var unlinked = ord.items.filter(function(i){ return !i.productId; });
+  if (unlinked.length) {
+    alert('⚠ У замовленні '+unlinked.length+' позиц. без прив\'язки до товару.\nНатисни ✏️ біля замовлення і обери товар з каталогу для кожної позиції.');
+    return;
+  }
+
+  // Чи всі позиції мають єдине джерело з достатнім залишком?
+  var allSingle = true;
+  var hasMulti = false;
+  ord.items.forEach(function(item){
+    var srcs = gatherShipmentSources(db, ord, item);
+    var withStock = srcs.filter(function(s){ return s.available > 0; });
+    if (withStock.length > 1) { allSingle = false; hasMulti = true; }
+    if (withStock.length === 0) allSingle = false;
+  });
+
+  // Якщо є позиції з кількома складами — показуємо модалку вибору
+  if (hasMulti) {
+    openPickShipmentModal(ord);
+    return;
+  }
+
+  // Інакше — авто-списання (старий шлях через planOrderShipment)
   var plan = planOrderShipment(db, ord);
   if (!plan.length) { alert('У замовленні немає товарів.'); return; }
 
@@ -4425,10 +4485,13 @@ function shipOrderFromStock(id) {
     msgParts.push('• '+p.name+' — '+(parts.join(', ') || '—'));
   });
 
-  var msg = '📤 Списати зі складу для замовлення #'+ord.num+'?\n\n'+msgParts.join('\n');
-  if (hasShortage) msg += '\n\n⚠ Частково не вистачає — списати що є?';
   if (!hasAny && !hasShortage) { alert('Немає чого списати.'); return; }
-  if (!confirm(msg)) return;
+  // Один склад + достатньо залишку → списуємо без зайвих питань
+  // Якщо не вистачає — попереджаємо і питаємо
+  if (hasShortage) {
+    var msg = '⚠ Не вистачає на складі для замовлення #'+ord.num+':\n\n'+msgParts.join('\n')+'\n\nСписати що є?';
+    if (!confirm(msg)) return;
+  }
 
   if (!db.workerStockHistory) db.workerStockHistory = [];
   var today = new Date().toISOString().slice(0,10);
@@ -4469,6 +4532,177 @@ function shipOrderFromStock(id) {
   ord.shipped = true;
   ord.shippedDate = today;
   saveDB(db);
+  renderPage('orders');
+}
+
+// ===== Manual multi-source shipment picker =====
+var _pickShipmentCtx = null; // { orderId, items: [{itemIdx, productId, name, need, sources:[...], picks:{key:qty}}] }
+
+function openPickShipmentModal(ord) {
+  var db = getDB();
+  _pickShipmentCtx = {
+    orderId: ord.id,
+    items: ord.items.map(function(item, idx){
+      var sources = gatherShipmentSources(db, ord, item);
+      // Пре-заповнення: канал = ff-локація → беремо першочергово звідти
+      var picks = {};
+      var need = item.qty || 0;
+      var preferKey = '';
+      if (ord.channel) {
+        var match = sources.find(function(s){ return s.type==='fulfillment' && s.location.toLowerCase() === String(ord.channel).toLowerCase(); });
+        if (match) preferKey = match.key;
+      }
+      if (preferKey) {
+        var s = sources.find(function(x){ return x.key===preferKey; });
+        if (s) {
+          var t = Math.min(need, s.available);
+          picks[s.key] = t;
+          need -= t;
+        }
+      }
+      // Якщо лишилось — беремо з worker → main → інші ff
+      var order = ['worker','main','fulfillment'];
+      order.forEach(function(typ){
+        if (need <= 0) return;
+        sources.forEach(function(s){
+          if (need <= 0) return;
+          if (s.type !== typ) return;
+          if (picks[s.key]) return;
+          var t = Math.min(need, s.available);
+          if (t > 0) { picks[s.key] = t; need -= t; }
+        });
+      });
+      return {
+        itemIdx: idx,
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku || '',
+        need: item.qty || 0,
+        sources: sources,
+        picks: picks
+      };
+    })
+  };
+  renderPickShipmentBody();
+  openModal('pick-shipment');
+}
+
+function renderPickShipmentBody() {
+  var ctx = _pickShipmentCtx;
+  if (!ctx) return;
+  var html = '<p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">У товарів декілька складів. Вкажи скільки звідки списати. Сума має дорівнювати потрібній кількості.</p>';
+
+  ctx.items.forEach(function(it, idx){
+    var totalPicked = 0;
+    Object.keys(it.picks).forEach(function(k){ totalPicked += it.picks[k]||0; });
+    var diff = it.need - totalPicked;
+    var statusColor = diff === 0 ? '#2E7D32' : (diff > 0 ? '#C62828' : '#E65100');
+    var statusText = diff === 0 ? '✓ ОК' : (diff > 0 ? '⚠ ще треба '+diff : '⚠ забагато на '+(-diff));
+
+    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    html += '<strong>'+(it.sku?'<code>'+esc(it.sku)+'</code> ':'')+esc(it.name)+'</strong>';
+    html += '<span style="font-size:13px;color:'+statusColor+';font-weight:600;">Треба: '+it.need+' • Вибрано: '+totalPicked+' • '+statusText+'</span>';
+    html += '</div>';
+
+    if (!it.sources.length) {
+      html += '<div style="color:#C62828;font-size:13px;">❌ Немає на жодному складі</div>';
+    } else {
+      html += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;">';
+      it.sources.forEach(function(s){
+        var picked = it.picks[s.key] || 0;
+        html += '<div style="font-size:14px;">'+s.label+'</div>';
+        html += '<div style="font-size:12px;color:var(--text-light);min-width:100px;text-align:right;">залишок: <strong>'+s.available+'</strong></div>';
+        html += '<input type="number" min="0" max="'+s.available+'" value="'+picked+'" style="width:80px;padding:6px;text-align:center;" '+
+                'onchange="updatePickQty('+idx+',\''+s.key+'\',this.value)">';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  document.getElementById('pick-shipment-body').innerHTML = html;
+  // Validate confirm button
+  var allOk = ctx.items.every(function(it){
+    var sum = 0;
+    Object.keys(it.picks).forEach(function(k){ sum += it.picks[k]||0; });
+    return sum === it.need || (sum < it.need && it.sources.length===0);
+  });
+  var btn = document.getElementById('pick-shipment-confirm');
+  if (btn) btn.disabled = !allOk;
+}
+
+function updatePickQty(itemIdx, srcKey, val) {
+  var ctx = _pickShipmentCtx;
+  if (!ctx) return;
+  var it = ctx.items[itemIdx];
+  if (!it) return;
+  var src = it.sources.find(function(s){ return s.key===srcKey; });
+  var n = Math.max(0, parseInt(val)||0);
+  if (src && n > src.available) n = src.available;
+  it.picks[srcKey] = n;
+  renderPickShipmentBody();
+}
+
+function confirmPickShipment() {
+  var ctx = _pickShipmentCtx;
+  if (!ctx) return;
+  var db = getDB();
+  var ord = db.orders.find(function(x){ return x.id === ctx.orderId; });
+  if (!ord) { closeModal('pick-shipment'); return; }
+
+  // Валідація
+  var totalShortage = 0;
+  ctx.items.forEach(function(it){
+    var sum = 0;
+    Object.keys(it.picks).forEach(function(k){ sum += it.picks[k]||0; });
+    totalShortage += Math.max(0, it.need - sum);
+  });
+  if (totalShortage > 0) {
+    if (!confirm('⚠ Не вистачає '+totalShortage+' шт. Списати тільки те що обрано?')) return;
+  }
+
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  var today = new Date().toISOString().slice(0,10);
+  ord.shippedFrom = [];
+
+  ctx.items.forEach(function(it){
+    it.sources.forEach(function(s){
+      var qty = it.picks[s.key] || 0;
+      if (qty <= 0) return;
+      if (s.type === 'main') {
+        var p = db.products.find(function(x){ return x.id === it.productId; });
+        if (p) p.stock = Math.max(0, (p.stock||0) - qty);
+        ord.shippedFrom.push({ source:'main', productId: it.productId, qty: qty, name: it.name });
+      } else if (s.type === 'worker') {
+        var ws = db.workerStock.find(function(w){ return w.id === s.wsId; });
+        if (ws) {
+          ws.qty = Math.max(0, (ws.qty||0) - qty);
+          db.workerStockHistory.push({
+            id: uid(), worker: ord.worker, type:'product',
+            itemId: it.productId, itemName: it.name, qty: qty,
+            action:'відправлено', date: today,
+            note:'Замовлення #'+ord.num, orderId: ord.id
+          });
+          if (ws.qty <= 0) db.workerStock = db.workerStock.filter(function(x){ return x.id !== ws.id; });
+        }
+        ord.shippedFrom.push({ source:'worker', worker: ord.worker, productId: it.productId, qty: qty, name: it.name });
+      } else if (s.type === 'fulfillment') {
+        var p2 = db.products.find(function(x){ return x.id === it.productId; });
+        if (p2) {
+          if (!p2.fulfillment) p2.fulfillment = {};
+          p2.fulfillment[s.location] = Math.max(0, (p2.fulfillment[s.location]||0) - qty);
+        }
+        ord.shippedFrom.push({ source:'fulfillment', location: s.location, productId: it.productId, qty: qty, name: it.name });
+      }
+    });
+  });
+
+  ord.shipped = true;
+  ord.shippedDate = today;
+  saveDB(db);
+  closeModal('pick-shipment');
+  _pickShipmentCtx = null;
   renderPage('orders');
 }
 
