@@ -1630,6 +1630,15 @@ a.order-link:hover { text-decoration:underline; }
       </div>
       <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
       <div id="sp-info" class="text-muted" style="font-size:13px;"></div>
+      <div style="margin-top:14px;padding:12px;background:#FFF8E1;border-radius:10px;border:1px solid #FFE082;cursor:pointer;" onclick="document.getElementById('sp-instant').click();">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
+          <input type="checkbox" id="sp-instant" style="margin-top:3px;flex-shrink:0;">
+          <div>
+            <strong style="font-size:14px;">⚡ Виробити та одразу видати на склад</strong>
+            <div style="font-size:12px;color:var(--text-light);margin-top:3px;">Партія створиться і одразу позначиться як готова. Матеріали спишуться, готова продукція потрапить на склад. Зручно якщо ти сама виготовляєш або вже здала.</div>
+          </div>
+        </label>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('start-production')">Скасувати</button>
@@ -3909,11 +3918,23 @@ function startProduction() {
     }
   }
 
-  p.inProgress = (p.inProgress||0) + qty;
-  db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:new Date().toISOString().slice(0,10), status:'in_progress', completedQty:0 });
+  var instantEl = document.getElementById('sp-instant');
+  var instant = instantEl && instantEl.checked;
+  var today = new Date().toISOString().slice(0,10);
+  if (instant) {
+    // Одразу видати готовою: статус completed, +stock
+    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'completed', completedQty:qty, completedDate:today });
+    p.stock = (p.stock||0) + qty;
+  } else {
+    p.inProgress = (p.inProgress||0) + qty;
+    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'in_progress', completedQty:0 });
+  }
   saveDB(db);
   closeModal('start-production');
-  renderPage('production');
+  if (instant) {
+    alert('✅ Виготовлено '+qty+' шт. Тепер натисни 📤 на замовленні щоб відправити.');
+  }
+  renderPage(instant ? 'orders' : 'production');
 }
 
 function populateCompleteProd() {
@@ -5196,21 +5217,18 @@ function openEditOrder(id) {
 var _eordItems = [];
 
 function renderEordItems() {
-  var db = getDB();
-  var prods = (db.products||[]).filter(function(p){ return p.active!==false; });
-  var opts = '<option value="">— оберіть товар —</option>' + prods.map(function(p){
-    return '<option value="'+p.id+'" data-price="'+(p.sellPrice||0)+'" data-sku="'+esc(p.sku||'')+'" data-name="'+esc(p.name||'')+'">'+(p.sku?p.sku+' — ':'')+esc(p.name)+' ('+(p.stock||0)+' шт)</option>';
-  }).join('');
   var html = _eordItems.map(function(it, idx){
     var unlinked = !it.productId;
     var warn = unlinked ? '<div style="font-size:11px;color:#C62828;margin-top:4px;">⚠ Не привʼязано до товару — без цього не можна списати зі складу</div>' : '';
     var origLine = unlinked && it.name ? '<div style="font-size:11px;color:var(--text-light);margin-top:4px;">Текст із CRM: <em>'+esc(it.name)+'</em></div>' : '';
+    var displayVal = it.productId ? ((it.sku?it.sku+' — ':'') + (it.name||'')) : '';
     return '<div style="border:1px solid '+(unlinked?'#FFCDD2':'var(--border)')+';border-radius:10px;padding:12px;background:'+(unlinked?'#FFF8F8':'#fafafa')+';">'+
       '<div class="form-row" style="margin-bottom:8px;">'+
-        '<div class="form-group" style="flex:2;"><label>Товар з каталогу</label>'+
-          '<select onchange="updateEordItem('+idx+',\'product\',this)" style="width:100%;">'+
-            opts.replace('value="'+it.productId+'"', 'value="'+it.productId+'" selected') +
-          '</select>'+
+        '<div class="form-group" style="flex:2;position:relative;"><label>Товар з каталогу</label>'+
+          '<input type="text" id="eord-search-'+idx+'" autocomplete="off" placeholder="Пошук: SKU або назва..." value="'+esc(displayVal)+'" '+
+            'oninput="filterEordProducts('+idx+')" onfocus="filterEordProducts('+idx+')" '+
+            'onblur="setTimeout(function(){var d=document.getElementById(\'eord-dd-'+idx+'\');if(d)d.style.display=\'none\';},200)" style="width:100%;">'+
+          '<div id="eord-dd-'+idx+'" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>'+
         '</div>'+
         '<div class="form-group" style="flex:0 0 90px;"><label>К-сть</label>'+
           '<input type="number" min="1" value="'+it.qty+'" onchange="updateEordItem('+idx+',\'qty\',this)">'+
@@ -5228,22 +5246,50 @@ function renderEordItems() {
   document.getElementById('eord-items').innerHTML = html;
 }
 
+function filterEordProducts(idx) {
+  var input = document.getElementById('eord-search-'+idx);
+  var dd = document.getElementById('eord-dd-'+idx);
+  if (!input || !dd) return;
+  var q = input.value.toLowerCase().trim();
+  var db = getDB();
+  var prods = (db.products||[]).filter(function(p){ return p.active!==false; });
+  var matched = prods.filter(function(p){
+    if (!q) return true;
+    return (p.sku||'').toLowerCase().indexOf(q) !== -1 || (p.name||'').toLowerCase().indexOf(q) !== -1;
+  }).slice(0, 30);
+  if (!matched.length) {
+    dd.innerHTML = '<div style="padding:10px;color:var(--text-light);font-size:13px;">Нічого не знайдено</div>';
+  } else {
+    dd.innerHTML = matched.map(function(p){
+      var stockColor = (p.stock||0) > 0 ? '#2E7D32' : '#999';
+      return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;" '+
+        'onmousedown="selectEordProduct('+idx+',\''+p.id+'\')" '+
+        'onmouseover="this.style.background=\'#f5f5f5\'" onmouseout="this.style.background=\'\'">'+
+        '<div style="font-size:13px;">'+(p.sku?'<code style="font-size:11px;color:#666;">'+esc(p.sku)+'</code> ':'')+esc(p.name)+'</div>'+
+        '<div style="font-size:11px;color:'+stockColor+';">на складі: '+(p.stock||0)+' шт • '+fmt(p.sellPrice||0)+' грн</div>'+
+      '</div>';
+    }).join('');
+  }
+  dd.style.display = 'block';
+}
+
+function selectEordProduct(idx, productId) {
+  var db = getDB();
+  var p = db.products.find(function(x){ return x.id === productId; });
+  if (!p) return;
+  var it = _eordItems[idx];
+  if (!it) return;
+  it.productId = productId;
+  it.sku = p.sku || '';
+  it.name = p.name || '';
+  if (!it.price || it.price === 0) it.price = p.sellPrice || 0;
+  renderEordItems();
+}
+
 function updateEordItem(idx, field, el) {
   var it = _eordItems[idx];
   if (!it) return;
-  if (field === 'product') {
-    var pid = el.value;
-    it.productId = pid;
-    if (pid) {
-      var opt = el.options[el.selectedIndex];
-      it.sku = opt.getAttribute('data-sku') || '';
-      it.name = opt.getAttribute('data-name') || '';
-      if (!it.price || it.price === 0) {
-        it.price = parseFloat(opt.getAttribute('data-price')) || 0;
-      }
-    }
-    renderEordItems();
-  } else if (field === 'qty') {
+  if (field === 'qty') {
     it.qty = Math.max(1, parseInt(el.value)||1);
   } else if (field === 'price') {
     it.price = parseFloat(el.value)||0;
