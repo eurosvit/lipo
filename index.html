@@ -435,7 +435,7 @@ a.order-link:hover { text-decoration:underline; }
   <div class="nav-links">
     <button onclick="showPage('dashboard')" data-page="dashboard">&#x1F4CA; &#x0414;&#x0430;&#x0448;&#x0431;&#x043E;&#x0440;&#x0434;</button>
     <button onclick="showPage('materials')" data-page="materials">&#x1F4E6; &#x041C;&#x0430;&#x0442;&#x0435;&#x0440;&#x0456;&#x0430;&#x043B;&#x0438;</button>
-    <button onclick="showPage('products')" data-page="products">🎮 Мої ігри</button>
+    <button onclick="showPage('products')" data-page="products">📦 Склад</button>
     <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
     <button onclick="showPage('orders')" data-page="orders">&#x1F4CB; &#x0417;&#x0430;&#x043C;&#x043E;&#x0432;&#x043B;&#x0435;&#x043D;&#x043D;&#x044F;</button>
     <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
@@ -494,7 +494,7 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <button onclick="mobileNav('dashboard')">📊 Дашборд</button>
     <button onclick="mobileNav('materials')">📦 Матеріали</button>
-    <button onclick="mobileNav('products')">🎮 Мої ігри</button>
+    <button onclick="mobileNav('products')">📦 Склад</button>
     <button onclick="mobileNav('production')">🔧 Виробництво</button>
     <button onclick="mobileNav('orders')">📋 Замовлення</button>
     <button onclick="mobileNav('worker-stock')">👷 Майстри</button>
@@ -608,7 +608,7 @@ a.order-link:hover { text-decoration:underline; }
 <!-- ========== PRODUCTS ========== -->
 <div id="products" class="page">
   <div class="flex-between">
-    <h2>Мої ігри — Склад</h2>
+    <h2>📦 Склад</h2>
     <button class="btn btn-primary" onclick="populatePackagingKitSelects();openModal('add-product');updateTemplatePreview('prod')">+ Додати гру</button>
   </div>
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Каталог ваших ігор із залишками на складі. Готова продукція потрапляє сюди після здачі з виробництва.</p>
@@ -4298,14 +4298,32 @@ function setOrderPaymentStatus(id, val) {
 // виплачується при виробництві, а не при відправці.
 function planOrderShipment(db, ord) {
   var plan = [];
+  // Якщо канал замовлення збігається з фулфілмент-локацією — звідти знімаємо першочергово
+  var preferFf = '';
+  var ffLocs = db.fulfillmentLocations || [];
+  if (ord.channel) {
+    var match = ffLocs.find(function(l){ return l.toLowerCase() === String(ord.channel).toLowerCase(); });
+    if (match) preferFf = match;
+  }
   (ord.items || []).forEach(function(item) {
     if (!item.productId) {
-      plan.push({ productId:null, name:item.name, total:item.qty||0, fromMaster:0, fromMain:0, shortage:item.qty||0, wsId:null, product:null, noLink:true });
+      plan.push({ productId:null, name:item.name, total:item.qty||0, fromMaster:0, fromMain:0, fromFf:{}, shortage:item.qty||0, wsId:null, product:null, noLink:true });
       return;
     }
     var need = item.qty || 0;
     var fromMaster = 0, fromMain = 0, ws = null;
-    if (ord.worker) {
+    var fromFf = {};
+    var p = (db.products || []).find(function(x){ return x.id === item.productId; });
+
+    // 1) Якщо канал замовлення = фулфілмент-локація → беремо звідти першочергово
+    if (preferFf && p && p.fulfillment && p.fulfillment[preferFf] > 0 && need > 0) {
+      var take = Math.min(need, p.fulfillment[preferFf]);
+      fromFf[preferFf] = take;
+      need -= take;
+    }
+
+    // 2) Склад майстра (якщо до замовлення прив'язана майстриня)
+    if (ord.worker && need > 0) {
       ws = (db.workerStock || []).find(function(s) {
         return s.worker === ord.worker && s.itemId === item.productId && s.type === 'product';
       });
@@ -4314,17 +4332,34 @@ function planOrderShipment(db, ord) {
         need -= fromMaster;
       }
     }
-    var p = (db.products || []).find(function(x){ return x.id === item.productId; });
+
+    // 3) Основний склад LipoLand
     if (p && need > 0) {
       fromMain = Math.min(need, p.stock || 0);
       need -= fromMain;
     }
+
+    // 4) Інші фулфілмент-локації (якщо ще не вистачає)
+    if (p && p.fulfillment && need > 0) {
+      Object.keys(p.fulfillment).forEach(function(loc) {
+        if (need <= 0) return;
+        if (loc === preferFf) return; // вже взяли вище
+        var avail = p.fulfillment[loc] || 0;
+        if (avail > 0) {
+          var t = Math.min(need, avail);
+          fromFf[loc] = t;
+          need -= t;
+        }
+      });
+    }
+
     plan.push({
       productId: item.productId,
       name: item.name,
       total: item.qty || 0,
       fromMaster: fromMaster,
       fromMain: fromMain,
+      fromFf: fromFf,
       shortage: need,
       wsId: ws ? ws.id : null,
       product: p
@@ -4380,8 +4415,13 @@ function shipOrderFromStock(id) {
     var parts = [];
     if (p.fromMaster) { parts.push('👷 '+wLabel(ord.worker)+': '+p.fromMaster); hasAny = true; }
     if (p.fromMain)   { parts.push('📦 LipoLand: '+p.fromMain); hasAny = true; }
+    if (p.fromFf) {
+      Object.keys(p.fromFf).forEach(function(loc){
+        if (p.fromFf[loc] > 0) { parts.push('🏬 '+loc+': '+p.fromFf[loc]); hasAny = true; }
+      });
+    }
     if (p.shortage)   { parts.push('❌ не вистачає: '+p.shortage); hasShortage = true; }
-    if (p.noLink)     { parts.push('⚠ немає прив\'язки до товару'); }
+    if (p.noLink)     { parts.push('⚠ немає прив\'язки до товару — натисни ✏️ біля замовлення'); }
     msgParts.push('• '+p.name+' — '+(parts.join(', ') || '—'));
   });
 
@@ -4415,6 +4455,15 @@ function shipOrderFromStock(id) {
       p.product.stock = (p.product.stock||0) - p.fromMain;
       ord.shippedFrom.push({ source:'main', productId: p.productId, qty: p.fromMain, name: p.name });
     }
+    if (p.fromFf && p.product) {
+      Object.keys(p.fromFf).forEach(function(loc){
+        var qty = p.fromFf[loc] || 0;
+        if (qty <= 0) return;
+        if (!p.product.fulfillment) p.product.fulfillment = {};
+        p.product.fulfillment[loc] = Math.max(0, (p.product.fulfillment[loc]||0) - qty);
+        ord.shippedFrom.push({ source:'fulfillment', location: loc, productId: p.productId, qty: qty, name: p.name });
+      });
+    }
   });
 
   ord.shipped = true;
@@ -4436,6 +4485,12 @@ function unshipOrder(id) {
     if (s.source === 'main') {
       var p = (db.products||[]).find(function(x){return x.id===s.productId;});
       if (p) p.stock = (p.stock||0) + s.qty;
+    } else if (s.source === 'fulfillment') {
+      var p = (db.products||[]).find(function(x){return x.id===s.productId;});
+      if (p) {
+        if (!p.fulfillment) p.fulfillment = {};
+        p.fulfillment[s.location] = (p.fulfillment[s.location]||0) + s.qty;
+      }
     } else if (s.source === 'worker') {
       if (!db.workerStock) db.workerStock = [];
       var ws = db.workerStock.find(function(w){
@@ -5213,7 +5268,28 @@ function renderOrders() {
         if (isCurrentUserWorker()) return '<td data-label="Телефон"><span class="text-muted">—</span></td>';
         return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
       }
-      case 'items': return '<td data-label="Товари">'+itemsStr+'</td>';
+      case 'items': {
+        var extra = '';
+        // Показати звідки списано (якщо вже відправлено)
+        if (o.shipped && Array.isArray(o.shippedFrom) && o.shippedFrom.length) {
+          var srcMap = {};
+          o.shippedFrom.forEach(function(s){
+            var key = s.source==='main' ? '📦 Склад'
+                    : s.source==='worker' ? '👷 '+(wLabel(s.worker)||'майстер')
+                    : s.source==='fulfillment' ? '🏬 '+s.location
+                    : s.source;
+            srcMap[key] = (srcMap[key]||0) + (s.qty||0);
+          });
+          var srcParts = Object.keys(srcMap).map(function(k){ return k+' −'+srcMap[k]; });
+          extra += '<div style="font-size:10px;color:#2E7D32;margin-top:4px;">📤 '+srcParts.join(' • ')+'</div>';
+        }
+        // Підказка для позицій без прив'язки до товару
+        var unlinked = (o.items||[]).filter(function(i){ return !i.productId; });
+        if (unlinked.length && !o.shipped) {
+          extra += '<div style="font-size:10px;color:#C62828;margin-top:4px;cursor:pointer;" onclick="openEditOrder(\''+o.id+'\')" title="Натисни щоб привʼязати товар">⚠ '+unlinked.length+' позиц. без товару — клікни ✏️</div>';
+        }
+        return '<td data-label="Товари">'+itemsStr+extra+'</td>';
+      }
       case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
       case 'payment': {
         var currentType = o.paymentType || '';
