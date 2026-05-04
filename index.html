@@ -705,6 +705,7 @@ a.order-link:hover { text-decoration:underline; }
         <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="setSyncDatePreset(90)" title="Останні 90 днів">90д</button>
       </div>
       <button class="btn btn-success crm-only" onclick="syncSalesDrive()" id="sync-btn">🔄 Синхронізувати з CRM</button>
+      <button class="btn btn-outline crm-only" onclick="openCrmSkuMapper()" id="sku-map-btn" title="Привʼязати SKU з CRM до товарів каталогу">🔗 Привʼязати CRM-товари</button>
       <button class="btn btn-outline" onclick="manualRefreshNpTracking()" id="np-refresh-btn" title="Оновити статуси посилок Нової Пошти за ТТН">📍 Трекінг НП</button>
       <button class="btn btn-primary" onclick="openModal('add-order')">+ Вручну</button>
     </div>
@@ -1448,6 +1449,21 @@ a.order-link:hover { text-decoration:underline; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('add-material')">Скасувати</button>
       <button class="btn btn-primary" onclick="saveMaterial()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- CRM SKU Mapper -->
+<div class="modal-overlay" id="modal-crm-sku-mapper">
+  <div class="modal" style="max-width:820px;">
+    <div class="modal-header">
+      <h3>🔗 Привʼязати товари з CRM до каталогу</h3>
+      <button class="modal-close" onclick="closeModal('crm-sku-mapper')">&times;</button>
+    </div>
+    <div class="modal-body" id="crm-sku-mapper-body" style="max-height:65vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('crm-sku-mapper')">Закрити</button>
+      <button class="btn btn-success" onclick="applyCrmSkuMap()">Зберегти і привʼязати</button>
     </div>
   </div>
 </div>
@@ -4585,6 +4601,125 @@ function shipOrderFromStock(id) {
   renderPage('orders');
 }
 
+// ===== CRM SKU mapper =====
+var _crmSkuMapDraft = {}; // { crmSku: productId }
+
+function openCrmSkuMapper() {
+  var db = getDB();
+  if (!db.crmSkuMap) db.crmSkuMap = {};
+  // Збираємо всі унікальні CRM-SKU з замовлень (привʼязані і ні)
+  var skuStats = {}; // sku -> { sku, sampleName, count, productId, sampleOrderNum }
+  (db.orders||[]).forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      if (!it.sku) return;
+      var key = it.sku;
+      if (!skuStats[key]) {
+        skuStats[key] = { sku: key, sampleName: it.name||'', count: 0, productId: it.productId || db.crmSkuMap[key] || null, sampleOrderNum: o.num };
+      }
+      skuStats[key].count++;
+      if (!skuStats[key].productId && it.productId) skuStats[key].productId = it.productId;
+    });
+  });
+  // Унікальні + сорт: ті, що без привʼязки — спочатку
+  var list = Object.values(skuStats).sort(function(a,b){
+    if (!a.productId && b.productId) return -1;
+    if (a.productId && !b.productId) return 1;
+    return b.count - a.count;
+  });
+  _crmSkuMapDraft = {};
+  list.forEach(function(s){ if (s.productId) _crmSkuMapDraft[s.sku] = s.productId; });
+  renderCrmSkuMapper(list);
+  openModal('crm-sku-mapper');
+}
+
+function renderCrmSkuMapper(list) {
+  var db = getDB();
+  var prods = (db.products||[]).filter(function(p){ return p.active!==false; });
+  var unlinkedCount = list.filter(function(s){ return !_crmSkuMapDraft[s.sku]; }).length;
+
+  var html = '<p style="font-size:13px;color:var(--text-light);margin-bottom:14px;">'+
+    'Унікальних SKU з CRM: <strong>'+list.length+'</strong> • Не привʼязано: <strong style="color:'+(unlinkedCount?'#C62828':'#2E7D32')+';">'+unlinkedCount+'</strong>'+
+    '<br>Обери для кожного CRM-SKU відповідник у твоєму каталозі. Привʼязка збережеться: всі минулі і майбутні замовлення з цим SKU автоматично знайдуть товар.</p>';
+
+  list.forEach(function(s){
+    var picked = _crmSkuMapDraft[s.sku] || '';
+    var unlinked = !picked;
+    var opts = '<option value="">— не привʼязано —</option>' + prods.map(function(p){
+      return '<option value="'+p.id+'" '+(p.id===picked?'selected':'')+'>'+
+        (p.sku?p.sku+' — ':'')+esc(p.name)+
+      '</option>';
+    }).join('');
+    html += '<div style="border:1px solid '+(unlinked?'#FFCDD2':'#C8E6C9')+';border-radius:10px;padding:12px;margin-bottom:10px;background:'+(unlinked?'#FFF8F8':'#F1F8E9')+';">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">'+
+        '<div>'+
+          '<div style="font-size:11px;color:var(--text-light);margin-bottom:2px;">CRM SKU (з SalesDrive)</div>'+
+          '<div><code style="font-size:13px;background:#fff;padding:2px 6px;border-radius:4px;">'+esc(s.sku)+'</code> <span style="font-size:11px;color:var(--text-light);">×'+s.count+' замовл.</span></div>'+
+          '<div style="font-size:11px;color:var(--text-light);margin-top:4px;">Назва з CRM: <em>'+esc(s.sampleName.slice(0,80))+'</em></div>'+
+        '</div>'+
+        '<div>'+
+          '<div style="font-size:11px;color:var(--text-light);margin-bottom:2px;">Товар з твого каталогу</div>'+
+          '<select onchange="_crmSkuMapDraft[\''+esc(s.sku)+'\']=this.value;openCrmSkuMapperRefresh()">'+opts+'</select>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  });
+
+  if (!list.length) html = '<div style="text-align:center;padding:40px;color:var(--text-light);">У замовленнях ще немає товарів з CRM.</div>';
+
+  document.getElementById('crm-sku-mapper-body').innerHTML = html;
+}
+
+function openCrmSkuMapperRefresh() {
+  // Re-render without re-collecting (preserves user picks)
+  var db = getDB();
+  var skuStats = {};
+  (db.orders||[]).forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      if (!it.sku) return;
+      if (!skuStats[it.sku]) skuStats[it.sku] = { sku: it.sku, sampleName: it.name||'', count: 0, productId: _crmSkuMapDraft[it.sku] || null, sampleOrderNum: o.num };
+      skuStats[it.sku].count++;
+    });
+  });
+  var list = Object.values(skuStats).sort(function(a,b){
+    var ap = !!_crmSkuMapDraft[a.sku], bp = !!_crmSkuMapDraft[b.sku];
+    if (!ap && bp) return -1;
+    if (ap && !bp) return 1;
+    return b.count - a.count;
+  });
+  renderCrmSkuMapper(list);
+}
+
+function applyCrmSkuMap() {
+  var db = getDB();
+  if (!db.crmSkuMap) db.crmSkuMap = {};
+  // Зберігаємо тільки реальні привʼязки
+  Object.keys(_crmSkuMapDraft).forEach(function(sku){
+    if (_crmSkuMapDraft[sku]) db.crmSkuMap[sku] = _crmSkuMapDraft[sku];
+    else delete db.crmSkuMap[sku];
+  });
+  // Перепривʼязуємо всі замовлення
+  var linked = 0;
+  (db.orders||[]).forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      if (!it.sku) return;
+      var pid = db.crmSkuMap[it.sku];
+      if (pid && it.productId !== pid) {
+        it.productId = pid;
+        var p = db.products.find(function(x){ return x.id === pid; });
+        if (p) {
+          // Оновлюємо name/sku до каталогових (CRM-назва зберігається в it.crmName якщо треба)
+          if (!it.crmName) it.crmName = it.name;
+        }
+        linked++;
+      }
+    });
+  });
+  saveDB(db);
+  alert('✅ Збережено. Привʼязано позицій у замовленнях: '+linked);
+  closeModal('crm-sku-mapper');
+  renderPage('orders');
+}
+
 // ===== Manual multi-source shipment picker =====
 var _pickShipmentCtx = null; // { orderId, items: [{itemIdx, productId, name, need, sources:[...], picks:{key:qty}}] }
 
@@ -6502,15 +6637,27 @@ function syncSalesDrive() {
         var paymentStatus = o.payment_status === 'paid' || o.paymentStatus === 'paid' || o.payed === 1 ? 'paid' : 'unpaid';
 
         // Match products to our catalog by SKU
+        var crmSkuMap = db.crmSkuMap || {};
         var items = lipoProducts.map(function(sp) {
-          var sku = (sp.sku||'').replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'');
-          var matched = db.products.find(function(p){
-            return p.sku && (p.sku === sku || p.sku === sp.sku || sku.indexOf(p.sku)===0);
-          });
+          var rawSku = sp.sku || '';
+          var sku = rawSku.replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'');
+          var matched = null;
+          // 1) Manual mapping has highest priority
+          if (rawSku && crmSkuMap[rawSku]) {
+            matched = db.products.find(function(p){ return p.id === crmSkuMap[rawSku]; });
+          }
+          // 2) Auto-match by SKU (bidirectional prefix)
+          if (!matched) {
+            matched = db.products.find(function(p){
+              if (!p.sku) return false;
+              return p.sku === sku || p.sku === rawSku
+                  || sku.indexOf(p.sku) === 0 || p.sku.indexOf(sku) === 0;
+            });
+          }
           return {
             productId: matched ? matched.id : null,
             name: sp.text || 'Невідомий товар',
-            sku: sp.sku || sku || '',
+            sku: rawSku || sku || '',
             qty: sp.amount || 1,
             price: sp.price || 0
           };
