@@ -737,6 +737,10 @@ a.order-link:hover { text-decoration:underline; }
     <input type="date" id="ord-date-from" onchange="renderOrders()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;" title="Від дати">
     <span style="color:var(--text-light);font-size:12px;">—</span>
     <input type="date" id="ord-date-to" onchange="renderOrders()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;" title="До дати">
+    <button class="btn btn-outline btn-sm" onclick="setOrdDatePreset('thisMonth')" style="padding:4px 10px;font-size:11px;" title="Цей місяць">📅 Цей місяць</button>
+    <button class="btn btn-outline btn-sm" onclick="setOrdDatePreset('lastMonth')" style="padding:4px 10px;font-size:11px;" title="Минулий місяць">Минулий міс.</button>
+    <button class="btn btn-outline btn-sm" onclick="setOrdDatePreset('today')" style="padding:4px 10px;font-size:11px;" title="Сьогодні">Сьогодні</button>
+    <button class="btn btn-outline btn-sm" onclick="setOrdDatePreset('clear')" style="padding:4px 10px;font-size:11px;color:#999;" title="Очистити фільтр дати">✕</button>
     <select id="ord-status-filter" onchange="renderOrders()" style="padding:8px 12px;">
       <option value="">Всі статуси</option>
     </select>
@@ -6130,6 +6134,27 @@ function setOrdPage(p) {
     var el = document.getElementById('orders');
     if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
   } catch(e){}
+}
+
+function setOrdDatePreset(preset) {
+  var today = new Date();
+  var y = today.getFullYear(), m = today.getMonth();
+  var fromEl = document.getElementById('ord-date-from');
+  var toEl = document.getElementById('ord-date-to');
+  function fmtDate(d){ return d.toISOString().slice(0,10); }
+  if (preset === 'thisMonth') {
+    fromEl.value = fmtDate(new Date(y, m, 1));
+    toEl.value = fmtDate(new Date(y, m+1, 0));
+  } else if (preset === 'lastMonth') {
+    fromEl.value = fmtDate(new Date(y, m-1, 1));
+    toEl.value = fmtDate(new Date(y, m, 0));
+  } else if (preset === 'today') {
+    var s = fmtDate(today);
+    fromEl.value = s; toEl.value = s;
+  } else if (preset === 'clear') {
+    fromEl.value = ''; toEl.value = '';
+  }
+  renderOrders();
 }
 
 function renderOrders() {
