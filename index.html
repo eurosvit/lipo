@@ -3954,32 +3954,24 @@ function shortageDoInstant() {
 }
 
 function showInstantUndoToast(batchIds, count) {
-  var existing = document.getElementById('instant-toast');
-  if (existing) existing.remove();
-  var t = document.createElement('div');
-  t.id = 'instant-toast';
-  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:#fff;padding:14px 20px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.25);z-index:10000;display:flex;gap:14px;align-items:center;font-size:14px;max-width:90vw;';
-  t.innerHTML = '<span>✅ Виготовлено готових партій: <strong>'+count+'</strong>. Натисни 📤 для відправки.</span>'+
-    '<button id="instant-undo-btn" style="background:#fff;color:#2E7D32;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;">↩ Скасувати</button>'+
-    '<button id="instant-close-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);padding:6px 10px;border-radius:8px;cursor:pointer;">✕</button>';
-  document.body.appendChild(t);
-  document.getElementById('instant-undo-btn').onclick = function(){
-    if (!confirm('Видалити '+count+' готових партій? Склад зменшиться, ЗП відкотиться.')) return;
-    var db = getDB();
-    batchIds.forEach(function(bid){
-      var batch = db.production.find(function(x){return x.id===bid;});
-      if (!batch) return;
-      var p = db.products.find(function(x){return x.id===batch.productId;});
-      if (p) p.stock = Math.max(0, (p.stock||0) - (batch.completedQty||batch.qty));
-      db.production = db.production.filter(function(x){return x.id!==bid;});
-    });
-    saveDB(db);
-    t.remove();
-    renderPage('orders');
-  };
-  document.getElementById('instant-close-btn').onclick = function(){ t.remove(); };
-  // Auto-dismiss after 15 seconds
-  setTimeout(function(){ if (document.body.contains(t)) t.remove(); }, 15000);
+  showUndoToast({
+    text: '✅ Виготовлено готових партій: <strong>'+count+'</strong>. Натисни 📤 для відправки.',
+    bg: '#2E7D32',
+    onUndo: function(){
+      if (!confirm('Видалити '+count+' готових партій? Склад зменшиться, ЗП відкотиться.')) return false;
+      var db = getDB();
+      batchIds.forEach(function(bid){
+        var batch = db.production.find(function(x){return x.id===bid;});
+        if (!batch) return;
+        var p = db.products.find(function(x){return x.id===batch.productId;});
+        if (p) p.stock = Math.max(0, (p.stock||0) - (batch.completedQty||batch.qty));
+        db.production = db.production.filter(function(x){return x.id!==bid;});
+      });
+      saveDB(db);
+      renderPage('orders');
+      return true;
+    }
+  });
 }
 
 function shortageDoProduce() {
@@ -3987,13 +3979,55 @@ function shortageDoProduce() {
   var ctx = _shortageCtx;
   closeModal('shortage-action');
   var ok = 0, fail = 0;
+  var batchIds = [];
   ctx.items.forEach(function(it){
-    if (createProductionBatchDirect(it.productId, it.qty, ctx.worker, false)) ok++;
-    else fail++;
+    var bid = createProductionBatchDirect(it.productId, it.qty, ctx.worker, false);
+    if (bid) { ok++; batchIds.push(bid); } else { fail++; }
   });
   _shortageCtx = null;
-  alert('🛠 Запущено партій у роботу: '+ok+(fail?' • Помилок: '+fail:'')+'\n\nПісля здачі готових ігор натисни 📤 на замовленні.');
-  renderPage('production');
+  renderPage('orders');
+  if (ok > 0) showProduceUndoToast(batchIds, ok);
+  if (fail > 0) alert('⚠ Не вдалось запустити '+fail+' партій.');
+}
+
+function showProduceUndoToast(batchIds, count) {
+  showUndoToast({
+    text: '🛠 Запущено партій у роботу: <strong>'+count+'</strong>. Майстер здасть → склад поповниться → 📤.',
+    bg: '#1565C0',
+    onUndo: function(){
+      if (!confirm('Видалити '+count+' партій з виробництва? Матеріали не повернуться.')) return false;
+      var db = getDB();
+      batchIds.forEach(function(bid){
+        var batch = db.production.find(function(x){return x.id===bid;});
+        if (!batch) return;
+        var p = db.products.find(function(x){return x.id===batch.productId;});
+        if (p) p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+        db.production = db.production.filter(function(x){return x.id!==bid;});
+      });
+      saveDB(db);
+      renderPage('orders');
+      return true;
+    }
+  });
+}
+
+// Універсальний хелпер undo-тоста
+function showUndoToast(opts) {
+  var existing = document.getElementById('instant-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.id = 'instant-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:'+(opts.bg||'#2E7D32')+';color:#fff;padding:14px 20px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.25);z-index:10000;display:flex;gap:14px;align-items:center;font-size:14px;max-width:90vw;';
+  t.innerHTML = '<span>'+opts.text+'</span>'+
+    '<button id="instant-undo-btn" style="background:#fff;color:'+(opts.bg||'#2E7D32')+';border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;">↩ Скасувати</button>'+
+    '<button id="instant-close-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);padding:6px 10px;border-radius:8px;cursor:pointer;">✕</button>';
+  document.body.appendChild(t);
+  document.getElementById('instant-undo-btn').onclick = function(){
+    var done = opts.onUndo ? opts.onUndo() : true;
+    if (done) t.remove();
+  };
+  document.getElementById('instant-close-btn').onclick = function(){ t.remove(); };
+  setTimeout(function(){ if (document.body.contains(t)) t.remove(); }, 15000);
 }
 
 // Швидке відкриття модалки виробництва з пре-заповненням з замовлення
@@ -4768,6 +4802,11 @@ function shipOrderFromStock(id) {
   ord.shippedDate = today;
   saveDB(db);
   renderPage('orders');
+  showUndoToast({
+    text: '📤 Замовлення <strong>#'+ord.num+'</strong> відправлено.',
+    bg: '#2E7D32',
+    onUndo: function(){ unshipOrderSilent(ord.id); return true; }
+  });
 }
 
 // ===== CRM SKU mapper =====
@@ -5233,13 +5272,26 @@ function confirmPickShipment() {
   closeModal('pick-shipment');
   _pickShipmentCtx = null;
   renderPage('orders');
+  showUndoToast({
+    text: '📤 Замовлення <strong>#'+ord.num+'</strong> відправлено.',
+    bg: '#2E7D32',
+    onUndo: function(){ unshipOrderSilent(ord.id); return true; }
+  });
+}
+
+function unshipOrderSilent(id) {
+  return unshipOrderImpl(id, true);
 }
 
 function unshipOrder(id) {
+  return unshipOrderImpl(id, false);
+}
+
+function unshipOrderImpl(id, silent) {
   var db = getDB();
   var ord = db.orders.find(function(x){return x.id===id});
   if (!ord || !ord.shipped) return;
-  if (!confirm('Повернути товари на склад і скасувати відправку замовлення #'+ord.num+'?')) return;
+  if (!silent && !confirm('Повернути товари на склад і скасувати відправку замовлення #'+ord.num+'?')) return;
 
   if (!db.workerStockHistory) db.workerStockHistory = [];
   var today = new Date().toISOString().slice(0,10);
