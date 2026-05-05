@@ -616,7 +616,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
     <button class="btn btn-outline btn-sm" onclick="resetAllCosts()" style="margin-left:8px;">🧹 Скинути собівартість</button>
     <button class="btn btn-outline btn-sm feat-fulfillment" onclick="openTransferFulfillment()" style="margin-left:8px;">📦 Передати на фулфілмент</button>
-    <button class="btn btn-outline btn-sm feat-fulfillment" onclick="document.getElementById('ff-manager').style.display=document.getElementById('ff-manager').style.display==='none'?'block':'none'" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
+    <button class="btn btn-outline btn-sm feat-fulfillment" onclick="toggleFfManager()" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
     <div id="cat-manager" style="display:none;margin-top:8px;padding:12px;background:var(--bg);border-radius:10px;max-width:600px;">
       <div id="cat-list" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -3376,6 +3376,32 @@ function applyStockAdjust() {
   alert('✅ Склад'+whLabel+' «'+p.name+'»: '+oldStock+' → '+newStock+' шт ('+reason+')');
 }
 
+function duplicateProduct(id) {
+  var db = getDB();
+  var orig = db.products.find(function(x){ return x.id === id; });
+  if (!orig) return;
+  var newSku = (orig.sku || '') + '_copy';
+  // якщо існує — додаємо число
+  var n = 2;
+  while (db.products.some(function(p){ return p.sku === newSku; })) {
+    newSku = (orig.sku || '') + '_copy' + n;
+    n++;
+  }
+  var copy = JSON.parse(JSON.stringify(orig));
+  copy.id = uid();
+  copy.sku = newSku;
+  copy.name = (orig.name || 'Товар') + ' (копія)';
+  copy.stock = 0;
+  copy.inProgress = 0;
+  copy.fulfillment = {};
+  // recipe копіюється як є
+  db.products.push(copy);
+  saveDB(db);
+  renderPage('products');
+  // одразу відкриваємо для редагування
+  setTimeout(function(){ editProduct(copy.id); }, 100);
+}
+
 function deleteProduct(id) {
   if(!confirm('Видалити цю гру?')) return;
   var db = getDB();
@@ -3756,11 +3782,13 @@ function renderProducts() {
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         (p.fulfillment && Object.keys(p.fulfillment).some(function(k){return p.fulfillment[k]>0}) ? '<button class="btn btn-outline btn-sm" onclick="returnFromFulfillment(\''+p.id+'\')" title="Повернути з фулфілменту" style="opacity:0.7;">↩️</button> ' : '')+
         '<button class="btn btn-outline btn-sm" onclick="openStockAdjust(\''+p.id+'\')" title="Коригування складу">📦</button> '+
+        '<button class="btn btn-outline btn-sm" onclick="duplicateProduct(\''+p.id+'\')" title="Копіювати">📋</button> '+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
 
   renderFulfillmentLocations();
+  applyFfManagerState();
 }
 
 function toggleAllProducts(checked) {
@@ -5342,6 +5370,22 @@ function returnFromFulfillment(productId) {
 }
 
 // ==================== FULFILLMENT LOCATIONS ====================
+function toggleFfManager() {
+  var el = document.getElementById('ff-manager');
+  if (!el) return;
+  var open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  try { localStorage.setItem('lipo_ff_manager_open', open ? '0' : '1'); } catch(e){}
+}
+
+function applyFfManagerState() {
+  var el = document.getElementById('ff-manager');
+  if (!el) return;
+  var saved = '0';
+  try { saved = localStorage.getItem('lipo_ff_manager_open') || '0'; } catch(e){}
+  el.style.display = saved === '1' ? 'block' : 'none';
+}
+
 function renderFulfillmentLocations() {
   var db = getDB();
   var locs = db.fulfillmentLocations || ['Розетка'];
