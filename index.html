@@ -3925,15 +3925,16 @@ function createProductionBatchDirect(productId, qty, worker, instant) {
     }
   }
   var today = new Date().toISOString().slice(0,10);
+  var newId = uid();
   if (instant) {
-    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'completed', completedQty:qty, completedDate:today });
+    db.production.push({ id:newId, productId:productId, qty:qty, worker:worker, date:today, status:'completed', completedQty:qty, completedDate:today });
     p.stock = (p.stock||0) + qty;
   } else {
     p.inProgress = (p.inProgress||0) + qty;
-    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'in_progress', completedQty:0 });
+    db.production.push({ id:newId, productId:productId, qty:qty, worker:worker, date:today, status:'in_progress', completedQty:0 });
   }
   saveDB(db);
-  return true;
+  return newId;
 }
 
 function shortageDoInstant() {
@@ -3941,13 +3942,44 @@ function shortageDoInstant() {
   var ctx = _shortageCtx;
   closeModal('shortage-action');
   var ok = 0, fail = 0;
+  var batchIds = [];
   ctx.items.forEach(function(it){
-    if (createProductionBatchDirect(it.productId, it.qty, ctx.worker, true)) ok++;
-    else fail++;
+    var bid = createProductionBatchDirect(it.productId, it.qty, ctx.worker, true);
+    if (bid) { ok++; batchIds.push(bid); } else { fail++; }
   });
   _shortageCtx = null;
-  alert('✅ Виготовлено готових партій: '+ok+(fail?' • Помилок: '+fail:'')+'\n\nТепер натисни 📤 на замовленні щоб відправити.');
   renderPage('orders');
+  if (ok > 0) showInstantUndoToast(batchIds, ok);
+  if (fail > 0) alert('⚠ Не вдалось виготовити '+fail+' партій.');
+}
+
+function showInstantUndoToast(batchIds, count) {
+  var existing = document.getElementById('instant-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.id = 'instant-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2E7D32;color:#fff;padding:14px 20px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.25);z-index:10000;display:flex;gap:14px;align-items:center;font-size:14px;max-width:90vw;';
+  t.innerHTML = '<span>✅ Виготовлено готових партій: <strong>'+count+'</strong>. Натисни 📤 для відправки.</span>'+
+    '<button id="instant-undo-btn" style="background:#fff;color:#2E7D32;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;">↩ Скасувати</button>'+
+    '<button id="instant-close-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);padding:6px 10px;border-radius:8px;cursor:pointer;">✕</button>';
+  document.body.appendChild(t);
+  document.getElementById('instant-undo-btn').onclick = function(){
+    if (!confirm('Видалити '+count+' готових партій? Склад зменшиться, ЗП відкотиться.')) return;
+    var db = getDB();
+    batchIds.forEach(function(bid){
+      var batch = db.production.find(function(x){return x.id===bid;});
+      if (!batch) return;
+      var p = db.products.find(function(x){return x.id===batch.productId;});
+      if (p) p.stock = Math.max(0, (p.stock||0) - (batch.completedQty||batch.qty));
+      db.production = db.production.filter(function(x){return x.id!==bid;});
+    });
+    saveDB(db);
+    t.remove();
+    renderPage('orders');
+  };
+  document.getElementById('instant-close-btn').onclick = function(){ t.remove(); };
+  // Auto-dismiss after 15 seconds
+  setTimeout(function(){ if (document.body.contains(t)) t.remove(); }, 15000);
 }
 
 function shortageDoProduce() {
@@ -4246,12 +4278,21 @@ function editProductionBatch(batchId) {
 }
 
 function deleteProductionBatch(batchId) {
-  if(!confirm('Видалити запис виробництва? (Матеріали не повернуться)')) return;
   var db = getDB();
   var batch = db.production.find(function(x){return x.id===batchId});
   if(!batch) return;
+  var msg = batch.status === 'completed'
+    ? 'Видалити партію зі статусом "готова"?\n\nГотова продукція повернеться зі складу (-'+(batch.completedQty||batch.qty)+' шт). Матеріали не повернуться.'
+    : 'Видалити запис виробництва? (Матеріали не повернуться)';
+  if(!confirm(msg)) return;
   var p = db.products.find(function(x){return x.id===batch.productId});
-  if(p) p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+  if (p) {
+    if (batch.status === 'completed') {
+      p.stock = Math.max(0, (p.stock||0) - (batch.completedQty || batch.qty));
+    } else {
+      p.inProgress = Math.max(0, (p.inProgress||0) - batch.qty);
+    }
+  }
   db.production = db.production.filter(function(x){return x.id!==batchId});
   saveDB(db);
   renderPage('production');
