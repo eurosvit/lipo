@@ -3782,7 +3782,7 @@ function renderProducts() {
         '<button class="btn btn-outline btn-sm" onclick="toggleProduct(\''+p.id+'\',false)" title="Деактивувати" style="opacity:0.6;">&#x23F8;</button> ')+
         (p.fulfillment && Object.keys(p.fulfillment).some(function(k){return p.fulfillment[k]>0}) ? '<button class="btn btn-outline btn-sm" onclick="returnFromFulfillment(\''+p.id+'\')" title="Повернути з фулфілменту" style="opacity:0.7;">↩️</button> ' : '')+
         '<button class="btn btn-outline btn-sm" onclick="openStockAdjust(\''+p.id+'\')" title="Коригування складу">📦</button> '+
-        '<button class="btn btn-outline btn-sm" onclick="duplicateProduct(\''+p.id+'\')" title="Копіювати">📋</button> '+
+        '<button class="btn btn-outline btn-sm" onclick="duplicateProduct(\''+p.id+'\')" title="Копіювати">📑</button> '+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
   }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
