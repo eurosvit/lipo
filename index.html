@@ -681,7 +681,10 @@ a.order-link:hover { text-decoration:underline; }
       <option value="">Всі майстри</option>
     </select>
   </div>
-  <div class="section-title">Зараз у виробництві</div>
+  <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <span>Зараз у виробництві</span>
+    <button class="btn btn-success btn-sm" id="bulk-complete-btn" onclick="bulkCompleteVisible()" style="display:none;">✅ Здати все</button>
+  </div>
   <div class="table-wrap">
     <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="production-active"></tbody></table>
@@ -4256,6 +4259,57 @@ function completeProduction() {
   renderPage('production');
 }
 
+function bulkCompleteVisible() {
+  var btn = document.getElementById('bulk-complete-btn');
+  if (!btn) return;
+  var ids = (btn.dataset.ids||'').split(',').filter(Boolean);
+  if (!ids.length) return;
+  if (!confirm('Здати на склад ВСІ '+ids.length+' активних партій?\n\n(Готова продукція потрапить на склад, ЗП нарахується майстрам.)')) return;
+  var db = getDB();
+  var today = new Date().toISOString().slice(0,10);
+  var done = 0;
+  ids.forEach(function(id){
+    var b = db.production.find(function(x){ return x.id === id; });
+    if (!b || b.status !== 'in_progress') return;
+    var p = db.products.find(function(x){ return x.id === b.productId; });
+    var qty = b.qty || 0;
+    b.status = 'completed';
+    b.completedQty = qty;
+    b.completedDate = today;
+    if (p) {
+      p.inProgress = Math.max(0, (p.inProgress||0) - qty);
+      p.stock = (p.stock||0) + qty;
+    }
+    done++;
+  });
+  saveDB(db);
+  renderPage('production');
+  showUndoToast({
+    text: '✅ Здано '+done+' партій. Склад поповнився.',
+    bg: '#2E7D32',
+    onUndo: function(){
+      if (!confirm('Повернути '+done+' партій у статус "В роботі"? Склад зменшиться, ЗП відкотиться.')) return false;
+      var db2 = getDB();
+      ids.forEach(function(id){
+        var b = db2.production.find(function(x){ return x.id === id; });
+        if (!b || b.status !== 'completed') return;
+        var p = db2.products.find(function(x){ return x.id === b.productId; });
+        var qty = b.completedQty || b.qty || 0;
+        b.status = 'in_progress';
+        if (p) {
+          p.stock = Math.max(0, (p.stock||0) - qty);
+          p.inProgress = (p.inProgress||0) + qty;
+        }
+        b.completedQty = 0;
+        b.completedDate = null;
+      });
+      saveDB(db2);
+      renderPage('production');
+      return true;
+    }
+  });
+}
+
 function renderProduction() {
   var db = getDB();
   var isW = isCurrentUserWorker();
@@ -4288,6 +4342,14 @@ function renderProduction() {
   };
   var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x) && byFilter(x)});
   var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x) && byFilter(x)}).reverse().slice(0,50);
+  // Кнопка "Здати все" — видима тільки якщо є активні і ми не worker
+  var bulkBtn = document.getElementById('bulk-complete-btn');
+  if (bulkBtn) {
+    bulkBtn.style.display = (!isW && active.length > 1) ? 'inline-block' : 'none';
+    bulkBtn.dataset.ids = active.map(function(b){ return b.id; }).join(',');
+    var workerLbl = prodWorkerFilter ? ' ('+prodWorkerFilter+')' : '';
+    bulkBtn.textContent = '✅ Здати все' + workerLbl + ' — ' + active.length;
+  }
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     return '<tr>'+
