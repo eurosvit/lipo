@@ -3977,7 +3977,9 @@ function startProduction() {
       if(has < need) shortage.push(mat.name+': потрібно '+fmt(need)+', у майстра '+fmt(has));
     }
   }
-  if(shortage.length > 0) {
+  var instantElPre = document.getElementById('sp-instant');
+  var isInstantPre = instantElPre && instantElPre.checked;
+  if(shortage.length > 0 && !isInstantPre) {
     if(!confirm('Не вистачає:\\n'+shortage.join('\\n')+'\\n\\nЗапустити все одно?')) return;
   }
 
