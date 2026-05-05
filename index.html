@@ -3855,42 +3855,85 @@ function filterSpProducts() {
 }
 
 // Модалка з вибором дії при недостачі: миттєво виготовити / запустити у виробництво
-var _shortageCtx = null; // { orderNum, productId, qty, worker }
+// Підтримка кількох позицій — створюємо партію для кожної.
+var _shortageCtx = null; // { orderId, orderNum, items:[{productId, qty}], worker }
 
 function openShortageActionModal(ord, shortItems) {
-  var first = shortItems[0];
   _shortageCtx = {
     orderId: ord.id,
     orderNum: ord.num,
-    productId: first.productId,
-    qty: first.shortage,
+    items: shortItems.map(function(p){ return { productId: p.productId, qty: p.shortage, name: p.name }; }),
     worker: ord.worker || ''
   };
   var lines = shortItems.map(function(p){ return '• '+esc(p.name)+' — не вистачає <strong>'+p.shortage+' шт</strong>'; });
+  var multi = shortItems.length > 1;
   var body = '<div style="font-size:14px;margin-bottom:12px;">Замовлення <strong>#'+ord.num+'</strong>:</div>'+
     '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:14px;font-size:14px;line-height:1.7;">'+
       lines.join('<br>')+
     '</div>'+
+    (multi ? '<div style="font-size:12px;color:#1565C0;margin-bottom:8px;">ℹ Партія створиться окремо для кожної позиції ('+shortItems.length+').</div>' : '')+
     '<div style="font-size:13px;color:var(--text-light);">Що робимо?</div>';
   document.getElementById('shortage-action-body').innerHTML = body;
   openModal('shortage-action');
 }
 
+// Створити партію виробництва напряму (без модалки)
+function createProductionBatchDirect(productId, qty, worker, instant) {
+  var db = getDB();
+  var p = db.products.find(function(x){ return x.id === productId; });
+  if (!p) return false;
+  if (!db.workerStock) db.workerStock = [];
+  // Списання матеріалів за рецептурою (як у startProduction)
+  for (var i=0; i<(p.recipe||[]).length; i++) {
+    var r = p.recipe[i];
+    var mat = db.materials.find(function(m){ return m.id === r.materialId; });
+    if (!mat) continue;
+    var need = r.qty * qty;
+    if (typeof isPaperMaterial === 'function' && isPaperMaterial(mat)) {
+      mat.qty = Math.max(0, mat.qty - need);
+    } else {
+      var ws = db.workerStock.find(function(s){ return s.worker===worker && s.itemId===r.materialId && s.type==='material'; });
+      if (ws) ws.qty = Math.max(0, ws.qty - need);
+    }
+  }
+  var today = new Date().toISOString().slice(0,10);
+  if (instant) {
+    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'completed', completedQty:qty, completedDate:today });
+    p.stock = (p.stock||0) + qty;
+  } else {
+    p.inProgress = (p.inProgress||0) + qty;
+    db.production.push({ id:uid(), productId:productId, qty:qty, worker:worker, date:today, status:'in_progress', completedQty:0 });
+  }
+  saveDB(db);
+  return true;
+}
+
 function shortageDoInstant() {
   if (!_shortageCtx) return;
+  var ctx = _shortageCtx;
   closeModal('shortage-action');
-  // Відкриваємо модалку виробництва і одразу ставимо галочку instant
-  openProductionForOrder(_shortageCtx.productId, _shortageCtx.qty, _shortageCtx.worker);
-  setTimeout(function(){
-    var cb = document.getElementById('sp-instant');
-    if (cb) cb.checked = true;
-  }, 200);
+  var ok = 0, fail = 0;
+  ctx.items.forEach(function(it){
+    if (createProductionBatchDirect(it.productId, it.qty, ctx.worker, true)) ok++;
+    else fail++;
+  });
+  _shortageCtx = null;
+  alert('✅ Виготовлено готових партій: '+ok+(fail?' • Помилок: '+fail:'')+'\n\nТепер натисни 📤 на замовленні щоб відправити.');
+  renderPage('orders');
 }
 
 function shortageDoProduce() {
   if (!_shortageCtx) return;
+  var ctx = _shortageCtx;
   closeModal('shortage-action');
-  openProductionForOrder(_shortageCtx.productId, _shortageCtx.qty, _shortageCtx.worker);
+  var ok = 0, fail = 0;
+  ctx.items.forEach(function(it){
+    if (createProductionBatchDirect(it.productId, it.qty, ctx.worker, false)) ok++;
+    else fail++;
+  });
+  _shortageCtx = null;
+  alert('🛠 Запущено партій у роботу: '+ok+(fail?' • Помилок: '+fail:'')+'\n\nПісля здачі готових ігор натисни 📤 на замовленні.');
+  renderPage('production');
 }
 
 // Швидке відкриття модалки виробництва з пре-заповненням з замовлення
