@@ -6130,7 +6130,6 @@ function renderOrders() {
     }
     var numBadges = '#'+o.num;
     if (o.crmId) numBadges += '<br><span class="badge badge-ok" style="font-size:9px;">CRM</span>';
-    if (o.shipped) numBadges += '<br><span class="badge" style="font-size:9px;background:#E8F5E9;color:#2E7D32;">📤 '+(o.shippedDate||'')+'</span>';
     return '<tr'+(o.shipped?' style="opacity:0.85;"':'')+'>'+
       '<td data-label="№">'+numBadges+'</td>'+
       cells+
