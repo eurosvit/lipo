@@ -3887,22 +3887,39 @@ function filterSpProducts() {
 var _shortageCtx = null; // { orderId, orderNum, items:[{productId, qty}], worker }
 
 function openShortageActionModal(ord, shortItems) {
+  var defaultWorker = ord.worker || '';
   _shortageCtx = {
     orderId: ord.id,
     orderNum: ord.num,
-    items: shortItems.map(function(p){ return { productId: p.productId, qty: p.shortage, name: p.name }; }),
-    worker: ord.worker || ''
+    items: shortItems.map(function(p){ return { productId: p.productId, qty: p.shortage, name: p.name, worker: defaultWorker }; })
   };
-  var lines = shortItems.map(function(p){ return '• '+esc(p.name)+' — не вистачає <strong>'+p.shortage+' шт</strong>'; });
-  var multi = shortItems.length > 1;
-  var body = '<div style="font-size:14px;margin-bottom:12px;">Замовлення <strong>#'+ord.num+'</strong>:</div>'+
-    '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:14px;font-size:14px;line-height:1.7;">'+
-      lines.join('<br>')+
-    '</div>'+
-    (multi ? '<div style="font-size:12px;color:#1565C0;margin-bottom:8px;">ℹ Партія створиться окремо для кожної позиції ('+shortItems.length+').</div>' : '')+
-    '<div style="font-size:13px;color:var(--text-light);">Що робимо?</div>';
-  document.getElementById('shortage-action-body').innerHTML = body;
+  renderShortageActionBody();
   openModal('shortage-action');
+}
+
+function renderShortageActionBody() {
+  var ctx = _shortageCtx;
+  if (!ctx) return;
+  var workerNames = (typeof getAllWorkerNames === 'function') ? getAllWorkerNames() : [];
+  var body = '<div style="font-size:14px;margin-bottom:12px;">Замовлення <strong>#'+ctx.orderNum+'</strong> — не вистачає на складі:</div>';
+  ctx.items.forEach(function(it, idx){
+    var workerOpts = '<option value="">— не призначено —</option>' + workerNames.map(function(w){
+      return '<option value="'+esc(w)+'" '+(it.worker===w?'selected':'')+'>'+esc(typeof wLabel==='function'?wLabel(w):w)+'</option>';
+    }).join('');
+    body += '<div style="background:#FFF8E1;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:10px;">'+
+      '<div style="font-size:14px;margin-bottom:8px;"><strong>'+esc(it.name)+'</strong> — '+it.qty+' шт</div>'+
+      '<div class="form-row" style="gap:8px;">'+
+        '<div class="form-group" style="flex:2;"><label style="font-size:11px;">Майстер</label>'+
+          '<select onchange="_shortageCtx.items['+idx+'].worker=this.value">'+workerOpts+'</select>'+
+        '</div>'+
+        '<div class="form-group" style="flex:1;"><label style="font-size:11px;">К-сть</label>'+
+          '<input type="number" min="1" value="'+it.qty+'" onchange="_shortageCtx.items['+idx+'].qty=Math.max(1,parseInt(this.value)||1)">'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  });
+  body += '<div style="font-size:13px;color:var(--text-light);margin-top:10px;">Що робимо?</div>';
+  document.getElementById('shortage-action-body').innerHTML = body;
 }
 
 // Створити партію виробництва напряму (без модалки)
@@ -3940,11 +3957,16 @@ function createProductionBatchDirect(productId, qty, worker, instant) {
 function shortageDoInstant() {
   if (!_shortageCtx) return;
   var ctx = _shortageCtx;
+  // Перевірка: кожній позиції має бути присвоєний майстер (для нарахування ЗП)
+  var unassigned = ctx.items.filter(function(it){ return !it.worker; });
+  if (unassigned.length) {
+    if (!confirm('⚠ У '+unassigned.length+' позиц. не призначений майстер — ЗП за ці партії не нарахується. Продовжити?')) return;
+  }
   closeModal('shortage-action');
   var ok = 0, fail = 0;
   var batchIds = [];
   ctx.items.forEach(function(it){
-    var bid = createProductionBatchDirect(it.productId, it.qty, ctx.worker, true);
+    var bid = createProductionBatchDirect(it.productId, it.qty, it.worker, true);
     if (bid) { ok++; batchIds.push(bid); } else { fail++; }
   });
   _shortageCtx = null;
@@ -3977,11 +3999,15 @@ function showInstantUndoToast(batchIds, count) {
 function shortageDoProduce() {
   if (!_shortageCtx) return;
   var ctx = _shortageCtx;
+  var unassigned = ctx.items.filter(function(it){ return !it.worker; });
+  if (unassigned.length) {
+    if (!confirm('⚠ У '+unassigned.length+' позиц. не призначений майстер. Продовжити?')) return;
+  }
   closeModal('shortage-action');
   var ok = 0, fail = 0;
   var batchIds = [];
   ctx.items.forEach(function(it){
-    var bid = createProductionBatchDirect(it.productId, it.qty, ctx.worker, false);
+    var bid = createProductionBatchDirect(it.productId, it.qty, it.worker, false);
     if (bid) { ok++; batchIds.push(bid); } else { fail++; }
   });
   _shortageCtx = null;
