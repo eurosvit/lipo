@@ -4452,7 +4452,14 @@ function saveOrder() {
 function setOrderStatus(id, status) {
   var db = getDB();
   var ord = db.orders.find(function(x){return x.id===id});
-  if(ord) { ord.status=status; saveDB(db); renderPage('orders'); }
+  if(!ord) return;
+  ord.status=status;
+  // Автоматично відмічаємо оплату при статусі "Виконано"
+  if (status === 'completed' && ord.paymentStatus !== 'paid') {
+    ord.paymentStatus = 'paid';
+  }
+  saveDB(db);
+  renderPage('orders');
 }
 
 function setOrderWorker(id, worker) {
