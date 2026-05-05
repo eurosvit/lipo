@@ -1453,6 +1453,28 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<!-- Shortage actions for shipping -->
+<div class="modal-overlay" id="modal-shortage-action">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3>⚠ Не вистачає на складі</h3>
+      <button class="modal-close" onclick="closeModal('shortage-action')">&times;</button>
+    </div>
+    <div class="modal-body" id="shortage-action-body"></div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch;">
+      <button class="btn btn-success" id="shortage-instant-btn" onclick="shortageDoInstant()" style="text-align:left;padding:14px 16px;">
+        <strong>⚡ Виготовити і одразу видати на склад</strong>
+        <div style="font-size:12px;font-weight:400;opacity:0.9;margin-top:4px;">Партія створиться готовою, склад одразу +N. Потім сама натиснеш 📤 для відправки.</div>
+      </button>
+      <button class="btn btn-primary" id="shortage-produce-btn" onclick="shortageDoProduce()" style="text-align:left;padding:14px 16px;">
+        <strong>🛠 Запустити у виробництво</strong>
+        <div style="font-size:12px;font-weight:400;opacity:0.9;margin-top:4px;">Партія в роботі. Майстер здасть → склад поповниться → натиснеш 📤.</div>
+      </button>
+      <button class="btn btn-outline" onclick="closeModal('shortage-action')">Скасувати</button>
+    </div>
+  </div>
+</div>
+
 <!-- CRM SKU Mapper -->
 <div class="modal-overlay" id="modal-crm-sku-mapper">
   <div class="modal" style="max-width:820px;">
@@ -3832,6 +3854,45 @@ function filterSpProducts() {
   dd.style.display = 'block';
 }
 
+// Модалка з вибором дії при недостачі: миттєво виготовити / запустити у виробництво
+var _shortageCtx = null; // { orderNum, productId, qty, worker }
+
+function openShortageActionModal(ord, shortItems) {
+  var first = shortItems[0];
+  _shortageCtx = {
+    orderId: ord.id,
+    orderNum: ord.num,
+    productId: first.productId,
+    qty: first.shortage,
+    worker: ord.worker || ''
+  };
+  var lines = shortItems.map(function(p){ return '• '+esc(p.name)+' — не вистачає <strong>'+p.shortage+' шт</strong>'; });
+  var body = '<div style="font-size:14px;margin-bottom:12px;">Замовлення <strong>#'+ord.num+'</strong>:</div>'+
+    '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:14px;font-size:14px;line-height:1.7;">'+
+      lines.join('<br>')+
+    '</div>'+
+    '<div style="font-size:13px;color:var(--text-light);">Що робимо?</div>';
+  document.getElementById('shortage-action-body').innerHTML = body;
+  openModal('shortage-action');
+}
+
+function shortageDoInstant() {
+  if (!_shortageCtx) return;
+  closeModal('shortage-action');
+  // Відкриваємо модалку виробництва і одразу ставимо галочку instant
+  openProductionForOrder(_shortageCtx.productId, _shortageCtx.qty, _shortageCtx.worker);
+  setTimeout(function(){
+    var cb = document.getElementById('sp-instant');
+    if (cb) cb.checked = true;
+  }, 200);
+}
+
+function shortageDoProduce() {
+  if (!_shortageCtx) return;
+  closeModal('shortage-action');
+  openProductionForOrder(_shortageCtx.productId, _shortageCtx.qty, _shortageCtx.worker);
+}
+
 // Швидке відкриття модалки виробництва з пре-заповненням з замовлення
 function openProductionForOrder(productId, qty, worker) {
   openModal('start-production');
@@ -4546,16 +4607,10 @@ function shipOrderFromStock(id) {
   });
 
   if (!hasAny && !hasShortage) { alert('Немає чого списати.'); return; }
-  // Замовлення відправляємо тільки повністю. Якщо не вистачає — пропонуємо запустити у виробництво.
+  // Замовлення відправляємо тільки повністю. Якщо не вистачає — показуємо модалку з опціями.
   if (hasShortage) {
     var shortItems = plan.filter(function(p){ return p.shortage > 0; });
-    var shortLines = shortItems.map(function(p){ return '• '+p.name+' — не вистачає '+p.shortage+' шт'; });
-    var doProduce = confirm('⚠ Не вистачає на складі для замовлення #'+ord.num+':\n\n'+shortLines.join('\n')+
-      '\n\nЗапустити у 🛠 Виробництво зараз?\n(Після здачі готових ігор натисни 📤 ще раз для відправки)');
-    if (doProduce && shortItems.length) {
-      var first = shortItems[0];
-      openProductionForOrder(first.productId, first.shortage, ord.worker);
-    }
+    if (shortItems.length) openShortageActionModal(ord, shortItems);
     return;
   }
 
