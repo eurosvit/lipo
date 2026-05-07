@@ -8465,10 +8465,35 @@ function renderDashboardPulse(db, thisMonth) {
     return '<span style="color:'+color+';font-size:12px;font-weight:600;">'+sign+' '+fmt(Math.abs(delta))+'% vs '+prevMonth+'</span>';
   }
 
+  // Forecast: extrapolate current pace to month end
+  var nowDate = new Date();
+  var isCurrentRealMonth = thisMonth === nowDate.toISOString().slice(0,7);
+  var dayOfMonth = nowDate.getDate();
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var pace = (isCurrentRealMonth && dayOfMonth > 0) ? (daysInMonth / dayOfMonth) : 1;
+  var fRevenue = cur.revenue * pace;
+  var fNet = cur.netProfit * pace;
+  var fItems = Math.round(cur.items * pace);
+  // Forecast badge — vs previous month actual
+  function forecastDiffBadge(forecast, prevV) {
+    if (!isCurrentRealMonth) return '<span style="color:var(--text-light);font-size:12px;">місяць закритий</span>';
+    if (prevV === 0 && forecast === 0) return '<span style="color:var(--text-light);font-size:12px;">—</span>';
+    if (prevV === 0) return '<span style="color:var(--success);font-size:12px;font-weight:600;">↑ новий тренд</span>';
+    var delta = ((forecast - prevV) / Math.abs(prevV)) * 100;
+    var sign = delta >= 0 ? '↑' : '↓';
+    var color = delta >= 0 ? 'var(--success)' : 'var(--danger)';
+    var verdict = delta >= 0 ? 'краще' : 'гірше';
+    return '<span style="color:'+color+';font-size:12px;font-weight:600;">'+sign+' '+fmt(Math.abs(delta))+'% '+verdict+' за '+prevMonth+'</span>';
+  }
+  var paceNote = isCurrentRealMonth
+    ? '<span style="color:var(--text-light);font-size:11px;">день '+dayOfMonth+'/'+daysInMonth+' • темп збережено</span>'
+    : '<span style="color:var(--text-light);font-size:11px;">не поточний місяць</span>';
+
   pulse.innerHTML =
     '<div class="card"><div class="card-label">Виручка цього місяця</div><div class="card-value">'+fmt(cur.revenue)+' грн</div><div class="card-sub">'+diffBadge(cur.revenue, prev.revenue)+'</div></div>'+
     '<div class="card '+(cur.profit>=0?'success':'danger')+'"><div class="card-label">Валовий прибуток</div><div class="card-value">'+fmt(cur.profit)+' грн</div><div class="card-sub">'+diffBadge(cur.profit, prev.profit)+'</div></div>'+
     '<div class="card '+(cur.netProfit>=0?'success':'danger')+'" style="border-left:4px solid '+(cur.netProfit>=0?'var(--success)':'var(--danger)')+';"><div class="card-label">💰 Чистий прибуток</div><div class="card-value">'+fmt(cur.netProfit)+' грн</div><div class="card-sub">після OpEx '+fmt(cur.opexNet)+' + податків '+fmt(curTax)+'</div></div>'+
+    '<div class="card '+(isCurrentRealMonth ? (fNet>=prev.netProfit?'success':'danger') : '')+'" style="border-left:4px dashed '+(isCurrentRealMonth ? (fNet>=prev.netProfit?'var(--success)':'var(--danger)') : 'var(--border)')+';"><div class="card-label">🔮 Прогноз на кінець місяця</div><div class="card-value">'+(isCurrentRealMonth?fmt(fNet):'—')+(isCurrentRealMonth?' грн':'')+'</div><div class="card-sub">'+(isCurrentRealMonth?'<div>Виручка ~ '+fmt(fRevenue)+' грн</div><div>'+forecastDiffBadge(fNet, prev.netProfit)+'</div><div>'+paceNote+'</div>':paceNote)+'</div></div>'+
     '<div class="card"><div class="card-label">Продано штук</div><div class="card-value">'+cur.items+'</div><div class="card-sub">'+diffBadge(cur.items, prev.items)+'</div></div>';
 
   // Top-3 products this month
