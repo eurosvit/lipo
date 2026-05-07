@@ -3182,27 +3182,54 @@ function bulkDeleteMaterials() {
 }
 
 // ==================== PRODUCTS ====================
+function refreshRecipeOptions(container) {
+  // Disable options already used in OTHER rows (keep current row's own selection enabled).
+  var rows = container.querySelectorAll('.form-row');
+  var selects = Array.prototype.map.call(rows, function(r){ return r.querySelector('.recipe-mat'); }).filter(Boolean);
+  var usedIds = selects.map(function(s){ return s.value; });
+  selects.forEach(function(sel, idx){
+    Array.prototype.forEach.call(sel.options, function(opt){
+      var takenElsewhere = usedIds.some(function(id, i){ return i!==idx && id===opt.value; });
+      opt.disabled = takenElsewhere;
+    });
+  });
+}
+
 function addRecipeLine(containerId) {
   var db = getDB();
   var container = document.getElementById(containerId || 'prod-recipe');
+  // Block if all materials are already used (manual + click flow only — programmatic edit pre-fills rows directly)
+  var rows = container.querySelectorAll('.form-row');
+  var usedIds = Array.prototype.map.call(rows, function(r){ var s = r.querySelector('.recipe-mat'); return s ? s.value : null; }).filter(Boolean);
+  var firstUnused = (db.materials || []).find(function(m){ return usedIds.indexOf(m.id) === -1; });
+  if (!firstUnused) { alert('Усі матеріали вже додано в рецепт. Видали зайвий рядок або додай новий матеріал у каталог.'); return; }
+  var allOpts = db.materials.slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk')});
   var div = document.createElement('div');
   div.className = 'form-row';
   div.style.alignItems = 'center';
   div.innerHTML =
-    '<div class="form-group"><label>Матеріал</label><select class="recipe-mat">'+db.materials.slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk')}).map(function(m){return '<option value="'+m.id+'">'+esc(m.name)+'</option>';}).join('')+'</select></div>'+
+    '<div class="form-group"><label>Матеріал</label><select class="recipe-mat" onchange="refreshRecipeOptions(this.closest(\'#'+container.id+'\'))">'+allOpts.map(function(m){return '<option value="'+m.id+'">'+esc(m.name)+'</option>';}).join('')+'</select></div>'+
     '<div class="form-group"><label>Кількість на 1 шт</label><input class="recipe-qty" type="number" step="0.01" value="1"></div>'+
-    '<button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="margin-bottom:2px;">&#x2715;</button>';
+    '<button class="btn btn-danger btn-sm" onclick="var c=this.closest(\'#'+container.id+'\');this.parentElement.remove();refreshRecipeOptions(c);" style="margin-bottom:2px;">&#x2715;</button>';
   container.appendChild(div);
+  // Auto-select the first material that isn't already used
+  div.querySelector('.recipe-mat').value = firstUnused.id;
+  refreshRecipeOptions(container);
 }
 
 function getRecipeFromContainer(containerId) {
   var container = document.getElementById(containerId || 'prod-recipe');
   var rows = container.querySelectorAll('.form-row');
   var recipe = [];
+  var seen = {};
   rows.forEach(function(r) {
     var matId = r.querySelector('.recipe-mat').value;
     var qty = parseFloat(r.querySelector('.recipe-qty').value)||0;
-    if(matId && qty>0) recipe.push({materialId:matId, qty:qty});
+    if(!matId || qty<=0) return;
+    if (seen[matId]) { seen[matId].qty += qty; return; }  // safety: merge duplicates
+    var entry = { materialId:matId, qty:qty };
+    seen[matId] = entry;
+    recipe.push(entry);
   });
   return recipe;
 }
@@ -3252,9 +3279,12 @@ function editProduct(id) {
   (p.recipe||[]).forEach(function(r) {
     addRecipeLine('eprod-recipe');
     var last = rc.lastElementChild;
-    last.querySelector('.recipe-mat').value = r.materialId;
-    last.querySelector('.recipe-qty').value = r.qty;
+    if (last) {
+      last.querySelector('.recipe-mat').value = r.materialId;
+      last.querySelector('.recipe-qty').value = r.qty;
+    }
   });
+  refreshRecipeOptions(rc);
   openModal('edit-product');
   updateRatePreview('eprod');
   updatePrintPreview('eprod');
