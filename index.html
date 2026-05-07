@@ -4173,7 +4173,7 @@ function startProduction() {
   var p = db.products.find(function(x){return x.id===productId});
   if(!p) return;
 
-  // Check availability: paper from main stock, rest from worker stock
+  // Check availability: paper from main stock; інші — спочатку склад майстра, потім головний склад
   var shortage = [];
   for(var i=0;i<(p.recipe||[]).length;i++) {
     var r = p.recipe[i];
@@ -4181,30 +4181,39 @@ function startProduction() {
     if(!mat) continue;
     var need = r.qty * qty;
     if(isPaperMaterial(mat)) {
-      if(mat.qty < need) shortage.push(mat.name+': потрібно '+fmt(need)+', на складі '+fmt(mat.qty));
+      if((mat.qty||0) < need) shortage.push(mat.name+': потрібно '+fmt(need)+', на складі '+fmt(mat.qty||0));
     } else {
       var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
-      var has = ws ? ws.qty : 0;
-      if(has < need) shortage.push(mat.name+': потрібно '+fmt(need)+', у майстра '+fmt(has));
+      var atWorker = ws ? (ws.qty||0) : 0;
+      var atMain = mat.qty || 0;
+      if(atWorker + atMain < need) shortage.push(mat.name+': потрібно '+fmt(need)+' (у майстра '+fmt(atWorker)+' + на складі '+fmt(atMain)+')');
     }
   }
   var instantElPre = document.getElementById('sp-instant');
   var isInstantPre = instantElPre && instantElPre.checked;
   if(shortage.length > 0 && !isInstantPre) {
-    if(!confirm('Не вистачає:\\n'+shortage.join('\\n')+'\\n\\nЗапустити все одно?')) return;
+    if(!confirm('Не вистачає:\n'+shortage.join('\n')+'\n\nЗапустити все одно?')) return;
   }
 
-  // Deduct: paper from main stock, rest from worker stock
+  // Deduct: paper from main; інші — спочатку склад майстра, потім головний склад
   for(var i=0;i<(p.recipe||[]).length;i++) {
     var r = p.recipe[i];
     var mat = db.materials.find(function(m){return m.id===r.materialId});
     if(!mat) continue;
     var need = r.qty * qty;
     if(isPaperMaterial(mat)) {
-      mat.qty = Math.max(0, mat.qty - need);
+      mat.qty = Math.max(0, (mat.qty||0) - need);
     } else {
       var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
-      if(ws) ws.qty = Math.max(0, ws.qty - need);
+      var fromWorker = Math.min(need, ws ? (ws.qty||0) : 0);
+      if(fromWorker > 0 && ws) {
+        ws.qty = (ws.qty||0) - fromWorker;
+        if(ws.qty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id !== ws.id});
+      }
+      var fromMain = need - fromWorker;
+      if(fromMain > 0) {
+        mat.qty = Math.max(0, (mat.qty||0) - fromMain);
+      }
     }
   }
 
@@ -6640,7 +6649,7 @@ function confirmOrder(id) {
     }
   }
   if(shortage.length > 0) {
-    if(!confirm('Не вистачає на складі:\\n'+shortage.join('\\n')+'\\n\\nПідтвердити без списання?')) return;
+    if(!confirm('Не вистачає на складі:\n'+shortage.join('\n')+'\n\nПідтвердити без списання?')) return;
   }
   // Deduct stock
   for(var i=0;i<ord.items.length;i++) {
