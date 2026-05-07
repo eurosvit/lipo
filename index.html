@@ -4566,23 +4566,16 @@ function calcOrderTotal() {
 function saveOrder() {
   var db = getDB();
   var items = [];
-  var hasError = false;
   document.querySelectorAll('#ord-items .form-row').forEach(function(row) {
     var prodId = row.querySelector('.ord-prod').value;
     var qty = parseInt(row.querySelector('.ord-qty').value)||0;
     var p = db.products.find(function(x){return x.id===prodId});
     if(p && qty>0) {
-      if(qty > (p.stock||0)) { alert('Недостатньо "'+p.name+'" на складі! Є: '+(p.stock||0)); hasError=true; return; }
       items.push({productId:prodId, name:p.name, sku:p.sku||'', qty:qty, price:p.sellPrice});
     }
   });
-  if(hasError) return;
   if(items.length===0) return alert('Додайте товари');
-  for(var i=0;i<items.length;i++) {
-    var item = items[i];
-    var p = db.products.find(function(x){return x.id===item.productId});
-    if(p) p.stock -= item.qty;
-  }
+  // Stock not deducted at creation — only on shipping (shipOrderFromStock)
   var total = items.reduce(function(s,i){return s+i.qty*i.price},0);
   var firstStatus = (db.orderStatuses && db.orderStatuses.length) ? db.orderStatuses[0].id : 'new';
   var firstName = (v('ord-first-name')||'').trim();
