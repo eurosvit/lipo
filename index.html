@@ -1524,10 +1524,11 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group" style="position:relative;">
           <label>Матеріал</label>
-          <input id="recv-mat-search" type="text" placeholder="🔍 Пошук матеріалу..." oninput="filterReceiveMat()" style="margin-bottom:6px;">
-          <select id="recv-mat" size="1"></select>
+          <input id="recv-mat-search" type="text" placeholder="🔍 Почніть вводити назву..." autocomplete="off" oninput="filterRecvMat()" onfocus="filterRecvMat();document.getElementById('recv-mat-dropdown').style.display='block'">
+          <input type="hidden" id="recv-mat">
+          <div id="recv-mat-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
         </div>
         <div class="form-group"><label>Кількість</label><input id="recv-qty" type="number" step="0.01"></div>
       </div>
@@ -2779,21 +2780,34 @@ function deleteMaterial(id) {
 }
 
 function populateReceiveMat() {
-  const db = getDB();
-  const sel = document.getElementById('recv-mat');
-  var opts = db.materials.map(function(m){ return { id:m.id, label:m.name+' ('+m.qty+' '+m.unit+')', search:(m.name||'').toLowerCase() }; });
-  sel._allOpts = opts;
-  sel.innerHTML = opts.map(function(o){ return '<option value="'+o.id+'">'+o.label+'</option>'; }).join('');
-  var s = document.getElementById('recv-mat-search');
-  if (s) s.value = '';
+  document.getElementById('recv-mat-search').value = '';
+  document.getElementById('recv-mat').value = '';
+  document.getElementById('recv-mat-dropdown').style.display = 'none';
 }
-function filterReceiveMat() {
-  var sel = document.getElementById('recv-mat');
-  var q = (document.getElementById('recv-mat-search').value||'').toLowerCase().trim();
-  var opts = sel._allOpts || [];
-  var filtered = q ? opts.filter(function(o){ return o.search.indexOf(q) !== -1; }) : opts;
-  sel.innerHTML = filtered.map(function(o){ return '<option value="'+o.id+'">'+o.label+'</option>'; }).join('') || '<option value="" disabled>Нічого не знайдено</option>';
+function filterRecvMat() {
+  var db = getDB();
+  var q = (document.getElementById('recv-mat-search').value || '').toLowerCase().trim();
+  var items = (db.materials||[]).map(function(m){
+    return { id:m.id, label: m.name + ' ('+fmt(m.qty)+' '+(m.unit||'')+')', search: (m.name||'').toLowerCase() };
+  });
+  if (q) items = items.filter(function(it){ return it.search.indexOf(q) !== -1; });
+  var dd = document.getElementById('recv-mat-dropdown');
+  dd.innerHTML = items.map(function(it){
+    return '<div onclick="selectRecvMat(\''+it.id+'\',\''+esc(it.label).replace(/\'/g,"\\\'")+'\')" style="padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'#fff\'">'+esc(it.label)+'</div>';
+  }).join('') || '<div style="padding:12px;color:var(--text-light);font-size:13px;text-align:center;">Нічого не знайдено</div>';
+  dd.style.display = 'block';
 }
+function selectRecvMat(id, label) {
+  document.getElementById('recv-mat').value = id;
+  document.getElementById('recv-mat-search').value = label;
+  document.getElementById('recv-mat-dropdown').style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('recv-mat-dropdown');
+  if (dd && !e.target.closest('#recv-mat-search') && !e.target.closest('#recv-mat-dropdown')) {
+    dd.style.display = 'none';
+  }
+});
 
 function receiveMaterial() {
   var db = getDB();
