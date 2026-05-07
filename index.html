@@ -5296,6 +5296,19 @@ function renderPickShipmentBody() {
   if (!ctx) return;
   var html = '<p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">У товарів декілька складів. Вкажи скільки звідки списати. Сума має дорівнювати потрібній кількості.</p>';
 
+  // Банер: чи є позиції які треба виготовити
+  var lacking = ctx.items.filter(function(it){
+    var sum = 0;
+    Object.keys(it.picks).forEach(function(k){ sum += it.picks[k]||0; });
+    return sum < it.need;
+  });
+  if (lacking.length > 0) {
+    html += '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:14px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;">'+
+      '<div style="font-size:13px;line-height:1.4;">⚠ '+lacking.length+' '+(lacking.length>1?'позиц.':'позиція')+' не вистачає на складі. Запустимо у виробництво?</div>'+
+      '<button class="btn btn-warning btn-sm" onclick="goToShortageFromPickShipment()" style="background:#E65100;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;">🛠 Виготовити цю позицію</button>'+
+    '</div>';
+  }
+
   ctx.items.forEach(function(it, idx){
     var totalPicked = 0;
     Object.keys(it.picks).forEach(function(k){ totalPicked += it.picks[k]||0; });
@@ -5334,6 +5347,26 @@ function renderPickShipmentBody() {
   });
   var btn = document.getElementById('pick-shipment-confirm');
   if (btn) btn.disabled = !allOk;
+}
+
+function goToShortageFromPickShipment() {
+  var ctx = _pickShipmentCtx;
+  if (!ctx) return;
+  var db = getDB();
+  var ord = db.orders.find(function(x){ return x.id === ctx.orderId; });
+  if (!ord) return;
+  // Збираємо позиції з нестачею
+  var shortItems = [];
+  ctx.items.forEach(function(it){
+    var sum = 0;
+    Object.keys(it.picks).forEach(function(k){ sum += it.picks[k]||0; });
+    var lack = Math.max(0, it.need - sum);
+    if (lack > 0) shortItems.push({ productId: it.productId, shortage: lack, name: it.name });
+  });
+  if (!shortItems.length) return;
+  closeModal('pick-shipment');
+  _pickShipmentCtx = null;
+  openShortageActionModal(ord, shortItems);
 }
 
 function updatePickQty(itemIdx, srcKey, val) {
