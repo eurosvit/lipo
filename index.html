@@ -7753,7 +7753,7 @@ function calcWorkerEarnings(db, workerName) {
 
 function calcWorkerInProgress(db, workerName) {
   // Calculate earnings from active production
-  var active = db.production.filter(function(x){return x.status==='active' && x.worker===workerName});
+  var active = db.production.filter(function(x){return x.status==='in_progress' && x.worker===workerName});
   var total = 0;
   active.forEach(function(b){
     var p = db.products.find(function(x){return x.id===b.productId});
