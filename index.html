@@ -3756,6 +3756,26 @@ function updateSortIcons() {
   }
 }
 
+// Палітра для секцій-категорій у Складі (матчиться зі стилем матеріалів)
+var _prodCategoryPalette = [
+  '#E3F2FD;border-left:4px solid #1976D2',
+  '#FCE4EC;border-left:4px solid #E91E63',
+  '#FFF3E0;border-left:4px solid #E65100',
+  '#E8F5E9;border-left:4px solid #2E7D32',
+  '#F3E5F5;border-left:4px solid #7B1FA2',
+  '#FFF8E1;border-left:4px solid #F9A825',
+  '#E0F2F1;border-left:4px solid #00796B',
+  '#FFEBEE;border-left:4px solid #C62828',
+  '#EDE7F6;border-left:4px solid #5E35B1',
+  '#F1F8E9;border-left:4px solid #558B2F'
+];
+function _prodCategoryColor(cat) {
+  if (!cat) return '#FAFAFA;border-left:4px solid #BDBDBD';
+  var h = 0;
+  for (var i = 0; i < cat.length; i++) h = ((h<<5) - h + cat.charCodeAt(i)) | 0;
+  return _prodCategoryPalette[Math.abs(h) % _prodCategoryPalette.length];
+}
+
 function renderProducts() {
   var db = getDB();
   var search = (document.getElementById('prod-search').value||'').toLowerCase().trim();
@@ -3858,8 +3878,21 @@ function renderProducts() {
     }
   }
 
-  var tb = document.getElementById('products-table');
-  tb.innerHTML = filtered.map(function(p) {
+  // Групування по категоріях (як у матеріалах) — зберігає поточну сортування всередині групи
+  var groups = {};
+  filtered.forEach(function(p) {
+    var cat = p.category || '';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  });
+  var groupNames = Object.keys(groups).sort(function(a, b) {
+    if (!a && b) return 1;
+    if (!b && a) return -1;
+    return a.localeCompare(b, 'uk');
+  });
+  var totalCols = visCols.length + 2; // checkbox + дії
+
+  function renderProdRow(p) {
     var can = calcCanProduce(p, db.materials);
     var cost = calcCost(p, db.materials);
     var margin = p.sellPrice - cost.total;
@@ -3878,7 +3911,19 @@ function renderProducts() {
         '<button class="btn btn-outline btn-sm" onclick="duplicateProduct(\''+p.id+'\')" title="Копіювати">📑</button> '+
         '<button class="btn btn-outline btn-sm" onclick="editProduct(\''+p.id+'\')">&#x270F;&#xFE0F;</button> <button class="btn btn-danger btn-sm" onclick="deleteProduct(\''+p.id+'\')">&#x1F5D1;</button></td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="'+(visCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
+  }
+
+  var html = '';
+  groupNames.forEach(function(cat) {
+    var list = groups[cat];
+    var label = cat || '📋 Без категорії';
+    var color = _prodCategoryColor(cat);
+    html += '<tr class="prod-cat-header"><td colspan="'+totalCols+'" style="background:'+color+';padding:10px 16px;font-weight:700;font-size:14px;letter-spacing:0.3px;">'+esc(label)+' <span style="font-weight:400;font-size:12px;color:var(--text-light);">('+list.length+')</span></td></tr>';
+    list.forEach(function(p){ html += renderProdRow(p); });
+  });
+
+  var tb = document.getElementById('products-table');
+  tb.innerHTML = html || '<tr><td colspan="'+totalCols+'" class="text-muted" style="text-align:center;padding:40px;">Нічого не знайдено</td></tr>';
 
   renderFulfillmentLocations();
   applyFfManagerState();
