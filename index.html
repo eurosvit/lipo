@@ -7901,7 +7901,7 @@ function renderSalary() {
           '<div>'+bigLabel+'</div>'+
           '<div style="color:var(--text-light);">Нараховано: '+fmt(d.earned)+' грн ('+d.pcs+' виробів)</div>'+
           (d.paid > 0 ? '<div style="color:var(--success);">Виплачено: '+fmt(d.paid)+' грн</div>' : '')+
-          ((d.inProgress||0) > 0 ? '<div style="color:#1565C0;">🛠 В роботі: '+fmt(d.inProgress)+' грн (нарахується після здачі)</div>' : '')+
+          ((d.inProgress||0) > 0 ? '<div style="color:#1565C0;font-size:13px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">🛠 В роботі: '+fmt(d.inProgress)+' грн<div style="font-size:10px;font-weight:400;color:var(--text-light);">нарахується після здачі</div></div>' : '')+
         '</div>'+
       '</div>';
     });
