@@ -1681,7 +1681,7 @@ a.order-link:hover { text-decoration:underline; }
         </div>
         <div class="form-group"><label>Кількість</label><input id="sp-qty" type="number" value="1" min="1" onchange="checkCanProduce()"></div>
       </div>
-      <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker"></select></div>
+      <div class="form-group mb-16"><label>Майстер</label><select id="sp-worker" onchange="checkCanProduce()"></select></div>
       <div id="sp-info" class="text-muted" style="font-size:13px;"></div>
       <div style="margin-top:14px;padding:12px;background:#FFF8E1;border-radius:10px;border:1px solid #FFE082;cursor:pointer;" onclick="document.getElementById('sp-instant').click();">
         <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
@@ -4141,22 +4141,55 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// Deduction plan: для кожного матеріалу — скільки взяти зі складу майстра, скільки з головного, скільки бракує
+function planProductionDeduction(db, p, qty, worker) {
+  var rows = [];
+  (p.recipe||[]).forEach(function(r){
+    var mat = (db.materials||[]).find(function(m){return m.id===r.materialId});
+    if(!mat) return;
+    var need = r.qty * qty;
+    if (isPaperMaterial(mat)) {
+      var atMain = mat.qty || 0;
+      rows.push({ mat:mat, need:need, fromWorker:0, fromMain:Math.min(need, atMain), shortage:Math.max(0, need-atMain), paper:true, atWorker:0, atMain:atMain });
+    } else {
+      var ws = worker ? (db.workerStock||[]).find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'}) : null;
+      var atWorker = ws ? (ws.qty||0) : 0;
+      var atMain = mat.qty || 0;
+      var fromWorker = Math.min(need, atWorker);
+      var fromMain = Math.min(need - fromWorker, atMain);
+      var shortage = Math.max(0, need - fromWorker - fromMain);
+      rows.push({ mat:mat, need:need, fromWorker:fromWorker, fromMain:fromMain, shortage:shortage, paper:false, atWorker:atWorker, atMain:atMain });
+    }
+  });
+  return rows;
+}
+
 function checkCanProduce() {
   var db = getDB();
   var p = db.products.find(function(x){return x.id===v('sp-product')});
   if(!p) return;
   var qty = parseInt(document.getElementById('sp-qty').value)||1;
-  var can = calcCanProduce(p, db.materials);
+  var worker = v('sp-worker') || '';
   var info = document.getElementById('sp-info');
-  if(qty > can) {
-    info.innerHTML = '<span class="text-danger">Не вистачає матеріалів! Максимум: '+can+' шт</span>';
-  } else {
-    var neededMats = (p.recipe||[]).map(function(r) {
-      var mat = db.materials.find(function(m){return m.id===r.materialId});
-      return mat ? esc(mat.name)+': '+fmt(r.qty*qty)+' '+esc(mat.unit) : '';
-    }).filter(Boolean).join(', ');
-    info.innerHTML = 'Матеріалів достатньо. Буде списано: '+neededMats;
+  if (!p.recipe || !p.recipe.length) {
+    info.innerHTML = '<span class="text-muted">Без рецепту — нічого не списується.</span>';
+    return;
   }
+  var plan = planProductionDeduction(db, p, qty, worker);
+  var anyShort = plan.some(function(r){return r.shortage>0});
+  var lines = plan.map(function(r){
+    var u = esc(r.mat.unit||'');
+    var src = [];
+    if (r.fromWorker>0) src.push('👷 у майстра: '+fmt(r.fromWorker)+' '+u);
+    if (r.fromMain>0)   src.push('📦 зі складу: '+fmt(r.fromMain)+' '+u);
+    if (r.shortage>0)   src.push('<span style="color:var(--danger);">❌ бракує: '+fmt(r.shortage)+' '+u+'</span>');
+    if (!src.length)    src.push('—');
+    return '<div style="margin:2px 0;">• <strong>'+esc(r.mat.name)+'</strong> ('+fmt(r.need)+' '+u+'): '+src.join(', ')+'</div>';
+  }).join('');
+  var header = anyShort
+    ? '<div style="color:var(--danger);font-weight:600;margin-bottom:4px;">⚠ Не вистачає матеріалів — можна запустити в борг</div>'
+    : '<div style="color:var(--success);font-weight:600;margin-bottom:4px;">✓ Матеріалів достатньо. Буде списано:</div>';
+  info.innerHTML = header + lines;
 }
 
 function isPaperMaterial(mat) {
@@ -4173,49 +4206,38 @@ function startProduction() {
   var p = db.products.find(function(x){return x.id===productId});
   if(!p) return;
 
-  // Check availability: paper from main stock; інші — спочатку склад майстра, потім головний склад
-  var shortage = [];
-  for(var i=0;i<(p.recipe||[]).length;i++) {
-    var r = p.recipe[i];
-    var mat = db.materials.find(function(m){return m.id===r.materialId});
-    if(!mat) continue;
-    var need = r.qty * qty;
-    if(isPaperMaterial(mat)) {
-      if((mat.qty||0) < need) shortage.push(mat.name+': потрібно '+fmt(need)+', на складі '+fmt(mat.qty||0));
-    } else {
-      var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
-      var atWorker = ws ? (ws.qty||0) : 0;
-      var atMain = mat.qty || 0;
-      if(atWorker + atMain < need) shortage.push(mat.name+': потрібно '+fmt(need)+' (у майстра '+fmt(atWorker)+' + на складі '+fmt(atMain)+')');
-    }
-  }
+  // Plan: paper from main; інші — спочатку склад майстра, потім головний склад
+  var plan = planProductionDeduction(db, p, qty, worker);
+  var planLines = plan.map(function(r){
+    var u = r.mat.unit||'';
+    var parts = [];
+    if (r.fromWorker>0) parts.push('👷 майстер: '+fmt(r.fromWorker)+' '+u);
+    if (r.fromMain>0)   parts.push('📦 склад: '+fmt(r.fromMain)+' '+u);
+    if (r.shortage>0)   parts.push('❌ бракує: '+fmt(r.shortage)+' '+u);
+    return '• '+r.mat.name+' ('+fmt(r.need)+' '+u+'): '+(parts.join(', ')||'—');
+  }).join('\n');
+  var anyShort = plan.some(function(r){return r.shortage>0});
   var instantElPre = document.getElementById('sp-instant');
   var isInstantPre = instantElPre && instantElPre.checked;
-  if(shortage.length > 0 && !isInstantPre) {
-    if(!confirm('Не вистачає:\n'+shortage.join('\n')+'\n\nЗапустити все одно?')) return;
+  if(anyShort && !isInstantPre) {
+    if(!confirm('Не вистачає матеріалів. Запустити в борг?\n\n'+planLines+'\n\nЗапустити все одно?')) return;
+  } else if (planLines) {
+    if(!confirm('Підтвердити запуск виробництва. Буде списано:\n\n'+planLines+'\n\nЗапустити?')) return;
   }
 
-  // Deduct: paper from main; інші — спочатку склад майстра, потім головний склад
-  for(var i=0;i<(p.recipe||[]).length;i++) {
-    var r = p.recipe[i];
-    var mat = db.materials.find(function(m){return m.id===r.materialId});
-    if(!mat) continue;
-    var need = r.qty * qty;
-    if(isPaperMaterial(mat)) {
-      mat.qty = Math.max(0, (mat.qty||0) - need);
-    } else {
-      var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'});
-      var fromWorker = Math.min(need, ws ? (ws.qty||0) : 0);
-      if(fromWorker > 0 && ws) {
-        ws.qty = (ws.qty||0) - fromWorker;
-        if(ws.qty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id !== ws.id});
-      }
-      var fromMain = need - fromWorker;
-      if(fromMain > 0) {
-        mat.qty = Math.max(0, (mat.qty||0) - fromMain);
+  // Deduct
+  plan.forEach(function(r){
+    if (r.fromWorker > 0) {
+      var ws = db.workerStock.find(function(s){return s.worker===worker && s.itemId===r.mat.id && s.type==='material'});
+      if (ws) {
+        ws.qty = (ws.qty||0) - r.fromWorker;
+        if (ws.qty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id !== ws.id});
       }
     }
-  }
+    if (r.fromMain > 0) {
+      r.mat.qty = Math.max(0, (r.mat.qty||0) - r.fromMain);
+    }
+  });
 
   var instantEl = document.getElementById('sp-instant');
   var instant = instantEl && instantEl.checked;
