@@ -3901,7 +3901,12 @@ function openShortageActionModal(ord, shortItems) {
   _shortageCtx = {
     orderId: ord.id,
     orderNum: ord.num,
-    items: shortItems.map(function(p){ return { productId: p.productId, qty: p.shortage, name: p.name, worker: defaultWorker }; })
+    items: shortItems.map(function(p){
+      // Шукаємо майстра по позиції замовлення (per-item) → fallback на ord.worker
+      var orderItem = (ord.items||[]).find(function(oi){ return oi.productId === p.productId; });
+      var w = (orderItem && orderItem.worker) ? orderItem.worker : defaultWorker;
+      return { productId: p.productId, qty: p.shortage, name: p.name, worker: w };
+    })
   };
   renderShortageActionBody();
   openModal('shortage-action');
@@ -5351,14 +5356,18 @@ function confirmPickShipment() {
   if (!ord) { closeModal('pick-shipment'); return; }
 
   // Валідація: відправляємо тільки повністю
-  var totalShortage = 0;
+  // Збираємо позиції з нестачею для пропозиції виробництва
+  var shortItems = [];
   ctx.items.forEach(function(it){
     var sum = 0;
     Object.keys(it.picks).forEach(function(k){ sum += it.picks[k]||0; });
-    totalShortage += Math.max(0, it.need - sum);
+    var lack = Math.max(0, it.need - sum);
+    if (lack > 0) shortItems.push({ productId: it.productId, shortage: lack, name: it.name });
   });
-  if (totalShortage > 0) {
-    alert('⚠ Не вистачає '+totalShortage+' шт. Додай партію у 🛠 Виробництво — після здачі натисни 📤 ще раз.');
+  if (shortItems.length > 0) {
+    closeModal('pick-shipment');
+    _pickShipmentCtx = null;
+    openShortageActionModal(ord, shortItems);
     return;
   }
 
@@ -5884,10 +5893,11 @@ function openEditOrder(id) {
       name: it.name || '',
       sku: it.sku || '',
       qty: it.qty || 1,
-      price: it.price || 0
+      price: it.price || 0,
+      worker: it.worker || ''
     };
   });
-  if (!_eordItems.length) _eordItems.push({ productId:'', name:'', sku:'', qty:1, price:0 });
+  if (!_eordItems.length) _eordItems.push({ productId:'', name:'', sku:'', qty:1, price:0, worker:'' });
   renderEordItems();
   document.getElementById('modal-edit-order').classList.add('show');
 }
@@ -5895,11 +5905,15 @@ function openEditOrder(id) {
 var _eordItems = [];
 
 function renderEordItems() {
+  var workerNames = (typeof getAllWorkerNames === 'function') ? getAllWorkerNames() : [];
   var html = _eordItems.map(function(it, idx){
     var unlinked = !it.productId;
     var warn = unlinked ? '<div style="font-size:11px;color:#C62828;margin-top:4px;">⚠ Не привʼязано до товару — без цього не можна списати зі складу</div>' : '';
     var origLine = unlinked && it.name ? '<div style="font-size:11px;color:var(--text-light);margin-top:4px;">Текст із CRM: <em>'+esc(it.name)+'</em></div>' : '';
     var displayVal = it.productId ? ((it.sku?it.sku+' — ':'') + (it.name||'')) : '';
+    var workerOpts = '<option value="">— як у замовл. —</option>' + workerNames.map(function(w){
+      return '<option value="'+esc(w)+'" '+(it.worker===w?'selected':'')+'>'+esc(typeof wLabel==='function'?wLabel(w):w)+'</option>';
+    }).join('');
     return '<div style="border:1px solid '+(unlinked?'#FFCDD2':'var(--border)')+';border-radius:10px;padding:12px;background:'+(unlinked?'#FFF8F8':'#fafafa')+';">'+
       '<div class="form-row" style="margin-bottom:8px;">'+
         '<div class="form-group" style="flex:2;position:relative;"><label>Товар з каталогу</label>'+
@@ -5908,14 +5922,19 @@ function renderEordItems() {
             'onblur="setTimeout(function(){var d=document.getElementById(\'eord-dd-'+idx+'\');if(d)d.style.display=\'none\';},200)" style="width:100%;">'+
           '<div id="eord-dd-'+idx+'" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>'+
         '</div>'+
-        '<div class="form-group" style="flex:0 0 90px;"><label>К-сть</label>'+
+        '<div class="form-group" style="flex:0 0 80px;"><label>К-сть</label>'+
           '<input type="number" min="1" value="'+it.qty+'" onchange="updateEordItem('+idx+',\'qty\',this)">'+
         '</div>'+
-        '<div class="form-group" style="flex:0 0 110px;"><label>Ціна</label>'+
+        '<div class="form-group" style="flex:0 0 100px;"><label>Ціна</label>'+
           '<input type="number" step="0.01" value="'+it.price+'" onchange="updateEordItem('+idx+',\'price\',this)">'+
         '</div>'+
         '<div class="form-group" style="flex:0 0 40px;align-self:flex-end;">'+
           '<button class="btn btn-danger btn-sm" onclick="removeEordItem('+idx+')" title="Видалити">&#x1F5D1;</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="form-row" style="margin-top:0;">'+
+        '<div class="form-group" style="flex:1;"><label style="font-size:11px;">👷 Майстер цієї позиції</label>'+
+          '<select onchange="updateEordItem('+idx+',\'worker\',this)">'+workerOpts+'</select>'+
         '</div>'+
       '</div>'+
       origLine + warn +
@@ -5971,17 +5990,19 @@ function updateEordItem(idx, field, el) {
     it.qty = Math.max(1, parseInt(el.value)||1);
   } else if (field === 'price') {
     it.price = parseFloat(el.value)||0;
+  } else if (field === 'worker') {
+    it.worker = el.value || '';
   }
 }
 
 function addEordItem() {
-  _eordItems.push({ productId:'', name:'', sku:'', qty:1, price:0 });
+  _eordItems.push({ productId:'', name:'', sku:'', qty:1, price:0, worker:'' });
   renderEordItems();
 }
 
 function removeEordItem(idx) {
   if (_eordItems.length === 1) {
-    _eordItems[0] = { productId:'', name:'', sku:'', qty:1, price:0 };
+    _eordItems[0] = { productId:'', name:'', sku:'', qty:1, price:0, worker:'' };
   } else {
     _eordItems.splice(idx, 1);
   }
@@ -6011,7 +6032,7 @@ function saveOrderEdit() {
   o.comment = v('eord-comment').trim();
   // Items
   var items = _eordItems.filter(function(it){ return (it.productId || it.name) && it.qty > 0; }).map(function(it){
-    return { productId: it.productId || null, name: it.name || '', sku: it.sku || '', qty: it.qty || 1, price: it.price || 0 };
+    return { productId: it.productId || null, name: it.name || '', sku: it.sku || '', qty: it.qty || 1, price: it.price || 0, worker: it.worker || '' };
   });
   if (items.length) {
     o.items = items;
