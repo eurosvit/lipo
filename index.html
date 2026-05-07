@@ -6195,6 +6195,7 @@ var _defaultOrdCols = [
   { id:'phone', label:'Телефон', visible:false },
   { id:'items', label:'Товари', visible:true },
   { id:'total', label:'Сума', visible:true },
+  { id:'profit', label:'💰 Прибуток', visible:true, ownerOnly:true },
   { id:'payment', label:'Оплата', visible:false },
   { id:'delivery', label:'Доставка', visible:false },
   { id:'ttn', label:'ТТН', visible:false },
@@ -6202,6 +6203,24 @@ var _defaultOrdCols = [
   { id:'worker', label:'Майстер', visible:true },
   { id:'note', label:'📝', visible:false }
 ];
+
+// Прибуток по замовленню = виручка − (матеріали + друк + пакування + амортизація шаблону) − робота майстра.
+// Видно лише власнику. Майстер цю колонку не бачить.
+function calcOrderProfit(o, db) {
+  if (!db) db = getDB();
+  var revenue = Number(o.total) || 0;
+  var materials = 0, work = 0, unknown = 0;
+  (o.items || []).forEach(function(it) {
+    var qty = Number(it.qty) || 0;
+    if (!it.productId) { unknown += 1; return; }
+    var p = (db.products || []).find(function(x) { return x.id === it.productId; });
+    if (!p) { unknown += 1; return; }
+    var c = calcCost(p, db.materials, db);
+    materials += qty * ((c.materials || 0) + (c.print || 0) + (c.packaging || 0) + (c.template || 0));
+    work += qty * (c.work || 0);
+  });
+  return { revenue: revenue, materials: materials, work: work, profit: revenue - materials - work, unknown: unknown };
+}
 
 function getOrdCols() {
   try {
@@ -6237,6 +6256,12 @@ function toggleOrdColSettings() {
 
 function renderOrdColSettings() {
   var cols = _ordColsDraft || getOrdCols();
+  if (isCurrentUserWorker()) {
+    cols = cols.filter(function(c){
+      var def = _defaultOrdCols.find(function(d){ return d.id === c.id; });
+      return !(def && def.ownerOnly);
+    });
+  }
   var list = document.getElementById('ord-col-list');
   list.innerHTML = cols.map(function(c, i) {
     return '<div draggable="true" data-colid="'+c.id+'" data-idx="'+i+'" '+
@@ -6506,6 +6531,13 @@ function renderOrders() {
 
   // Column config
   var ordCols = getOrdCols();
+  // Колонки для власника (наприклад, прибуток) майстер не бачить
+  if (isCurrentUserWorker()) {
+    ordCols = ordCols.filter(function(c){
+      var def = _defaultOrdCols.find(function(d){ return d.id === c.id; });
+      return !(def && def.ownerOnly);
+    });
+  }
   var visOrdCols = ordCols.filter(function(c){return c.visible;});
 
   // Render thead
@@ -6556,6 +6588,13 @@ function renderOrders() {
         return '<td data-label="Товари">'+itemsStr+extra+'</td>';
       }
       case 'total': return '<td data-label="Сума">'+fmt(o.total)+' грн</td>';
+      case 'profit': {
+        var pp = calcOrderProfit(o, db);
+        var color = pp.profit >= 0 ? 'var(--success)' : 'var(--danger)';
+        var tip = 'Виручка: '+fmt(pp.revenue)+' грн\n− Матеріали (з друком/пакуванням): '+fmt(pp.materials)+' грн\n− Робота майстра: '+fmt(pp.work)+' грн\n= Прибуток: '+fmt(pp.profit)+' грн' + (pp.unknown ? '\n⚠ '+pp.unknown+' позиц. без привʼязки до товару — собівартість недооцінена' : '');
+        var warn = pp.unknown ? ' <span style="color:#E65100;" title="Є позиції без товару — собівартість неповна">⚠</span>' : '';
+        return '<td data-label="Прибуток" title="'+esc(tip)+'" style="white-space:nowrap;color:'+color+';font-weight:600;">'+fmt(pp.profit)+' грн'+warn+'</td>';
+      }
       case 'payment': {
         var currentType = o.paymentType || '';
         var currentStatus = o.paymentStatus || 'unpaid';
