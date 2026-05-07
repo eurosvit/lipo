@@ -581,7 +581,7 @@ a.order-link:hover { text-decoration:underline; }
     <button class="btn btn-outline btn-sm" onclick="clearMatSelection()">Скасувати</button>
   </div>
   <div class="table-wrap" style="margin-top:16px;">
-    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th style="width:50px;">Од.</th><th style="width:70px;">Залишок</th><th style="width:65px;">Мінімум</th><th style="width:75px;">Ціна/од.</th><th style="width:120px;">Постачальник</th><th style="width:120px;">Коментар</th><th style="width:60px;">Статус</th><th style="width:90px;white-space:nowrap;">Дії</th></tr></thead>
+    <table><thead><tr><th style="width:36px;"><input type="checkbox" id="mat-select-all" onchange="toggleAllMaterials(this.checked)" style="width:18px;height:18px;accent-color:var(--primary);"></th><th>Назва</th><th style="width:50px;">Од.</th><th style="width:70px;">Залишок</th><th style="width:65px;">Мінімум</th><th style="width:75px;">Ціна/од.</th><th style="width:60px;" title="Закладений брак — додається до списання і собівартості">♻️ Брак %</th><th style="width:120px;">Постачальник</th><th style="width:120px;">Коментар</th><th style="width:60px;">Статус</th><th style="width:90px;white-space:nowrap;">Дії</th></tr></thead>
     <tbody id="materials-table"></tbody></table>
   </div>
   <div id="mat-stock-summary" style="margin-top:12px;padding:14px 20px;background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-radius:10px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;font-size:14px;"></div>
@@ -1453,6 +1453,7 @@ a.order-link:hover { text-decoration:underline; }
         <div class="form-group"><label>Мінімальний запас</label><input id="mat-min" type="number" step="0.01" value="0"></div>
         <div class="form-group"><label>Ціна за одиницю, грн</label><input id="mat-price" type="number" step="0.01" value="0"></div>
       </div>
+      <div class="form-group mb-16"><label>♻️ Брак % <small style="color:var(--text-light);font-weight:400;">(закладається у списання і собівартість)</small></label><input id="mat-waste" type="number" step="0.5" min="0" max="100" value="0" placeholder="напр. 5 для паперу, 0 для ліпучок"></div>
       <div class="form-group mb-16"><label>Постачальник</label><input id="mat-supplier" placeholder="Назва або контакт"></div>
       <div class="form-group"><label>Коментар</label><textarea id="mat-note" placeholder="Додаткова інформація..."></textarea></div>
     </div>
@@ -1921,6 +1922,7 @@ a.order-link:hover { text-decoration:underline; }
         <div class="form-group"><label>Мінімальний запас</label><input id="emat-min" type="number" step="0.01"></div>
         <div class="form-group"><label>Ціна/од.</label><input id="emat-price" type="number" step="0.01"></div>
       </div>
+      <div class="form-group mb-16"><label>♻️ Брак % <small style="color:var(--text-light);font-weight:400;">(закладається у списання і собівартість)</small></label><input id="emat-waste" type="number" step="0.5" min="0" max="100" placeholder="0"></div>
       <div class="form-group mb-16"><label>Постачальник</label><input id="emat-supplier"></div>
       <div class="form-group"><label>Коментар</label><textarea id="emat-note"></textarea></div>
     </div>
@@ -2731,7 +2733,8 @@ function closeModal(name) { document.getElementById('modal-'+name).classList.rem
 // ==================== MATERIALS ====================
 function saveMaterial() {
   const db = getDB();
-  const m = { id:uid(), name:v('mat-name'), category:v('mat-category'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), supplier:v('mat-supplier'), note:v('mat-note') };
+  var waste = Math.max(0, Math.min(100, n('mat-waste')||0));
+  const m = { id:uid(), name:v('mat-name'), category:v('mat-category'), unit:v('mat-unit'), qty:n('mat-qty'), min:n('mat-min'), price:n('mat-price'), wastePercent:waste, supplier:v('mat-supplier'), note:v('mat-note') };
   if(!m.name) return alert('Введіть назву');
   db.materials.push(m);
   saveDB(db);
@@ -2739,6 +2742,7 @@ function saveMaterial() {
   document.getElementById('mat-name').value='';
   document.getElementById('mat-category').value='';
   document.getElementById('mat-note').value='';
+  document.getElementById('mat-waste').value='0';
   renderPage('materials');
 }
 
@@ -2753,6 +2757,7 @@ function editMaterial(id) {
   document.getElementById('emat-qty').value = m.qty;
   document.getElementById('emat-min').value = m.min;
   document.getElementById('emat-price').value = m.price;
+  document.getElementById('emat-waste').value = m.wastePercent || 0;
   document.getElementById('emat-supplier').value = m.supplier||'';
   document.getElementById('emat-note').value = m.note||'';
   openModal('edit-material');
@@ -2765,6 +2770,7 @@ function updateMaterial() {
   if(!m) return;
   m.name = v('emat-name'); m.category = v('emat-category'); m.unit = v('emat-unit'); m.qty = n('emat-qty');
   m.min = n('emat-min'); m.price = n('emat-price'); m.supplier = v('emat-supplier');
+  m.wastePercent = Math.max(0, Math.min(100, n('emat-waste')||0));
   m.note = v('emat-note');
   saveDB(db);
   closeModal('edit-material');
@@ -2894,7 +2900,7 @@ function renderMaterials() {
     hasAny = true;
     var label = _matCategoryLabels[cat] || cat;
     var color = _matCategoryColors[cat] || '#FAFAFA;border-left:4px solid #BDBDBD';
-    html += '<tr><td colspan="10" style="background:'+color+';padding:10px 16px;font-weight:700;font-size:14px;letter-spacing:0.3px;">'+label+' <span style="font-weight:400;font-size:12px;color:var(--text-light);">('+groups[cat].length+')</span></td></tr>';
+    html += '<tr><td colspan="11" style="background:'+color+';padding:10px 16px;font-weight:700;font-size:14px;letter-spacing:0.3px;">'+label+' <span style="font-weight:400;font-size:12px;color:var(--text-light);">('+groups[cat].length+')</span></td></tr>';
     groups[cat].forEach(function(m) {
       var atW = matAtWorkers(db, m.id);
       var total = (m.qty||0) + atW;
@@ -2911,6 +2917,7 @@ function renderMaterials() {
         '<td data-label="Залишок">'+qtyCell+'</td>'+
         '<td data-label="Мінімум">'+fmt(m.min)+'</td>'+
         '<td data-label="Ціна/од.">'+fmt(m.price)+' грн</td>'+
+        '<td data-label="Брак">'+((m.wastePercent||0)>0 ? '<span style="color:#E65100;font-weight:600;">'+fmt(m.wastePercent)+'%</span>' : '<span style="color:var(--text-light);">—</span>')+'</td>'+
         '<td data-label="Постачальник">'+supplierHtml+'</td>'+
         '<td data-label="Коментар">'+noteHtml+'</td>'+
         '<td data-label="Статус">'+status+'</td>'+
@@ -2919,7 +2926,7 @@ function renderMaterials() {
     });
   });
 
-  tb.innerHTML = hasAny ? html : '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
+  tb.innerHTML = hasAny ? html : '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Додайте перший матеріал</td></tr>';
 
   // Stock value summary
   var summaryEl = document.getElementById('mat-stock-summary');
@@ -3492,6 +3499,17 @@ function toggleProduct(id, activate) {
   renderProducts();
 }
 
+// Effective per-unit consumption for a material in a recipe (з урахуванням браку)
+function effectiveRecipeQty(mat, baseQty) {
+  var w = mat && mat.wastePercent ? Math.max(0, Math.min(100, mat.wastePercent)) : 0;
+  return baseQty * (1 + w/100);
+}
+// Total need for N units, rounded up (бо не можна списати 0.5 аркуша)
+function effectiveNeed(mat, baseQty, units) {
+  var raw = effectiveRecipeQty(mat, baseQty) * units;
+  return mat && mat.wastePercent > 0 ? Math.ceil(raw) : raw;
+}
+
 function calcCanProduce(product, materials) {
   if(!product.recipe || product.recipe.length===0) return 0;
   var min = Infinity;
@@ -3499,7 +3517,9 @@ function calcCanProduce(product, materials) {
     var r = product.recipe[i];
     var mat = materials.find(function(m){return m.id===r.materialId});
     if(!mat || r.qty<=0) return 0;
-    min = Math.min(min, Math.floor(mat.qty / r.qty));
+    var perUnit = effectiveRecipeQty(mat, r.qty);
+    if (perUnit <= 0) return 0;
+    min = Math.min(min, Math.floor((mat.qty||0) / perUnit));
   }
   return min===Infinity?0:min;
 }
@@ -3511,7 +3531,7 @@ function calcCost(product, materials, db) {
   for(var i=0;i<recipe.length;i++) {
     var r = recipe[i];
     var mat = materials.find(function(m){return m.id===r.materialId});
-    if(mat) matCost += r.qty * mat.price;
+    if(mat) matCost += effectiveRecipeQty(mat, r.qty) * mat.price;
   }
   // Print cost (A4 + A5 at half-cost)
   var printCost = 0;
@@ -4172,15 +4192,18 @@ document.addEventListener('click', function(e) {
 });
 
 // Deduction plan: для кожного матеріалу — скільки взяти зі складу майстра, скільки з головного, скільки бракує
+// `need` включає wastePercent матеріалу (округлюється вгору якщо waste > 0)
 function planProductionDeduction(db, p, qty, worker) {
   var rows = [];
   (p.recipe||[]).forEach(function(r){
     var mat = (db.materials||[]).find(function(m){return m.id===r.materialId});
     if(!mat) return;
-    var need = r.qty * qty;
+    var base = r.qty * qty;
+    var need = effectiveNeed(mat, r.qty, qty);
+    var wasteAddon = need - base;
     if (isPaperMaterial(mat)) {
       var atMain = mat.qty || 0;
-      rows.push({ mat:mat, need:need, fromWorker:0, fromMain:Math.min(need, atMain), shortage:Math.max(0, need-atMain), paper:true, atWorker:0, atMain:atMain });
+      rows.push({ mat:mat, need:need, base:base, wasteAddon:wasteAddon, fromWorker:0, fromMain:Math.min(need, atMain), shortage:Math.max(0, need-atMain), paper:true, atWorker:0, atMain:atMain });
     } else {
       var ws = worker ? (db.workerStock||[]).find(function(s){return s.worker===worker && s.itemId===r.materialId && s.type==='material'}) : null;
       var atWorker = ws ? (ws.qty||0) : 0;
@@ -4188,7 +4211,7 @@ function planProductionDeduction(db, p, qty, worker) {
       var fromWorker = Math.min(need, atWorker);
       var fromMain = Math.min(need - fromWorker, atMain);
       var shortage = Math.max(0, need - fromWorker - fromMain);
-      rows.push({ mat:mat, need:need, fromWorker:fromWorker, fromMain:fromMain, shortage:shortage, paper:false, atWorker:atWorker, atMain:atMain });
+      rows.push({ mat:mat, need:need, base:base, wasteAddon:wasteAddon, fromWorker:fromWorker, fromMain:fromMain, shortage:shortage, paper:false, atWorker:atWorker, atMain:atMain });
     }
   });
   return rows;
@@ -4214,7 +4237,8 @@ function checkCanProduce() {
     if (r.fromMain>0)   src.push('📦 зі складу: '+fmt(r.fromMain)+' '+u);
     if (r.shortage>0)   src.push('<span style="color:var(--danger);">❌ бракує: '+fmt(r.shortage)+' '+u+'</span>');
     if (!src.length)    src.push('—');
-    return '<div style="margin:2px 0;">• <strong>'+esc(r.mat.name)+'</strong> ('+fmt(r.need)+' '+u+'): '+src.join(', ')+'</div>';
+    var wasteNote = r.wasteAddon > 0 ? ' <small style="color:var(--text-light);">(базово '+fmt(r.base)+' + ♻️ '+fmt(r.wasteAddon)+' брак '+fmt(r.mat.wastePercent||0)+'%)</small>' : '';
+    return '<div style="margin:2px 0;">• <strong>'+esc(r.mat.name)+'</strong> ('+fmt(r.need)+' '+u+wasteNote+'): '+src.join(', ')+'</div>';
   }).join('');
   var header = anyShort
     ? '<div style="color:var(--danger);font-weight:600;margin-bottom:4px;">⚠ Не вистачає матеріалів — можна запустити в борг</div>'
