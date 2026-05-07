@@ -7873,10 +7873,18 @@ function renderSalary() {
       byWorker[b.worker].earned += earned;
       byWorker[b.worker].pcs += pcs;
     });
-    // Add paid info
+    // Add paid info + in-progress
     Object.keys(byWorker).forEach(function(w){
       byWorker[w].paid = calcWorkerPaid(db, w);
       byWorker[w].balance = byWorker[w].earned - byWorker[w].paid;
+      byWorker[w].inProgress = (typeof calcWorkerInProgress==='function') ? calcWorkerInProgress(db, w) : 0;
+    });
+    // Make sure workers with only in_progress (no completed) are still shown
+    db.production.forEach(function(b){
+      if (b.status==='in_progress' && b.worker && !byWorker[b.worker]) {
+        byWorker[b.worker] = { earned:0, pcs:0, paid: calcWorkerPaid(db, b.worker), balance: 0, inProgress: calcWorkerInProgress(db, b.worker) };
+        byWorker[b.worker].balance = -byWorker[b.worker].paid;
+      }
     });
     var totalDebt = 0;
     Object.keys(byWorker).forEach(function(w){
@@ -7893,6 +7901,7 @@ function renderSalary() {
           '<div>'+bigLabel+'</div>'+
           '<div style="color:var(--text-light);">Нараховано: '+fmt(d.earned)+' грн ('+d.pcs+' виробів)</div>'+
           (d.paid > 0 ? '<div style="color:var(--success);">Виплачено: '+fmt(d.paid)+' грн</div>' : '')+
+          ((d.inProgress||0) > 0 ? '<div style="color:#1565C0;">🛠 В роботі: '+fmt(d.inProgress)+' грн (нарахується після здачі)</div>' : '')+
         '</div>'+
       '</div>';
     });
