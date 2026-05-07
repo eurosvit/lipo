@@ -6453,16 +6453,15 @@ function renderOrders() {
       }
       case 'channel': return '<td data-label="Канал"><select onchange="setOrderChannel(\''+o.id+'\',this.value)" style="padding:3px 6px;border-radius:8px;font-size:11px;border:1px solid '+chColor.bg+';background:'+chColor.bg+';color:'+chColor.text+';font-weight:600;min-width:80px;">'+chSelectOpts+'</select></td>';
       case 'worker': {
-        // Збираємо унікальних майстрів з позицій
+        // Збираємо унікальних майстрів з позицій (short name через wLabel)
         var itemWorkers = (o.items||[]).map(function(it){ return it.worker||''; }).filter(Boolean);
         var uniqW = {};
-        itemWorkers.forEach(function(w){ uniqW[w] = true; });
+        itemWorkers.forEach(function(w){ uniqW[wLabel(w)||w] = true; });
         var distinct = Object.keys(uniqW);
         if (isCurrentUserWorker()) {
-          var label = distinct.length ? distinct.join(', ') : (o.worker || '');
+          var label = distinct.length ? distinct.join(', ') : (wLabel(o.worker)||o.worker || '');
           return '<td data-label="Майстер">'+(label ? esc(label) : '<span class="text-muted">—</span>')+'</td>';
         }
-        // Якщо у позиціях є per-item майстри — показуємо їх замість селекту
         if (distinct.length >= 2) {
           return '<td data-label="Майстер"><div style="font-size:11px;line-height:1.4;cursor:pointer;" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати майстрів по позиціях">👷 '+distinct.map(esc).join('<br>👷 ')+'</div></td>';
         }
