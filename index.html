@@ -7587,6 +7587,36 @@ function workerEditQty(stockId) {
   renderPage('worker-stock');
 }
 
+function reassignWorkerStock(stockId) {
+  var db = getDB();
+  var item = (db.workerStock||[]).find(function(s){return s.id===stockId});
+  if (!item) return;
+  var workers = (typeof getAllWorkerNames==='function' ? getAllWorkerNames() : []).filter(function(w){return w && w!==item.worker});
+  if (!workers.length) return alert('Немає інших майстрів для передачі');
+  var listText = workers.map(function(w,i){return (i+1)+'. '+wLabel(w)}).join('\n');
+  var pick = prompt('Передати «'+item.itemName+'» ('+fmt(item.qty)+') майстру:\n\n'+listText+'\n\nВведіть номер:');
+  if (pick === null) return;
+  var idx = parseInt(pick, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= workers.length) return alert('Невірний номер');
+  var newWorker = workers[idx];
+  var oldWorker = item.worker;
+  var movedQty = item.qty;
+  var today = new Date().toISOString().slice(0,10);
+  var existing = db.workerStock.find(function(s){return s.worker===newWorker && s.itemId===item.itemId && s.type===item.type});
+  if (existing) {
+    existing.qty += movedQty;
+    existing.date = today;
+    db.workerStock = db.workerStock.filter(function(s){return s.id!==item.id});
+  } else {
+    item.worker = newWorker;
+    item.date = today;
+  }
+  if (!db.workerStockHistory) db.workerStockHistory = [];
+  db.workerStockHistory.push({ id:uid(), worker:oldWorker, type:item.type, itemId:item.itemId, itemName:item.itemName, qty:movedQty, action:'передано: '+wLabel(oldWorker)+' → '+wLabel(newWorker), date:today, note:'' });
+  saveDB(db);
+  renderPage('worker-stock');
+}
+
 function returnFromWorker(stockId) {
   var db = getDB();
   if (!db.workerStock) return;
@@ -7703,7 +7733,10 @@ function renderWorkerStock() {
         '<td data-label="К-сть">'+fmt(s.qty)+'</td>'+
         '<td data-label="Дата">'+s.date+'</td>'+
         '<td data-label="Коментар"><span class="note-text" title="'+(s.note?esc(s.note):'')+'">'+esc(s.note||'—')+'</span></td>'+
-        '<td data-label="Дії"><button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button></td>'+
+        '<td data-label="Дії" style="white-space:nowrap;">'+
+          '<button class="btn btn-outline btn-sm" onclick="reassignWorkerStock(\''+s.id+'\')" title="Передати іншому майстру" style="margin-right:4px;">🔄 Іншому</button>'+
+          '<button class="btn btn-outline btn-sm" onclick="returnFromWorker(\''+s.id+'\')" title="Повернути на склад">↩ Повернути</button>'+
+        '</td>'+
       '</tr>';
     }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px;">Матеріали ще не передавались</td></tr>';
     var thead = document.querySelector('#worker-stock #ws-table').closest('table').querySelector('thead tr');
@@ -7715,7 +7748,7 @@ function renderWorkerStock() {
   if (filterWorker) filteredHistory = filteredHistory.filter(function(h){ return h.worker===filterWorker; });
   if (isW) {
     document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
-      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ отримано</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано</span>' : '<span class="badge badge-success">← повернуто</span>';
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ отримано</span>' : (h.action||'').indexOf('передано:')===0 ? '<span class="badge badge-warning" title="'+esc(h.action)+'">🔄 переведено</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано</span>' : '<span class="badge badge-success">← повернуто</span>';
       return '<tr>'+
         '<td data-label="Дата">'+h.date+'</td>'+
         '<td data-label="Матеріал">'+esc(h.itemName)+'</td>'+
@@ -7727,7 +7760,7 @@ function renderWorkerStock() {
     if (histThead) histThead.innerHTML = '<th>Дата</th><th>Матеріал</th><th>К-сть</th><th>Дія</th>';
   } else {
     document.getElementById('ws-history').innerHTML = filteredHistory.slice(0,50).map(function(h){
-      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано (майстер)</span>' : '<span class="badge badge-success">← повернуто</span>';
+      var actionBadge = h.action==='передано' ? '<span class="badge badge-warning">→ передано</span>' : (h.action||'').indexOf('передано:')===0 ? '<span class="badge badge-warning" title="'+esc(h.action)+'">🔄 переведено між майстрами</span>' : h.action==='додано' ? '<span class="badge badge-ok">+ додано (майстер)</span>' : '<span class="badge badge-success">← повернуто</span>';
       return '<tr>'+
         '<td data-label="Дата">'+h.date+'</td>'+
         '<td data-label="Майстер">'+esc(wLabel(h.worker))+'</td>'+
