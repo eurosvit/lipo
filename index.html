@@ -6282,11 +6282,12 @@ var _defaultOrdCols = [
   { id:'note', label:'📝', visible:false }
 ];
 
-// Прибуток по замовленню = виручка − (матеріали + друк + пакування + амортизація шаблону) − робота майстра.
+// Прибуток по замовленню = виручка − (матеріали + друк + пакування + амортизація шаблону) − робота майстра − витрати на доставку.
 // Видно лише власнику. Майстер цю колонку не бачить.
 function calcOrderProfit(o, db) {
   if (!db) db = getDB();
   var revenue = Number(o.total) || 0;
+  var shipping = Number(o.shippingCost) || 0;
   var materials = 0, work = 0, unknown = 0;
   (o.items || []).forEach(function(it) {
     var qty = Number(it.qty) || 0;
@@ -6297,7 +6298,7 @@ function calcOrderProfit(o, db) {
     materials += qty * ((c.materials || 0) + (c.print || 0) + (c.packaging || 0) + (c.template || 0));
     work += qty * (c.work || 0);
   });
-  return { revenue: revenue, materials: materials, work: work, profit: revenue - materials - work, unknown: unknown };
+  return { revenue: revenue, materials: materials, work: work, shipping: shipping, profit: revenue - materials - work - shipping, unknown: unknown };
 }
 
 function getOrdCols() {
@@ -6669,7 +6670,15 @@ function renderOrders() {
       case 'profit': {
         var pp = calcOrderProfit(o, db);
         var color = pp.profit >= 0 ? 'var(--success)' : 'var(--danger)';
-        var tip = 'Виручка: '+fmt(pp.revenue)+' грн\n− Матеріали (з друком/пакуванням): '+fmt(pp.materials)+' грн\n− Робота майстра: '+fmt(pp.work)+' грн\n= Прибуток: '+fmt(pp.profit)+' грн' + (pp.unknown ? '\n⚠ '+pp.unknown+' позиц. без привʼязки до товару — собівартість недооцінена' : '');
+        var tipLines = [
+          'Виручка: '+fmt(pp.revenue)+' грн',
+          '− Матеріали (з друком/пакуванням): '+fmt(pp.materials)+' грн',
+          '− Робота майстра: '+fmt(pp.work)+' грн'
+        ];
+        if (pp.shipping > 0) tipLines.push('− Доставка: '+fmt(pp.shipping)+' грн');
+        tipLines.push('= Прибуток: '+fmt(pp.profit)+' грн');
+        if (pp.unknown) tipLines.push('⚠ '+pp.unknown+' позиц. без привʼязки до товару — собівартість недооцінена');
+        var tip = tipLines.join('\n');
         var warn = pp.unknown ? ' <span style="color:#E65100;" title="Є позиції без товару — собівартість неповна">⚠</span>' : '';
         return '<td data-label="Прибуток" title="'+esc(tip)+'" style="white-space:nowrap;color:'+color+';font-weight:600;">'+fmt(pp.profit)+' грн'+warn+'</td>';
       }
