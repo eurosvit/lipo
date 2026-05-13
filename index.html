@@ -1717,6 +1717,10 @@ a.order-link:hover { text-decoration:underline; }
         </select>
         <span id="cp-dest-hint" class="text-muted" style="font-size:12px;margin-top:4px;display:block;">На ваш головний склад</span>
       </div>
+      <div class="form-group mb-16"><label>Коментар <span style="color:var(--danger);">*</span></label>
+        <textarea id="cp-note" rows="2" placeholder="Наприклад: партія готова, упакована в плівку; чи зауваження по якості..." style="resize:vertical;min-height:60px;"></textarea>
+        <span class="text-muted" style="font-size:12px;margin-top:4px;display:block;">Обовʼязково — буде видно в історії партії</span>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('complete-production')">Скасувати</button>
@@ -4388,6 +4392,9 @@ function populateCompleteProd() {
     destSel.value = 'main';
     document.getElementById('cp-dest-hint').textContent = 'На ваш головний склад';
   }
+  // Reset comment field on each open
+  var noteEl = document.getElementById('cp-note');
+  if (noteEl) { noteEl.value = ''; noteEl.style.borderColor = ''; }
 }
 
 function completeProduction() {
@@ -4397,6 +4404,12 @@ function completeProduction() {
   var batch = db.production.find(function(x){return x.id===batchId});
   if(!batch || qty<=0) return alert('Оберіть партію');
   if(qty > batch.qty) return alert('Не можна здати більше ніж в роботі ('+batch.qty+' шт)');
+  var noteEl = document.getElementById('cp-note');
+  var note = (noteEl && noteEl.value || '').trim();
+  if(!note) {
+    if(noteEl) { noteEl.focus(); noteEl.style.borderColor = 'var(--danger)'; }
+    return alert('Додай коментар — це поле обовʼязкове');
+  }
   var p = db.products.find(function(x){return x.id===batch.productId});
   var destination = v('cp-destination') || 'main';
   if(p) {
@@ -4419,7 +4432,7 @@ function completeProduction() {
   if(qty < batch.qty) {
     // Partial completion: create completed record, reduce batch
     var destLabel = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
-    db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10), fulfillmentDest:destLabel });
+    db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10), fulfillmentDest:destLabel, completionNote:note });
     batch.qty -= qty;
   } else {
     // Full completion
@@ -4427,6 +4440,7 @@ function completeProduction() {
     batch.completedQty = qty;
     batch.completedDate = new Date().toISOString().slice(0,10);
     batch.fulfillmentDest = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
+    batch.completionNote = note;
   }
   saveDB(db);
   closeModal('complete-production');
@@ -4569,7 +4583,8 @@ function renderProduction() {
 
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
+    var noteHtml = b.completionNote ? '<div style="font-size:11px;color:#6D4C00;background:#FFF8E1;border-left:3px solid #FFC107;padding:3px 6px;margin-top:4px;border-radius:3px;white-space:normal;">💬 '+esc(b.completionNote)+'</div>' : '';
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+noteHtml+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
       '<td data-label="Статус"><span class="badge badge-success">Готово</span>'+(b.fulfillmentDest?' <span class="badge" style="background:#E1BEE7;color:#4A148C;font-size:10px;">🏬 '+esc(b.fulfillmentDest)+'</span>':'')+'</td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-outline btn-sm" onclick="editCompletedBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
