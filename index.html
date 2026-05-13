@@ -6282,6 +6282,36 @@ function saveOrderEdit() {
   var id = document.getElementById('eord-id').value;
   var o = db.orders.find(function(x){ return x.id === id; });
   if (!o) { alert('Замовлення не знайдено'); return; }
+
+  // Build new items from edit state
+  var newItems = _eordItems.filter(function(it){ return (it.productId || it.name) && it.qty > 0; }).map(function(it){
+    return { productId: it.productId || null, name: it.name || '', sku: it.sku || '', qty: it.qty || 1, price: it.price || 0, worker: it.worker || '' };
+  });
+
+  // GUARD: shipped orders cannot have items/qty changed silently — would lose stock.
+  // shippedFrom records the source (worker/main/fulfillment) of every shipped unit.
+  // If qty drops 5→1 on a shipped order, the 4 difference must be returned to its source.
+  // We don't do that auto-return here; instead we force user to "unship → edit → re-ship"
+  // (which correctly reconciles stock via unshipOrder).
+  var blockItemsUpdate = false;
+  if (o.shipped) {
+    var oldItems = o.items || [];
+    var sameItems = oldItems.length === newItems.length;
+    if (sameItems) {
+      for (var i = 0; i < newItems.length; i++) {
+        var oi = oldItems[i] || {};
+        var ni = newItems[i];
+        if ((oi.productId||null) !== (ni.productId||null) || Number(oi.qty||0) !== Number(ni.qty||0)) {
+          sameItems = false; break;
+        }
+      }
+    }
+    if (!sameItems) {
+      alert('⚠ Замовлення вже відправлено — кількість і товари НЕ ЗМІНЕНО.\n\nІнакше товари «загубляться» зі складу, бо різницю нікуди не повернути.\n\nЩоб виправити:\n1) Натисни ✅ біля замовлення в списку (скасувати відправку — товари повернуться на склад/майстру)\n2) Тоді ✏️ → редагуй кількість/товари\n3) Відправ замовлення заново\n\nІнші поля (клієнт, адреса, оплата, ТТН, коментар) — збережено.');
+      blockItemsUpdate = true;
+    }
+  }
+
   o.firstName = v('eord-first-name').trim();
   o.lastName = v('eord-last-name').trim();
   o.client = (o.firstName + ' ' + o.lastName).trim() || o.client || '';
@@ -6298,13 +6328,10 @@ function saveOrderEdit() {
   o.date = v('eord-date') || o.date;
   o.channel = v('eord-channel');
   o.comment = v('eord-comment').trim();
-  // Items
-  var items = _eordItems.filter(function(it){ return (it.productId || it.name) && it.qty > 0; }).map(function(it){
-    return { productId: it.productId || null, name: it.name || '', sku: it.sku || '', qty: it.qty || 1, price: it.price || 0, worker: it.worker || '' };
-  });
-  if (items.length) {
-    o.items = items;
-    o.total = items.reduce(function(s,i){ return s + (i.price||0)*(i.qty||0); }, 0);
+  // Items — only apply if not blocked (shipped order)
+  if (!blockItemsUpdate && newItems.length) {
+    o.items = newItems;
+    o.total = newItems.reduce(function(s,i){ return s + (i.price||0)*(i.qty||0); }, 0);
   }
   saveDB(db);
   closeModal('edit-order');
