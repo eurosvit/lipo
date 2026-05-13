@@ -1717,9 +1717,9 @@ a.order-link:hover { text-decoration:underline; }
         </select>
         <span id="cp-dest-hint" class="text-muted" style="font-size:12px;margin-top:4px;display:block;">На ваш головний склад</span>
       </div>
-      <div class="form-group mb-16"><label>Коментар <span style="color:var(--danger);">*</span></label>
+      <div class="form-group mb-16"><label>Коментар</label>
         <textarea id="cp-note" rows="2" placeholder="Наприклад: партія готова, упакована в плівку; чи зауваження по якості..." style="resize:vertical;min-height:60px;"></textarea>
-        <span class="text-muted" style="font-size:12px;margin-top:4px;display:block;">Обовʼязково — буде видно в історії партії</span>
+        <span class="text-muted" style="font-size:12px;margin-top:4px;display:block;">Необовʼязково — буде видно в історії партії</span>
       </div>
     </div>
     <div class="modal-actions">
@@ -4406,10 +4406,6 @@ function completeProduction() {
   if(qty > batch.qty) return alert('Не можна здати більше ніж в роботі ('+batch.qty+' шт)');
   var noteEl = document.getElementById('cp-note');
   var note = (noteEl && noteEl.value || '').trim();
-  if(!note) {
-    if(noteEl) { noteEl.focus(); noteEl.style.borderColor = 'var(--danger)'; }
-    return alert('Додай коментар — це поле обовʼязкове');
-  }
   var p = db.products.find(function(x){return x.id===batch.productId});
   var destination = v('cp-destination') || 'main';
   if(p) {
