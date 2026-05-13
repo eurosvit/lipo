@@ -695,13 +695,14 @@ const ONBOARDING_EMAILS = [
     `)
   },
   {
-    dayAfterRegistration: 30,
+    // Day 21 instead of 30 — avoid collision with trial_expired email (TRIAL_DAYS=30)
+    dayAfterRegistration: 21,
     key: 'onboard_day30',
     subject: '🤗 Як у вас справи з LipoLand?',
     getHtml: (name) => emailTemplate(`
       <h2 style="color:#4A148C;margin:0 0 16px;font-size:22px;">🤗 Як справи?</h2>
       <p style="color:#2d2d2d;font-size:15px;line-height:1.6;margin:0 0 16px;">
-        Привіт, <strong>${name}</strong>! Вже місяць як ви з LipoLand. Як враження?
+        Привіт, <strong>${name}</strong>! Вже 3 тижні як ви з LipoLand. Як враження?
       </p>
       <div style="background:#F3E5F5;border-radius:10px;padding:20px;margin:20px 0;">
         <p style="margin:0;font-size:15px;color:#2d2d2d;line-height:1.6;">

@@ -3859,7 +3859,10 @@ function renderProducts() {
   function cellHtml(colId, p, cost, can, margin, marginPct, atW, inactive) {
     switch(colId) {
       case 'sku': return '<td data-label="Артикул"><code>'+esc(p.sku||'—')+'</code></td>';
-      case 'name': return '<td data-label="Назва"><strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>';
+      case 'name':
+        var noRecipe = !p.recipe || p.recipe.length === 0;
+        var recipeWarn = noRecipe ? '<span title="Рецепт не заповнено — додай матеріали (клікни щоб відкрити редагування)" onclick="event.stopPropagation();editProduct(\''+p.id+'\')" style="display:inline-block;color:#E65100;margin-right:6px;cursor:pointer;font-size:14px;line-height:1;" role="button">📋⚠️</span>' : '';
+        return '<td data-label="Назва">'+recipeWarn+'<strong>'+esc(p.name)+'</strong>'+(inactive?' <span class="badge badge-warning" style="font-size:10px;">пауза</span>':'')+'</td>';
       case 'size': return '<td data-label="Розмір">'+esc(p.size||'—')+'</td>';
       case 'category': return '<td data-label="Категорія"><span class="badge badge-ok">'+esc(p.category||'—')+'</span></td>';
       case 'stock': return '<td data-label="Мій склад">'+(p.stock||0)+'</td>';
