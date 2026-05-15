@@ -689,12 +689,12 @@ a.order-link:hover { text-decoration:underline; }
     </div>
   </div>
   <div class="table-wrap">
-    <table><thead><tr><th style="width:32px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProdSelected(this.checked)"></th><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th style="width:32px;"><input type="checkbox" id="prod-select-all" onchange="toggleAllProdSelected(this.checked)"></th><th>Дата</th><th>Артикул</th><th>Гра</th><th>Кількість</th><th id="prod-active-sum-th" title="qty × ставка майстра — для звірки з ЗП">💰 Сума ЗП</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="production-active"></tbody></table>
   </div>
   <div class="section-title">Історія виробництва</div>
   <div class="table-wrap">
-    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>К-сть</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
+    <table><thead><tr><th>Дата</th><th>Артикул</th><th>Гра</th><th>К-сть</th><th id="prod-hist-sum-th" title="qty × ставка майстра — для звірки з ЗП">💰 Сума ЗП</th><th>Майстер</th><th>Статус</th><th>Дії</th></tr></thead>
     <tbody id="production-history"></tbody></table>
   </div>
 </div>
@@ -4555,19 +4555,40 @@ function renderProduction() {
   };
   var active = db.production.filter(function(x){return x.status==='in_progress' && byWorker(x) && byFilter(x)});
   var history = db.production.filter(function(x){return x.status==='completed' && byWorker(x) && byFilter(x)}).reverse().slice(0,50);
+
+  // Compute per-batch worker pay (qty × rate). Returns { amount, rate, rateLabel, qty }.
+  // Same formula as calcWorkerEarnings / renderSalary — for ЗП-reconciliation.
+  function batchPay(b, useCompletedQty) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    if (!p) return { amount: 0, rate: 0, rateLabel: '?', qty: 0 };
+    var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+    var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+    var rate = rType === 'percent' ? Math.round((p.sellPrice||0) * rVal / 100) : rVal;
+    var rateLabel = rType === 'percent' ? rVal + '% від ' + fmt(p.sellPrice||0) + ' грн' : 'фікс ' + fmt(rVal) + ' грн';
+    var qty = useCompletedQty ? (b.completedQty || b.qty) : b.qty;
+    return { amount: rate * qty, rate: rate, rateLabel: rateLabel, qty: qty };
+  }
+
   // Кнопка "Здати все" — видима тільки якщо є активні і ми не worker
   var bulkBtn = document.getElementById('bulk-complete-btn');
+  var activeTotalPay = active.reduce(function(s,b){ return s + batchPay(b, false).amount; }, 0);
   if (bulkBtn) {
     bulkBtn.style.display = (!isW && active.length > 1) ? 'inline-block' : 'none';
     bulkBtn.dataset.ids = active.map(function(b){ return b.id; }).join(',');
     var workerLbl = prodWorkerFilter ? ' ('+prodWorkerFilter+')' : '';
-    bulkBtn.textContent = '✅ Здати все' + workerLbl + ' — ' + active.length;
+    bulkBtn.textContent = '✅ Здати все' + workerLbl + ' — ' + active.length + (activeTotalPay > 0 ? ' • ' + fmt(activeTotalPay) + ' грн' : '');
   }
   document.getElementById('production-active').innerHTML = active.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
+    var pay = batchPay(b, false);
+    var payCell = pay.amount > 0
+      ? '<span style="color:#6A1B9A;font-weight:600;" title="'+pay.qty+' × '+fmt(pay.rate)+' грн ('+esc(pay.rateLabel)+')">'+fmt(pay.amount)+' грн</span>'
+      : '<span class="text-muted" title="Ставка майстра не задана для цієї гри">—</span>';
     return '<tr>'+
       '<td><input type="checkbox" class="prodbatch-cb" value="'+b.id+'" onchange="updateProdSelectedCount()"></td>'+
-      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть"><strong>'+b.qty+'</strong></td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
+      '<td data-label="Дата">'+b.date+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td><td data-label="К-сть"><strong>'+b.qty+'</strong></td>'+
+      '<td data-label="Сума ЗП">'+payCell+'</td>'+
+      '<td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
       '<td data-label="Статус"><span class="badge badge-warning">В роботі</span></td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-success btn-sm" onclick="quickComplete(\''+b.id+'\')" title="Здати">Здати</button> '+
@@ -4575,19 +4596,25 @@ function renderProduction() {
         '<button class="btn btn-danger btn-sm" onclick="deleteProductionBatch(\''+b.id+'\')" title="Видалити">🗑</button>'+
       '</td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Немає активного виробництва</td></tr>';
+  }).join('') || '<tr><td colspan="9" class="text-muted" style="text-align:center;padding:20px;">Немає активного виробництва</td></tr>';
 
   document.getElementById('production-history').innerHTML = history.map(function(b) {
     var p = db.products.find(function(x){return x.id===b.productId});
     var noteHtml = b.completionNote ? '<div style="font-size:11px;color:#6D4C00;background:#FFF8E1;border-left:3px solid #FFC107;padding:3px 6px;margin-top:4px;border-radius:3px;white-space:normal;">💬 '+esc(b.completionNote)+'</div>' : '';
-    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+noteHtml+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
+    var pay = batchPay(b, true);
+    var payCell = pay.amount > 0
+      ? '<span style="color:#6A1B9A;font-weight:600;" title="'+pay.qty+' × '+fmt(pay.rate)+' грн ('+esc(pay.rateLabel)+')">'+fmt(pay.amount)+' грн</span>'
+      : '<span class="text-muted" title="Ставка майстра не задана для цієї гри">—</span>';
+    return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Артикул"><code>'+(p?esc(p.sku||''):'-')+'</code></td><td data-label="Гра">'+(p?esc(p.name):'?')+noteHtml+'</td><td data-label="К-сть">'+(b.completedQty||b.qty)+'</td>'+
+      '<td data-label="Сума ЗП">'+payCell+'</td>'+
+      '<td data-label="Майстер">'+esc(wLabel(b.worker))+'</td>'+
       '<td data-label="Статус"><span class="badge badge-success">Готово</span>'+(b.fulfillmentDest?' <span class="badge" style="background:#E1BEE7;color:#4A148C;font-size:10px;">🏬 '+esc(b.fulfillmentDest)+'</span>':'')+'</td>'+
       '<td data-label="Дії" style="white-space:nowrap;">'+
         '<button class="btn btn-outline btn-sm" onclick="editCompletedBatch(\''+b.id+'\')" title="Редагувати">✏️</button> '+
         '<button class="btn btn-danger btn-sm" onclick="deleteCompletedBatch(\''+b.id+'\')" title="Видалити">🗑</button>'+
       '</td>'+
     '</tr>';
-  }).join('') || '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
+  }).join('') || '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:20px;">Історія порожня</td></tr>';
 }
 
 function quickComplete(batchId) {
