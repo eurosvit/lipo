@@ -858,7 +858,7 @@ a.order-link:hover { text-decoration:underline; }
       <button id="salary-pay-btn" class="btn btn-primary btn-sm" onclick="openPaySalaryModal()">💸 Виплатити</button>
     </div>
     <div class="table-wrap" style="margin-top:8px;">
-      <table><thead><tr><th>Дата</th><th id="pay-hist-worker-th">Майстер</th><th>Сума</th><th>Коментар</th><th id="pay-hist-actions-th">Дії</th></tr></thead>
+      <table><thead><tr><th>Дата</th><th id="pay-hist-worker-th">Майстер</th><th>Сума</th><th>Коментар</th><th title="Список партій, які покрила ця виплата (FIFO)">За що</th><th id="pay-hist-actions-th">Дії</th></tr></thead>
       <tbody id="salary-payments-table"></tbody></table>
     </div>
   </div>
@@ -8410,15 +8410,130 @@ function updateSalaryDate(batchId, newDate) {
 
 var _editingSalaryId = null;
 
+// Compute FIFO breakdown: which batches each payment covers, per worker.
+// Returns { paymentId: [{batchId, sku, name, qty, date, amount, batchTotal, fullyCovered}] }
+// Per worker: payments sorted by date ASC (older first); batches sorted by completedDate ASC.
+// Each payment consumes from the current batch position; partial coverage is tracked.
+function computePaymentBreakdown(db) {
+  var result = {};
+  var byWorkerPay = {};
+  (db.salaryPayments||[]).forEach(function(p){
+    if (!byWorkerPay[p.worker]) byWorkerPay[p.worker] = [];
+    byWorkerPay[p.worker].push(p);
+  });
+  function batchEarnedAmount(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    if (!p) return 0;
+    var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+    var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+    var rate = rType === 'percent' ? Math.round((p.sellPrice||0) * rVal / 100) : rVal;
+    return rate * (b.completedQty || b.qty);
+  }
+  Object.keys(byWorkerPay).forEach(function(w){
+    var payments = byWorkerPay[w].slice().sort(function(a,b){
+      var ad = a.date||''; var bd = b.date||'';
+      if (ad !== bd) return ad.localeCompare(bd);
+      return (a.id||'').localeCompare(b.id||'');
+    });
+    var batches = (db.production||[])
+      .filter(function(b){ return b.status==='completed' && b.worker===w; })
+      .slice()
+      .sort(function(a,b){
+        var ad = a.completedDate || a.date || '';
+        var bd = b.completedDate || b.date || '';
+        if (ad !== bd) return ad.localeCompare(bd);
+        return (a.id||'').localeCompare(b.id||'');
+      });
+    var bIdx = 0;
+    var bRemaining = batches.length ? batchEarnedAmount(batches[0]) : 0;
+    payments.forEach(function(pay){
+      result[pay.id] = [];
+      var payRemaining = Number(pay.amount) || 0;
+      while (payRemaining > 0 && bIdx < batches.length) {
+        if (bRemaining <= 0) {
+          bIdx++;
+          if (bIdx >= batches.length) break;
+          bRemaining = batchEarnedAmount(batches[bIdx]);
+          continue;
+        }
+        var b = batches[bIdx];
+        var bTotal = batchEarnedAmount(b);
+        var take = Math.min(payRemaining, bRemaining);
+        var prod = db.products.find(function(x){return x.id===b.productId});
+        result[pay.id].push({
+          batchId: b.id,
+          sku: prod ? (prod.sku||'') : '',
+          name: prod ? prod.name : '? (гру видалено)',
+          qty: b.completedQty || b.qty,
+          date: b.completedDate || b.date,
+          amount: take,
+          batchTotal: bTotal,
+          fullyCovered: take >= bRemaining
+        });
+        bRemaining -= take;
+        payRemaining -= take;
+      }
+    });
+  });
+  return result;
+}
+
+function toggleSalaryPaymentDetail(payId) {
+  var el = document.getElementById('sal-pay-det-'+payId);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
 function renderSalaryPayments(db, isW, wName) {
   var payments = (db.salaryPayments||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'')});
   if (isW && wName) payments = payments.filter(function(p){return p.worker===wName});
 
+  var breakdown = computePaymentBreakdown(db);
+  var colspan = isW ? 4 : 6;
+
   document.getElementById('salary-payments-table').innerHTML = payments.map(function(p){
     var workerTd = isW ? '' : '<td data-label="Майстер">'+esc(wLabel(p.worker))+'</td>';
     var actionsTd = isW ? '' : '<td><button class="btn btn-outline btn-sm" title="Редагувати" onclick="openPaySalaryModal(\''+p.id+'\')" style="margin-right:4px;">✏️</button><button class="btn btn-danger btn-sm" title="Видалити" onclick="deleteSalaryPayment(\''+p.id+'\')">🗑</button></td>';
-    return '<tr><td data-label="Дата">'+esc(p.date)+'</td>'+workerTd+'<td data-label="Сума"><strong>'+fmt(p.amount)+' грн</strong></td><td data-label="Коментар">'+esc(p.note||'—')+'</td>'+actionsTd+'</tr>';
-  }).join('') || '<tr><td colspan="'+(isW?3:5)+'" class="text-muted" style="text-align:center;padding:30px;">Виплат ще не було</td></tr>';
+
+    var items = breakdown[p.id] || [];
+    var totalCovered = items.reduce(function(s,x){return s+x.amount;}, 0);
+    var unallocated = Math.max(0, (Number(p.amount)||0) - totalCovered);
+    var btnLabel = items.length ? '📋 '+items.length+' '+(items.length===1?'партія':items.length<5?'партії':'партій') : '— нема партій';
+    var btnTitle = items.length ? 'Клікни щоб побачити перелік партій, які покрила ця виплата' : 'Партій для цієї виплати не знайдено (можливо аванс або виплата без виробництва)';
+    var detailTd = '<td data-label="За що"><button class="btn btn-outline btn-sm" onclick="toggleSalaryPaymentDetail(\''+p.id+'\')" title="'+esc(btnTitle)+'" style="font-size:12px;padding:4px 10px;">'+btnLabel+'</button></td>';
+
+    var rowHtml = '<tr><td data-label="Дата">'+esc(p.date)+'</td>'+workerTd+'<td data-label="Сума"><strong>'+fmt(p.amount)+' грн</strong></td><td data-label="Коментар">'+esc(p.note||'—')+'</td>'+detailTd+actionsTd+'</tr>';
+
+    // Hidden detail row with the batch breakdown
+    var detailInner = '';
+    if (items.length) {
+      detailInner = '<div style="padding:8px 0;">'+
+        '<div style="font-size:12px;color:var(--text-light);margin-bottom:6px;">FIFO-розподіл: ця виплата покрила (від найстарішої партії):</div>'+
+        '<table style="width:100%;font-size:12px;border-collapse:collapse;">'+
+          '<thead><tr style="background:#F3E5F5;color:#4A148C;"><th style="padding:6px 8px;text-align:left;">Дата здачі</th><th style="padding:6px 8px;text-align:left;">Артикул</th><th style="padding:6px 8px;text-align:left;">Гра</th><th style="padding:6px 8px;text-align:center;">К-сть</th><th style="padding:6px 8px;text-align:right;">Покрито з виплати</th><th style="padding:6px 8px;text-align:center;">Статус</th></tr></thead>'+
+          '<tbody>'+items.map(function(x){
+            var statusBadge = x.fullyCovered
+              ? '<span class="badge" style="background:#E8F5E9;color:#2E7D32;font-size:10px;">✓ повністю ('+fmt(x.batchTotal)+' грн)</span>'
+              : '<span class="badge" style="background:#FFF3E0;color:#E65100;font-size:10px;" title="Решта '+fmt(x.batchTotal - x.amount)+' грн із цієї партії — наступна виплата">⚠ частково (з '+fmt(x.batchTotal)+' грн)</span>';
+            return '<tr style="border-bottom:1px solid #F0F0F0;">'+
+              '<td style="padding:6px 8px;">'+esc(x.date||'—')+'</td>'+
+              '<td style="padding:6px 8px;"><code style="font-size:11px;">'+esc(x.sku||'—')+'</code></td>'+
+              '<td style="padding:6px 8px;">'+esc(x.name)+'</td>'+
+              '<td style="padding:6px 8px;text-align:center;">'+x.qty+'</td>'+
+              '<td style="padding:6px 8px;text-align:right;font-weight:600;">'+fmt(x.amount)+' грн</td>'+
+              '<td style="padding:6px 8px;text-align:center;">'+statusBadge+'</td>'+
+            '</tr>';
+          }).join('')+'</tbody>'+
+          '<tfoot><tr style="border-top:2px solid #E1BEE7;font-weight:600;"><td colspan="4" style="padding:6px 8px;text-align:right;">Разом покрито:</td><td style="padding:6px 8px;text-align:right;color:#4A148C;">'+fmt(totalCovered)+' грн</td><td style="padding:6px 8px;text-align:center;">'+(unallocated>0?'<span class="text-muted" style="font-size:11px;">+'+fmt(unallocated)+' грн аванс</span>':'')+'</td></tr></tfoot>'+
+        '</table>'+
+      '</div>';
+    } else {
+      detailInner = '<div style="padding:8px 4px;color:var(--text-light);font-size:12px;">Для цієї виплати не знайдено зданих партій (можливо аванс наперед або виплата без виробництва).</div>';
+    }
+    var detailRow = '<tr id="sal-pay-det-'+p.id+'" style="display:none;background:#FAFAFE;"><td colspan="'+colspan+'" style="padding:8px 16px;">'+detailInner+'</td></tr>';
+
+    return rowHtml + detailRow;
+  }).join('') || '<tr><td colspan="'+colspan+'" class="text-muted" style="text-align:center;padding:30px;">Виплат ще не було</td></tr>';
 }
 
 function openPaySalaryModal(editId) {
