@@ -840,6 +840,10 @@ a.order-link:hover { text-decoration:underline; }
         <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('thisMonth')" style="font-size:11px;padding:5px 10px;">Цей місяць</button>
         <button class="btn btn-outline btn-sm" onclick="setSalaryDateRange('all')" style="font-size:11px;padding:5px 10px;">Все</button>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);cursor:pointer;margin-top:4px;" title="FIFO: партії від найстаріших до новіших, які покриті виплатами — приховуються. Партії, які виплата НЕ покрила повністю, лишаються видимими.">
+        <input type="checkbox" id="salary-show-paid" onchange="renderSalary()" style="width:14px;height:14px;accent-color:var(--primary);">
+        Показати виплачені
+      </label>
     </div>
   </div>
   <p id="salary-desc" style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Автоматичний розрахунок зарплати майстрів на основі зданого виробництва та ставок.</p>
@@ -8174,6 +8178,46 @@ function renderSalary() {
   var completed = db.production.filter(function(x){return x.status==='completed'});
   if (isW && wName) completed = completed.filter(function(b){return b.worker===wName});
 
+  // FIFO paid-status per batch: sort each worker's batches by completedDate ASC,
+  // mark as "paid" while cumulative earned ≤ workerPaid total. A batch is "paid"
+  // only when fully covered (partial coverage = still unpaid).
+  function batchEarned(b) {
+    var p = db.products.find(function(x){return x.id===b.productId});
+    if (!p) return 0;
+    var rType = p.workerRateType || (db.workerRateDefault||{}).type || 'percent';
+    var rVal = p.workerRate || (db.workerRateDefault||{}).value || 25;
+    var rate = rType === 'percent' ? Math.round((p.sellPrice||0) * rVal / 100) : rVal;
+    return rate * (b.completedQty || b.qty);
+  }
+  var paidIds = {};
+  var workersOnCompleted = {};
+  completed.forEach(function(b){ if(b.worker) workersOnCompleted[b.worker] = true; });
+  Object.keys(workersOnCompleted).forEach(function(w){
+    var workerPaid = calcWorkerPaid(db, w);
+    if (workerPaid <= 0) return;
+    var wBatches = completed
+      .filter(function(b){ return b.worker === w; })
+      .slice()
+      .sort(function(a,b){
+        var ad = a.completedDate || a.date || '';
+        var bd = b.completedDate || b.date || '';
+        if (ad !== bd) return ad.localeCompare(bd);
+        return (a.id||'').localeCompare(b.id||'');
+      });
+    var cum = 0;
+    for (var i = 0; i < wBatches.length; i++) {
+      var earned = batchEarned(wBatches[i]);
+      if (cum + earned <= workerPaid) {
+        paidIds[wBatches[i].id] = true;
+        cum += earned;
+      } else {
+        break; // first uncovered batch — stop (rest are also unpaid)
+      }
+    }
+  });
+  var showPaidEl = document.getElementById('salary-show-paid');
+  var showPaid = showPaidEl ? showPaidEl.checked : false;
+
   if (!isW) {
     var workers = [];
     var wSet = {};
@@ -8187,8 +8231,12 @@ function renderSalary() {
     if(dateFrom) filtered = filtered.filter(function(b){ return (b.completedDate||b.date) >= dateFrom; });
     if(dateTo) filtered = filtered.filter(function(b){ return (b.completedDate||b.date) <= dateTo; });
     if(curW) filtered = filtered.filter(function(b){return b.worker===curW});
+    var filteredAll = filtered; // for cards — date+worker filtered, but paid still included
+    if(!showPaid) filtered = filtered.filter(function(b){ return !paidIds[b.id]; });
   } else {
     var filtered = completed;
+    var filteredAll = filtered;
+    if(!showPaid) filtered = filtered.filter(function(b){ return !paidIds[b.id]; });
   }
 
   var totalSalary = 0;
@@ -8205,12 +8253,14 @@ function renderSalary() {
     }
     var earned = rate * (b.completedQty||b.qty);
     totalSalary += earned;
+    var paidBadge = paidIds[b.id] ? ' <span class="badge" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;font-size:10px;margin-left:6px;" title="Покрито виплатою (FIFO)">💸 виплачено</span>' : '';
+    var rowStyle = paidIds[b.id] ? ' style="opacity:0.6;"' : '';
     if (isW) {
-      return '<tr><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+'</td>'+
+      return '<tr'+rowStyle+'><td data-label="Дата">'+(b.completedDate||b.date)+'</td><td data-label="Гра">'+(p?esc(p.name):'?')+paidBadge+'</td>'+
         '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td></tr>';
     }
     var dateVal = b.completedDate || b.date;
-    return '<tr><td data-label="Дата"><input type="date" value="'+dateVal+'" onchange="updateSalaryDate(\''+b.id+'\', this.value)" style="border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="this.style.borderColor=\'transparent\'" title="Клікни щоб змінити дату здачі"></td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'<span style="color:var(--danger);">? (гру видалено)</span>')+'</td>'+
+    return '<tr'+rowStyle+'><td data-label="Дата"><input type="date" value="'+dateVal+'" onchange="updateSalaryDate(\''+b.id+'\', this.value)" style="border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="this.style.borderColor=\'transparent\'" title="Клікни щоб змінити дату здачі"></td><td data-label="Майстер">'+esc(wLabel(b.worker))+'</td><td data-label="Гра">'+(p?esc(p.name):'<span style="color:var(--danger);">? (гру видалено)</span>')+paidBadge+'</td>'+
       '<td data-label="К-сть">'+(b.completedQty||b.qty)+'</td><td data-label="Ставка">'+fmt(rate)+' грн ('+rateLabel+')</td><td data-label="Нараховано"><strong>'+fmt(earned)+' грн</strong></td>'+
       '<td data-label="Дії" style="white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="deleteSalaryRecord(\''+b.id+'\')" title="Видалити запис">🗑</button></td></tr>';
   });
@@ -8223,7 +8273,12 @@ function renderSalary() {
     thead.innerHTML = '<th>Дата</th><th>Майстер</th><th>Гра</th><th>К-сть</th><th>Ставка</th><th>Нараховано</th><th style="width:60px;">Дії</th>';
   }
 
-  document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="'+colCount+'" class="text-muted" style="text-align:center;padding:40px;">Немає даних</td></tr>';
+  // Friendlier empty state: distinguish "no data" vs "all paid"
+  var emptyMsg = 'Немає даних';
+  if (!showPaid && Object.keys(paidIds).length > 0 && completed.length > 0) {
+    emptyMsg = '✓ Всі нараховані партії в цьому фільтрі вже виплачені. Постав галочку «Показати виплачені» щоб побачити їх.';
+  }
+  document.getElementById('salary-table').innerHTML = rows.join('') || '<tr><td colspan="'+colCount+'" class="text-muted" style="text-align:center;padding:40px;">'+emptyMsg+'</td></tr>';
 
   // Cards
   var cardsHtml = '';
@@ -8238,7 +8293,9 @@ function renderSalary() {
     cardsHtml += '<div class="card"><div class="card-label">Виплачено</div><div class="card-value">'+fmt(totalPaid)+' <span style="font-size:16px;">грн</span></div></div>';
   } else {
     var byWorker = {};
-    filtered.forEach(function(b) {
+    // Cards use filteredAll (date+worker filtered, but includes paid batches),
+    // so "earned/paid/balance" stays consistent even when paid rows are hidden in the table.
+    filteredAll.forEach(function(b) {
       var p = db.products.find(function(x){return x.id===b.productId});
       var sRate = 0;
       if (p) {
@@ -8284,11 +8341,14 @@ function renderSalary() {
         '</div>'+
       '</div>';
     });
-    if(totalSalary>0) {
+    // Total card uses filteredAll so the number stays accurate when paid rows are hidden
+    var totalEarnedAll = 0;
+    Object.keys(byWorker).forEach(function(w){ totalEarnedAll += byWorker[w].earned; });
+    if(totalEarnedAll>0) {
       cardsHtml += '<div class="card success">'+
         '<div class="card-label">Загальний борг</div>'+
         '<div class="card-value">'+fmt(totalDebt)+' <span style="font-size:16px;">грн</span></div>'+
-        '<div class="card-sub" style="font-size:11px;color:var(--text-light);">Нараховано всього: '+fmt(totalSalary)+' грн</div>'+
+        '<div class="card-sub" style="font-size:11px;color:var(--text-light);">Нараховано всього: '+fmt(totalEarnedAll)+' грн</div>'+
       '</div>';
     }
   }
