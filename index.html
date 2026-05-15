@@ -5215,17 +5215,48 @@ function shipOrderFromStock(id) {
 // ===== CRM SKU mapper =====
 var _crmSkuMapDraft = {}; // { crmSku: productId }
 
-// Спроба автоматично знайти товар у каталозі за CRM SKU
-// (та сама логіка що й при синку SalesDrive)
-function autoMatchCrmSku(db, crmSku) {
-  if (!crmSku) return null;
-  var sku = String(crmSku).replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'').trim();
-  var match = db.products.find(function(p){
-    if (!p.sku) return false;
-    return p.sku === sku || p.sku === crmSku
-        || sku.indexOf(p.sku) === 0 || p.sku.indexOf(sku) === 0;
-  });
-  return match ? match.id : null;
+// Спроба автоматично знайти товар у каталозі за CRM SKU + назвою
+// (та сама логіка що й при синку SalesDrive). Якщо передано crmName —
+// додатково пробуємо знайти SKU всередині назви та співпадіння по назві.
+function autoMatchCrmSku(db, crmSku, crmName) {
+  if (!crmSku && !crmName) return null;
+  var sku = String(crmSku||'').replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'').trim();
+  // 1) SKU bidirectional prefix
+  if (sku || crmSku) {
+    var match = db.products.find(function(p){
+      if (!p.sku) return false;
+      return p.sku === sku || p.sku === crmSku
+          || (sku && sku.indexOf(p.sku) === 0) || (sku && p.sku.indexOf(sku) === 0);
+    });
+    if (match) return match.id;
+  }
+  if (crmName) {
+    var crmNameLower = String(crmName).toLowerCase().trim();
+    // 2) Tokenize CRM name → each token as exact SKU (longest first)
+    var tokens = crmNameLower.split(/[\s\-_,;()\/]+/).filter(function(t){ return t.length >= 3; });
+    tokens.sort(function(a,b){ return b.length - a.length; });
+    for (var ti = 0; ti < tokens.length; ti++) {
+      var tok = tokens[ti];
+      var m = db.products.find(function(p){ return p.sku && p.sku.toLowerCase() === tok; });
+      if (m) return m.id;
+    }
+    // 3) Exact name match (with optional leading-SKU-token strip)
+    var stripped = crmNameLower.replace(/^\S+\s+/, '');
+    var mn = db.products.find(function(p){
+      if (!p.name) return false;
+      var pn = p.name.toLowerCase().trim();
+      return pn === crmNameLower || pn === stripped;
+    });
+    if (mn) return mn.id;
+    // 4) Our product name as substring of CRM name (≥6 chars, longest first)
+    var candidates = db.products.filter(function(p){ return p.name && p.name.length >= 6; });
+    candidates.sort(function(a,b){ return (b.name||'').length - (a.name||'').length; });
+    var ms = candidates.find(function(p){
+      return crmNameLower.indexOf(p.name.toLowerCase().trim()) !== -1;
+    });
+    if (ms) return ms.id;
+  }
+  return null;
 }
 
 function openCrmSkuMapper() {
@@ -5239,7 +5270,7 @@ function openCrmSkuMapper() {
       var key = it.sku;
       if (!skuStats[key]) {
         // Пріоритет: вже в замовленні → ручний мапінг → автоматичний матч проти каталогу
-        var pid = it.productId || db.crmSkuMap[key] || autoMatchCrmSku(db, key);
+        var pid = it.productId || db.crmSkuMap[key] || autoMatchCrmSku(db, key, it.name);
         skuStats[key] = { sku: key, sampleName: it.name||'', count: 0, productId: pid, sampleOrderNum: o.num };
       }
       skuStats[key].count++;
@@ -5363,8 +5394,8 @@ function rematchAllOrders() {
       if (it.productId) { alreadyLinked++; return; }
       // 1) Ручна мапа
       var pid = db.crmSkuMap[it.sku];
-      // 2) Автоматичний матч
-      if (!pid) pid = autoMatchCrmSku(db, it.sku);
+      // 2) Автоматичний матч (по SKU + назві)
+      if (!pid) pid = autoMatchCrmSku(db, it.sku, it.name);
       if (pid) {
         it.productId = pid;
         linked++;
@@ -7613,27 +7644,63 @@ function syncSalesDrive() {
         }
         var paymentStatus = o.payment_status === 'paid' || o.paymentStatus === 'paid' || o.payed === 1 ? 'paid' : 'unpaid';
 
-        // Match products to our catalog by SKU
+        // Match products to our catalog. Multi-tier strategy — CRM often puts the
+        // SKU inside the product name string (e.g. "LP1246A5 A5 Візуальний розклад"),
+        // while our catalog keeps SKU as a separate field. We try several signals.
         var crmSkuMap = db.crmSkuMap || {};
         var items = lipoProducts.map(function(sp) {
           var rawSku = sp.sku || '';
           var sku = rawSku.replace(/_mamulya$/i,'').replace(/-Boy$/i,'').replace(/-Girl$/i,'');
+          var crmName = sp.text || sp.title || '';
+          var crmNameLower = crmName.toLowerCase().trim();
           var matched = null;
+
           // 1) Manual mapping has highest priority
           if (rawSku && crmSkuMap[rawSku]) {
             matched = db.products.find(function(p){ return p.id === crmSkuMap[rawSku]; });
           }
-          // 2) Auto-match by SKU (bidirectional prefix)
-          if (!matched) {
+          // 2) Auto-match by explicit SKU (bidirectional prefix)
+          if (!matched && (sku || rawSku)) {
             matched = db.products.find(function(p){
               if (!p.sku) return false;
               return p.sku === sku || p.sku === rawSku
-                  || sku.indexOf(p.sku) === 0 || p.sku.indexOf(sku) === 0;
+                  || (sku && sku.indexOf(p.sku) === 0) || (sku && p.sku.indexOf(sku) === 0);
+            });
+          }
+          // 3) Tokenize CRM name and try each token as a SKU (exact, case-insensitive).
+          //    CRM often sends "LP1246A5 A5 Візуальний розклад" — our SKU appears as a token.
+          //    Longest tokens first to prefer specific SKUs over generic ones.
+          if (!matched && crmNameLower) {
+            var tokens = crmNameLower.split(/[\s\-_,;()\/]+/).filter(function(t){ return t.length >= 3; });
+            tokens.sort(function(a,b){ return b.length - a.length; });
+            for (var ti = 0; ti < tokens.length && !matched; ti++) {
+              var tok = tokens[ti];
+              matched = db.products.find(function(p){
+                return p.sku && p.sku.toLowerCase() === tok;
+              });
+            }
+          }
+          // 4) Exact name match (case-insensitive, trimmed). Strips leading SKU-like token first.
+          if (!matched && crmNameLower) {
+            var stripped = crmNameLower.replace(/^\S+\s+/, ''); // drop leading "LP1246A5 " if present
+            matched = db.products.find(function(p){
+              if (!p.name) return false;
+              var pn = p.name.toLowerCase().trim();
+              return pn === crmNameLower || pn === stripped;
+            });
+          }
+          // 5) Our product name appears as substring of CRM name (only if name is long
+          //    enough to avoid generic matches like "А5"). Longest catalog names first.
+          if (!matched && crmNameLower) {
+            var candidates = db.products.filter(function(p){ return p.name && p.name.length >= 6; });
+            candidates.sort(function(a,b){ return (b.name||'').length - (a.name||'').length; });
+            matched = candidates.find(function(p){
+              return crmNameLower.indexOf(p.name.toLowerCase().trim()) !== -1;
             });
           }
           return {
             productId: matched ? matched.id : null,
-            name: sp.text || 'Невідомий товар',
+            name: crmName || 'Невідомий товар',
             sku: rawSku || sku || '',
             qty: sp.amount || 1,
             price: sp.price || 0
