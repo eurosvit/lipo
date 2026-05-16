@@ -2818,6 +2818,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // JS modules з public/js/ (рефакторинг — winесені модулі)
+    if (url.startsWith('/js/') && url.endsWith('.js')) {
+      const safe = url.replace(/\.\./g, '').replace(/^\/+/, '');
+      const filePath = path.join(__dirname, 'public', safe);
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600'  // 1 година — оновлення підхопиться швидко
+        });
+        res.end(data);
+      });
+      return;
+    }
+
     // Guide
     if (url === '/guide' || url === '/guide.html') {
       serveFile(res, FILES.guide);
@@ -3070,13 +3085,13 @@ async function checkTrialReminders() {
       }
     }
 
-    // === WEEKLY BACKUP — раз на тиждень шлемо JSON на email власника ===
-    // Перевіряємо щодня; для кожного користувача шлемо, якщо останній бекап (manual чи weekly) був ≥ 6 днів тому
+    // === WEEKLY BACKUP — раз на тиждень шлемо JSON-бекап
+    // ⚠️ ШЛЕМО ЛИШЕ ADMIN'У (для нас як розробників). Користувачам не показуємо
+    // UI бекапу, щоб не лякати «дані можуть пропасти». Endpoint /api/backup/email
+    // лишається доступний усім — на майбутнє.
     const usersForBackup = await pool.query(`
       SELECT u.id, u.name, u.email FROM users u
-      WHERE u.role != 'admin'
-        AND u.id NOT IN (SELECT worker_id FROM worker_links)
-        AND (u.subscription_ends_at > NOW() OR u.trial_ends_at > NOW())
+      WHERE u.role = 'admin'
     `);
     for (const u of usersForBackup.rows) {
       try {
