@@ -1,0 +1,41 @@
+{
+  "name": "LipoLand CRM",
+  "short_name": "LipoLand",
+  "description": "CRM для майстринь липучкових книжок — замовлення, виробництво, склад, ЗП.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3E5F5",
+  "theme_color": "#7B1FA2",
+  "lang": "uk",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Замовлення",
+      "short_name": "Замовлення",
+      "url": "/app#orders",
+      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Виробництво",
+      "short_name": "Виробництво",
+      "url": "/app#production",
+      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -2535,14 +2535,34 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Static files (images)
-    if (url.match(/\.(png|jpg|jpeg|svg|ico|webp)$/)) {
+    // Static files (images + PWA assets)
+    if (url.match(/\.(png|jpg|jpeg|svg|ico|webp|webmanifest)$/) && !url.startsWith('/api/')) {
       const filePath = path.join(__dirname, 'public', url);
       const ext = path.extname(url).slice(1);
-      const mimeTypes = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', svg:'image/svg+xml', ico:'image/x-icon', webp:'image/webp' };
+      const mimeTypes = {
+        png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', svg:'image/svg+xml',
+        ico:'image/x-icon', webp:'image/webp', webmanifest:'application/manifest+json'
+      };
       fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); res.end('Not found'); return; }
         res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=86400' });
+        res.end(data);
+      });
+      return;
+    }
+
+    // Service Worker — окремо, бо потребує специфічних заголовків
+    // (Cache-Control: no-cache щоб оновлення SW бачились швидко;
+    //  Service-Worker-Allowed: '/' щоб працювати з кореня)
+    if (url === '/service-worker.js' || url === '/sw.js') {
+      const filePath = path.join(__dirname, 'public', 'service-worker.js');
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Service-Worker-Allowed': '/'
+        });
         res.end(data);
       });
       return;

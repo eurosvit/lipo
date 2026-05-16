@@ -2,9 +2,16 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LipoLand -- Система управління виробництвом</title>
 <link rel="icon" href="/favicon.png" type="image/png">
+<!-- PWA -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7B1FA2">
+<link rel="apple-touch-icon" href="/favicon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LipoLand">
 <style>
 :root {
   --primary: #7B1FA2;
@@ -1141,6 +1148,17 @@ a.order-link:hover { text-decoration:underline; }
   <h2>Налаштування</h2>
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Майстри, вартість друку, сповіщення та експорт даних.</p>
   <div style="max-width:720px;">
+  <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#F3E5F5 0%,#FFF 60%);border:1px solid #E1BEE7;" id="pwa-settings-card">
+    <div class="section-title" style="margin-top:0;">📲 Додаток на телефоні</div>
+    <p class="text-muted mb-16" style="font-size:13px;">Встановити LipoLand на головний екран телефону — швидший запуск, повноекранний режим, працює навіть з поганим інтернетом. Майстрам особливо зручно.</p>
+    <div id="pwa-status-box" style="display:none;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;font-size:13px;color:#2E7D32;margin-bottom:12px;">✓ Запущено як встановлений додаток</div>
+    <button class="btn btn-primary" id="pwa-install-btn" onclick="pwaInstall()" style="display:none;">📲 Встановити на телефон</button>
+    <button class="btn btn-outline btn-sm" onclick="pwaInstall()" style="margin-left:8px;" title="Показати інструкцію для iOS / якщо кнопка вище не з'явилась">ℹ️ Як встановити на iPhone</button>
+    <div style="margin-top:12px;font-size:11px;color:var(--text-light);">
+      <b>Android/Chrome:</b> кнопка зверху з'явиться автоматично через кілька секунд.<br>
+      <b>iPhone (Safari):</b> натисни кнопку «Поділитись» (квадрат зі стрілкою вгору) → «На початковий екран».
+    </div>
+  </div>
   <div class="card feat-workers" style="margin-bottom:16px;">
     <div class="section-title" style="margin-top:0;">Майстри (локальні)</div>
     <div id="workers-list" class="mb-16"></div>
@@ -2488,6 +2506,76 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
+<script>
+// ===== PWA: Service Worker registration + install prompt =====
+(function(){
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+      .then(function(reg){
+        // Перевіряємо оновлення кожні 30 хв
+        setInterval(function(){ reg.update().catch(function(){}); }, 30 * 60 * 1000);
+        // Якщо знайдено нову версію — миттєво активуємо
+        reg.addEventListener('updatefound', function(){
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function(){
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              // Нова версія готова — повідомляємо їй активуватись
+              try { nw.postMessage('SKIP_WAITING'); } catch(_) {}
+            }
+          });
+        });
+      })
+      .catch(function(e){ console.warn('SW register failed:', e); });
+
+    // Перезавантажити сторінку коли активувався новий SW
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+})();
+
+// Відкладений install prompt — спрацьовує тільки на Chrome/Edge/Android,
+// iOS вимагає ручного «Додати на головний екран»
+window._deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  window._deferredInstallPrompt = e;
+  // Show install button if it exists on current page
+  var btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+window.addEventListener('appinstalled', function(){
+  window._deferredInstallPrompt = null;
+  var btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'none';
+  try { localStorage.setItem('lipo_pwa_installed', '1'); } catch(_) {}
+});
+
+// Глобальна функція для кнопки встановлення
+function pwaInstall() {
+  var p = window._deferredInstallPrompt;
+  if (!p) {
+    // iOS / уже встановлено / браузер не підтримує
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS) {
+      alert('На iPhone: натисни «Поділитись» (квадрат зі стрілкою) → «На початковий екран».');
+    } else {
+      alert('Встановлення недоступне у цьому браузері. Спробуй Chrome/Edge на Android чи десктопі.');
+    }
+    return;
+  }
+  p.prompt();
+  p.userChoice.then(function(){ window._deferredInstallPrompt = null; });
+}
+
+// Detect if already running as installed PWA
+window._isStandalonePWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+</script>
 <script>
 // Instantly restore last viewed page + worker nav (no flash)
 (function(){
@@ -9647,6 +9735,20 @@ function renderDashboardPulse(db, thisMonth) {
 // ==================== SETTINGS ====================
 function renderSettings() {
   var db = getDB();
+  // PWA install state
+  try {
+    var standalone = window._isStandalonePWA || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    var statusBox = document.getElementById('pwa-status-box');
+    var installBtn = document.getElementById('pwa-install-btn');
+    if (statusBox && installBtn) {
+      if (standalone) {
+        statusBox.style.display = 'block';
+        installBtn.style.display = 'none';
+      } else if (window._deferredInstallPrompt) {
+        installBtn.style.display = 'inline-flex';
+      }
+    }
+  } catch(_) {}
   document.getElementById('workers-list').innerHTML = db.workers.map(function(w,i){
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'+
       '<span style="flex:1;">'+esc(w)+'</span>'+
