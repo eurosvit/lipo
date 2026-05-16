@@ -582,6 +582,7 @@ a.order-link:hover { text-decoration:underline; }
         📷 Накладна з фото
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="uploadInvoice(this)">
       </label>
+      <button class="btn btn-outline" onclick="openInventoryModal('material')" title="Перерахувати фактичні залишки">📋 Інвентаризація</button>
       <button class="btn btn-danger btn-sm" id="undo-invoice-btn" style="display:none;" onclick="undoLastInvoice()">↩ Скасувати накладну</button>
     </div>
   </div>
@@ -625,6 +626,7 @@ a.order-link:hover { text-decoration:underline; }
   <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Каталог ваших ігор із залишками на складі. Готова продукція потрапляє сюди після здачі з виробництва.</p>
   <div style="margin-bottom:12px;">
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('cat-manager').style.display=document.getElementById('cat-manager').style.display==='none'?'block':'none'">📁 Управління категоріями</button>
+    <button class="btn btn-outline btn-sm" onclick="openInventoryModal('product')" style="margin-left:8px;" title="Перерахувати фактичні залишки">📋 Інвентаризація</button>
     <button class="btn btn-outline btn-sm" onclick="resetAllCosts()" style="margin-left:8px;">🧹 Скинути собівартість</button>
     <button class="btn btn-outline btn-sm feat-fulfillment" onclick="openTransferFulfillment()" style="margin-left:8px;">📦 Передати на фулфілмент</button>
     <button class="btn btn-outline btn-sm feat-fulfillment" onclick="toggleFfManager()" style="margin-left:8px;">🏬 Фулфілмент-точки</button>
@@ -1160,6 +1162,20 @@ a.order-link:hover { text-decoration:underline; }
     </div>
 
     <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <h4 style="margin:0 0 8px;color:#4A148C;font-size:15px;">📁 Резервні копії</h4>
+      <p class="text-muted mb-16" style="font-size:13px;">Автоматичний бекап даних на твій email раз на тиждень. Можна надіслати в будь-який момент.</p>
+      <div id="backup-status-box" style="font-size:13px;margin-bottom:12px;color:var(--text-light);">Завантаження стану...</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="backupNow()">📧 Надіслати на email зараз</button>
+        <button class="btn btn-outline" onclick="exportData()">💾 Завантажити JSON</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-light);">
+        💡 <b>Автоматично:</b> кожні 7 днів буде летіти JSON на твій email — збережи в Google Drive чи Dropbox.<br>
+        💡 <b>Відновлення:</b> Налаштування внизу → Імпорт даних → вибери JSON-файл.
+      </div>
+    </div>
+
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
       <h4 style="margin:0 0 8px;color:#4A148C;font-size:15px;">🔔 Push-сповіщення</h4>
       <p class="text-muted mb-16" style="font-size:13px;">Отримуй сповіщення прямо на телефон навіть коли LipoLand закритий — нові замовлення, низькі залишки, тощо.</p>
       <div id="push-status-box" style="font-size:13px;margin-bottom:12px;color:var(--text-light);">Завантаження стану...</div>
@@ -1556,6 +1572,52 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <!-- ========== MODALS ========== -->
+
+<!-- Inventory Audit -->
+<div class="modal-overlay" id="modal-inventory">
+  <div class="modal" style="max-width:960px;">
+    <div class="modal-header">
+      <h3 id="inv-title">📋 Інвентаризація</h3>
+      <button class="modal-close" onclick="closeModal('inventory')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#6D4C00;">
+        💡 <strong>Як це працює:</strong> у колонці «Факт» введи реальну кількість після перерахунку. Пусті поля — не чіпатимуться («не перевірено»). Різниця показується автоматично. Натисни «Зафіксувати» — корекції застосуються, запис іде в історію інвентаризацій + аудит-лог.
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <input type="text" id="inv-search" placeholder="Пошук назви..." oninput="renderInventoryRows()" style="flex:1;min-width:200px;padding:8px 12px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="inv-show-only-checked" onchange="renderInventoryRows()" style="width:14px;height:14px;accent-color:var(--primary);">
+          Тільки заповнені
+        </label>
+        <span id="inv-summary" style="font-size:13px;color:var(--text-light);"></span>
+      </div>
+      <div class="table-wrap" style="max-height:55vh;overflow-y:auto;">
+        <table style="width:100%;font-size:13px;">
+          <thead style="position:sticky;top:0;background:#F3E5F5;color:#4A148C;z-index:5;">
+            <tr>
+              <th style="padding:8px;text-align:left;">Позиція</th>
+              <th style="padding:8px;text-align:center;width:90px;">Од.</th>
+              <th style="padding:8px;text-align:right;width:90px;">Система</th>
+              <th style="padding:8px;text-align:center;width:110px;">Факт</th>
+              <th style="padding:8px;text-align:right;width:90px;">Різниця</th>
+              <th style="padding:8px;text-align:left;width:160px;">Причина (опц.)</th>
+            </tr>
+          </thead>
+          <tbody id="inv-rows"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-size:13px;font-weight:600;">Загальна нотатка про цю інвентаризацію:</label>
+        <input type="text" id="inv-note" placeholder="напр.: щоквартальна інвентаризація; перевірила Юля" style="width:100%;margin-top:4px;">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('inventory')">Скасувати</button>
+      <button class="btn btn-success" onclick="commitInventory()">✓ Зафіксувати інвентаризацію</button>
+    </div>
+  </div>
+</div>
 
 <!-- Client Detail -->
 <div class="modal-overlay" id="modal-client-detail">
@@ -2590,6 +2652,47 @@ function pwaInstall() {
 // Detect if already running as installed PWA
 window._isStandalonePWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 
+// ===== Backup =====
+async function backupNow() {
+  var btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Надсилаємо...'; }
+  try {
+    var r = await fetch('/api/backup/email', { method: 'POST' });
+    var data = await r.json();
+    if (r.ok && data.ok) {
+      alert('✅ Бекап надіслано на твій email (' + data.sizeKB + ' KB). Перевір пошту через 1-2 хв.');
+      refreshBackupUI();
+    } else {
+      alert('Помилка: ' + (data.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('Помилка мережі: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📧 Надіслати на email зараз'; }
+  }
+}
+
+async function refreshBackupUI() {
+  var box = document.getElementById('backup-status-box');
+  if (!box) return;
+  try {
+    var r = await fetch('/api/backup/last');
+    var data = await r.json();
+    if (data.lastBackup) {
+      var d = new Date(data.lastBackup);
+      var ago = Math.floor((Date.now() - d.getTime()) / 86400000);
+      var typeLabel = data.type === 'backup_weekly' ? 'авто' : 'ручний';
+      var ageColor = ago < 8 ? 'var(--success)' : ago < 14 ? 'var(--warning)' : 'var(--danger)';
+      var ageStr = ago === 0 ? 'сьогодні' : ago === 1 ? 'вчора' : ago + ' днів тому';
+      box.innerHTML = '<span style="color:'+ageColor+';">✓ Останній бекап: '+ageStr+'</span> <span style="color:var(--text-light);font-size:11px;">('+typeLabel+', '+d.toLocaleDateString('uk-UA')+')</span>';
+    } else {
+      box.innerHTML = '<span style="color:var(--warning);">⚠ Ще не було бекапів</span> — натисни кнопку нижче';
+    }
+  } catch(_) {
+    box.innerHTML = '<span style="color:var(--text-light);">Стан недоступний</span>';
+  }
+}
+
 // ===== Push notifications =====
 function urlBase64ToUint8Array(base64String) {
   var padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -2789,7 +2892,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}], clientMeta:{}, defects:[], auditLog:[] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}], clientMeta:{}, defects:[], auditLog:[], inventoryAudits:[] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -3927,7 +4030,15 @@ function getCategories(db) {
   var cats = {};
   (db.categories||[]).forEach(function(c){ cats[c]=true; });
   db.products.forEach(function(p){ if(p.category) cats[p.category]=true; });
-  return Object.keys(cats).sort();
+  var all = Object.keys(cats);
+  // Якщо є явний порядок — використовуємо його; нові додаються в кінець (алфавіт)
+  var order = db.categoryOrder || [];
+  if (order.length) {
+    var ordered = order.filter(function(c){ return cats[c]; });
+    var rest = all.filter(function(c){ return order.indexOf(c) === -1; }).sort();
+    return ordered.concat(rest);
+  }
+  return all.sort();
 }
 
 function renderCatManager() {
@@ -3936,12 +4047,53 @@ function renderCatManager() {
   var list = document.getElementById('cat-list');
   if (!list) return;
   list.innerHTML = cats.map(function(c){
-    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid var(--border);border-radius:16px;font-size:13px;">' +
+    var escaped = c.replace(/'/g,"\\'");
+    return '<span draggable="true" data-cat="'+esc(c)+'" '+
+        'ondragstart="catDragStart(event,\''+esc(escaped)+'\')" '+
+        'ondragover="catDragOver(event,\''+esc(escaped)+'\')" '+
+        'ondragleave="catDragLeave(event)" '+
+        'ondrop="catDrop(event,\''+esc(escaped)+'\')" '+
+        'ondragend="catDragEnd(event)" '+
+        'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid var(--border);border-radius:16px;font-size:13px;cursor:grab;transition:background .15s,border-color .15s;">' +
+      '<span style="color:#999;font-size:11px;user-select:none;">≡</span>' +
       esc(c) +
-      '<button onclick="renameCategory(\''+esc(c.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;" title="Перейменувати">✏️</button>' +
-      '<button onclick="deleteCategory(\''+esc(c.replace(/'/g,"\\'"))+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:#F44336;" title="Видалити">✕</button>' +
+      '<button onclick="renameCategory(\''+esc(escaped)+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;" title="Перейменувати">✏️</button>' +
+      '<button onclick="deleteCategory(\''+esc(escaped)+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:#F44336;" title="Видалити">✕</button>' +
     '</span>';
-  }).join('') || '<span class="text-muted" style="font-size:13px;">Немає категорій</span>';
+  }).join(' ') || '<span class="text-muted" style="font-size:13px;">Немає категорій</span>';
+}
+
+// Drag&drop категорій — зберігається в db.categoryOrder
+var _catDragName = null;
+function catDragStart(e, name) { _catDragName = name; e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.5'; }
+function catDragOver(e, name) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (_catDragName && _catDragName !== name) e.currentTarget.style.background = '#F3E5F5'; }
+function catDragLeave(e) { e.currentTarget.style.background = ''; }
+function catDrop(e, targetName) {
+  e.preventDefault();
+  e.currentTarget.style.background = '';
+  if (!_catDragName || _catDragName === targetName) return;
+  var db = getDB();
+  var order = (db.categoryOrder && db.categoryOrder.length) ? db.categoryOrder.slice() : getCategories(db);
+  var fromIdx = order.indexOf(_catDragName);
+  var toIdx = order.indexOf(targetName);
+  if (fromIdx === -1) {
+    // Категорія не в order (нова) — додаємо в кінець і пересуваємо
+    order.push(_catDragName);
+    fromIdx = order.length - 1;
+  }
+  if (toIdx === -1) order.push(targetName), toIdx = order.length - 1;
+  var moved = order.splice(fromIdx, 1)[0];
+  // Скорегувати toIdx якщо переміщення зменшило масив зліва
+  if (fromIdx < toIdx) toIdx--;
+  order.splice(toIdx, 0, moved);
+  db.categoryOrder = order;
+  saveDB(db);
+  renderProducts();
+}
+function catDragEnd(e) {
+  _catDragName = null;
+  e.target.style.opacity = '';
+  document.querySelectorAll('[data-cat]').forEach(function(el){ el.style.background = ''; });
 }
 
 function addCategory() {
@@ -6420,7 +6572,14 @@ function renderStatusManager() {
   var list = document.getElementById('status-list');
   if (!list) return;
   list.innerHTML = statuses.map(function(s, i) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;">'+
+    return '<div draggable="true" data-statusid="'+s.id+'" '+
+        'ondragstart="statusDragStart(event,\''+s.id+'\')" '+
+        'ondragover="statusDragOver(event,\''+s.id+'\')" '+
+        'ondragleave="statusDragLeave(event)" '+
+        'ondrop="statusDrop(event,\''+s.id+'\')" '+
+        'ondragend="statusDragEnd(event)" '+
+        'style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;transition:background .15s,border-color .15s;">'+
+      '<span title="Перетягни щоб змінити порядок" style="cursor:grab;user-select:none;font-size:16px;color:#999;padding:0 4px;">≡</span>'+
       '<input type="color" value="'+s.color+'" onchange="updateStatusColor(\''+s.id+'\',this.value)" style="width:28px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">'+
       '<span style="flex:1;font-size:13px;font-weight:500;padding:4px 8px;background:'+s.color+';border-radius:6px;">'+esc(s.label)+'</span>'+
       '<button onclick="renameStatus(\''+s.id+'\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;" title="Перейменувати">✏️</button>'+
@@ -6429,6 +6588,33 @@ function renderStatusManager() {
       '<button onclick="deleteStatus(\''+s.id+'\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#e74c3c;" title="Видалити">✕</button>'+
     '</div>';
   }).join('') || '<p class="text-muted" style="font-size:13px;">Додайте перший статус</p>';
+}
+
+// Drag&drop статусів — перетягни щоб змінити порядок
+var _statusDragId = null;
+function statusDragStart(e, id) { _statusDragId = id; e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.5'; }
+function statusDragOver(e, id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (_statusDragId && _statusDragId !== id) e.currentTarget.style.background = '#F3E5F5'; }
+function statusDragLeave(e) { e.currentTarget.style.background = ''; }
+function statusDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.style.background = '';
+  if (!_statusDragId || _statusDragId === targetId) return;
+  var db = getDB();
+  var statuses = db.orderStatuses || getOrderStatuses();
+  var fromIdx = statuses.findIndex(function(s){return s.id === _statusDragId;});
+  var toIdx = statuses.findIndex(function(s){return s.id === targetId;});
+  if (fromIdx === -1 || toIdx === -1) return;
+  var moved = statuses.splice(fromIdx, 1)[0];
+  statuses.splice(toIdx, 0, moved);
+  db.orderStatuses = statuses;
+  saveDB(db);
+  renderStatusManager();
+  renderPage('orders');
+}
+function statusDragEnd(e) {
+  _statusDragId = null;
+  e.target.style.opacity = '';
+  document.querySelectorAll('[data-statusid]').forEach(function(el){ el.style.background = ''; });
 }
 
 function addOrderStatus() {
@@ -8518,6 +8704,161 @@ function returnFromWorker(stockId) {
   renderPage('worker-stock');
 }
 
+// ==================== INVENTORY AUDIT ====================
+// Інвентаризація — звірка факт vs система. Зберігається в db.inventoryAudits[].
+// Корекції одразу застосовуються до p.stock / mat.qty.
+var _invState = null; // { type, items: [{ id, name, unit, systemQty, factQty, reason }] }
+
+function openInventoryModal(type) {
+  var db = getDB();
+  if (type === 'material') {
+    document.getElementById('inv-title').textContent = '📋 Інвентаризація матеріалів';
+    _invState = {
+      type: 'material',
+      items: (db.materials || []).map(function(m){
+        return { id: m.id, name: m.name + (m.size?' ('+m.size+')':''), unit: m.unit || 'шт', systemQty: Number(m.qty)||0, factQty: '', reason: '' };
+      })
+    };
+  } else {
+    document.getElementById('inv-title').textContent = '📋 Інвентаризація готових ігор';
+    _invState = {
+      type: 'product',
+      items: (db.products || []).filter(function(p){return p.active !== false;}).map(function(p){
+        return { id: p.id, name: (p.sku?p.sku+' — ':'') + p.name + (p.size?' ('+p.size+')':''), unit: 'шт', systemQty: Number(p.stock)||0, factQty: '', reason: '' };
+      })
+    };
+  }
+  document.getElementById('inv-search').value = '';
+  document.getElementById('inv-show-only-checked').checked = false;
+  document.getElementById('inv-note').value = '';
+  renderInventoryRows();
+  openModal('inventory');
+}
+
+function renderInventoryRows() {
+  if (!_invState) return;
+  var search = (document.getElementById('inv-search').value||'').toLowerCase().trim();
+  var onlyChecked = document.getElementById('inv-show-only-checked').checked;
+  var filtered = _invState.items.filter(function(it){
+    if (search && it.name.toLowerCase().indexOf(search) === -1) return false;
+    if (onlyChecked && (it.factQty === '' || it.factQty === null || it.factQty === undefined)) return false;
+    return true;
+  });
+  var html = filtered.map(function(it, idx){
+    var realIdx = _invState.items.indexOf(it);
+    var fact = it.factQty;
+    var hasValue = fact !== '' && fact !== null && fact !== undefined && !isNaN(parseFloat(fact));
+    var diff = hasValue ? (parseFloat(fact) - it.systemQty) : null;
+    var diffColor = diff === null ? 'var(--text-light)' : (diff === 0 ? 'var(--success)' : (diff > 0 ? '#1565C0' : 'var(--danger)'));
+    var diffStr = diff === null ? '—' : (diff > 0 ? '+'+fmt(diff) : fmt(diff));
+    var diffBg = diff !== null && diff !== 0 ? (diff > 0 ? '#E3F2FD' : '#FFEBEE') : '';
+    return '<tr style="border-bottom:1px solid #f0f0f0;'+(diffBg?'background:'+diffBg+';':'')+'">'+
+      '<td style="padding:6px 8px;">'+esc(it.name)+'</td>'+
+      '<td style="padding:6px 8px;text-align:center;font-size:12px;color:var(--text-light);">'+esc(it.unit)+'</td>'+
+      '<td style="padding:6px 8px;text-align:right;font-weight:600;">'+fmt(it.systemQty)+'</td>'+
+      '<td style="padding:6px 8px;text-align:center;">'+
+        '<input type="number" step="0.01" min="0" value="'+(fact===''?'':esc(String(fact)))+'" '+
+        'oninput="_invState.items['+realIdx+'].factQty=this.value;renderInventoryRows()" '+
+        'style="width:90px;padding:4px 6px;text-align:right;font-size:13px;border:1px solid var(--border);border-radius:4px;"></td>'+
+      '<td style="padding:6px 8px;text-align:right;font-weight:700;color:'+diffColor+';">'+diffStr+'</td>'+
+      '<td style="padding:6px 8px;">'+
+        '<input type="text" value="'+esc(it.reason||'')+'" '+
+        'oninput="_invState.items['+realIdx+'].reason=this.value" '+
+        'placeholder="напр.: брак, втрата" '+
+        'style="width:100%;padding:4px 6px;font-size:12px;border:1px solid var(--border);border-radius:4px;'+(diff!==null && diff !== 0?'':'opacity:0.5;')+'"></td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:20px;">'+(search||onlyChecked?'Нема за фільтром':'Список порожній')+'</td></tr>';
+  document.getElementById('inv-rows').innerHTML = html;
+
+  // Summary
+  var checked = _invState.items.filter(function(it){
+    var v = it.factQty;
+    return v !== '' && v !== null && v !== undefined && !isNaN(parseFloat(v));
+  });
+  var withDiff = checked.filter(function(it){ return parseFloat(it.factQty) !== it.systemQty; });
+  document.getElementById('inv-summary').textContent =
+    'Перевірено: ' + checked.length + ' з ' + _invState.items.length +
+    (withDiff.length ? ' • з різницями: ' + withDiff.length : '');
+}
+
+function commitInventory() {
+  if (!_invState) return;
+  var db = getDB();
+  var changed = _invState.items.filter(function(it){
+    var v = it.factQty;
+    if (v === '' || v === null || v === undefined || isNaN(parseFloat(v))) return false;
+    return parseFloat(v) !== it.systemQty;
+  });
+  var checkedCount = _invState.items.filter(function(it){
+    var v = it.factQty;
+    return v !== '' && v !== null && v !== undefined && !isNaN(parseFloat(v));
+  }).length;
+
+  if (checkedCount === 0) {
+    alert('Не заповнено жодної кількості. Заповни хоча б одну позицію.');
+    return;
+  }
+  if (changed.length === 0) {
+    alert('Усе сходиться (різниць нема). Інвентаризація завершена — нічого змінювати не треба.');
+    closeModal('inventory');
+    return;
+  }
+  var msg = 'Зафіксувати інвентаризацію?\n\nПеревірено: '+checkedCount+' позицій\nЗ різницями: '+changed.length+'\n\n' +
+    changed.slice(0, 10).map(function(it){
+      var diff = parseFloat(it.factQty) - it.systemQty;
+      return '• ' + it.name + ': ' + fmt(it.systemQty) + ' → ' + fmt(it.factQty) + ' ('+(diff>0?'+':'')+fmt(diff)+')';
+    }).join('\n') +
+    (changed.length > 10 ? '\n... і ще ' + (changed.length - 10) : '') +
+    '\n\nКорекції одразу застосуються до складу.';
+  if (!confirm(msg)) return;
+
+  var today = new Date().toISOString().slice(0,10);
+  var noteAll = document.getElementById('inv-note').value.trim();
+  if (!db.inventoryAudits) db.inventoryAudits = [];
+  var auditId = uid();
+
+  // Apply corrections
+  var appliedItems = [];
+  changed.forEach(function(it){
+    var newQty = parseFloat(it.factQty);
+    var diff = newQty - it.systemQty;
+    if (_invState.type === 'material') {
+      var m = db.materials.find(function(x){return x.id === it.id;});
+      if (m) m.qty = newQty;
+    } else {
+      var p = db.products.find(function(x){return x.id === it.id;});
+      if (p) p.stock = newQty;
+    }
+    appliedItems.push({
+      id: it.id, name: it.name, unit: it.unit,
+      systemQty: it.systemQty, factQty: newQty, diff: diff,
+      reason: it.reason || ''
+    });
+  });
+
+  db.inventoryAudits.push({
+    id: auditId, date: today, type: _invState.type,
+    items: appliedItems, checkedCount: checkedCount,
+    user: (_currentUser && (_currentUser.linkedWorkerName || _currentUser.name)) || 'Невідомо',
+    note: noteAll
+  });
+
+  logAudit(db, 'material', auditId, 'adjust', {
+    inventoryAudit: true,
+    type: _invState.type,
+    itemsAdjusted: appliedItems.length,
+    checked: checkedCount,
+    note: noteAll
+  });
+
+  saveDB(db);
+  closeModal('inventory');
+  _invState = null;
+  alert('✓ Інвентаризацію зафіксовано. Виправлено '+changed.length+' позицій.');
+  if (_invState && _invState.type === 'material') renderPage('materials');
+  else renderPage('products');
+}
+
 // ==================== AUDIT LOG ====================
 // Журнал змін — хто/коли/що зробив. Auto-trim до 2000 записів.
 // ВАЖЛИВО: logAudit мутує db, але НЕ викликає saveDB — щоб не дублювати запис.
@@ -9893,6 +10234,8 @@ function renderSettings() {
     }
     // Push status
     if (typeof refreshPushUI === 'function') refreshPushUI();
+    // Backup status
+    if (typeof refreshBackupUI === 'function') refreshBackupUI();
   } catch(_) {}
   document.getElementById('workers-list').innerHTML = db.workers.map(function(w,i){
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'+

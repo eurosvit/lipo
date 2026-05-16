@@ -250,6 +250,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_material_alert BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
   await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_new_order BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
   await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_order_assigned BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
+  await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS email_backup_weekly BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
 
   console.log('PostgreSQL connected, tables ready');
 
@@ -286,6 +287,38 @@ async function initVapidKeys() {
     }
   } catch (e) {
     console.error('[push] VAPID init failed:', e.message);
+  }
+}
+
+// Backup: read user's app_data and email it as JSON attachment
+async function sendBackupEmail(userId, email, name) {
+  if (!pool || !RESEND_API_KEY) return { ok: false, error: 'Email/DB not configured' };
+  try {
+    const r = await pool.query("SELECT data FROM app_data WHERE id = $1", [userId]);
+    if (!r.rows.length) return { ok: false, error: 'No data to back up' };
+    const json = JSON.stringify(r.rows[0].data, null, 2);
+    const sizeKB = Math.round(Buffer.byteLength(json) / 1024);
+    const today = new Date().toISOString().slice(0,10);
+    const filename = `lipoland-backup-${today}.json`;
+    const html = `
+      <h2 style="color:#4A148C;">📁 Резервна копія LipoLand</h2>
+      <p>Привіт${name?', '+name:''}!</p>
+      <p>У вкладенні — резервна копія усіх ваших даних з LipoLand станом на <strong>${today}</strong>.</p>
+      <p style="background:#FFF8E1;border:1px solid #FFE082;padding:10px 14px;border-radius:8px;font-size:14px;">
+        <strong>📦 Розмір:</strong> ${sizeKB} KB<br>
+        <strong>💾 Як відновити:</strong> LipoLand → Налаштування → «Імпорт даних» → вибери цей файл.
+      </p>
+      <p style="font-size:13px;color:#666;">Збережіть цей файл у безпечному місці (наприклад, Google Drive). Якщо колись щось трапиться з базою — ви зможете відновити все за 30 секунд.</p>
+      <p style="font-size:12px;color:#999;margin-top:24px;">— LipoLand 💜</p>
+    `;
+    await sendEmail(email, `📁 Резервна копія LipoLand — ${today}`, html, [{
+      filename: filename,
+      content: Buffer.from(json).toString('base64')
+    }]);
+    return { ok: true, sizeKB: sizeKB };
+  } catch (e) {
+    console.error('[backup] failed:', e.message);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -349,18 +382,22 @@ async function writeUserData(userId, data) {
 // ==================== EMAIL SERVICE (Resend) ====================
 const https = require('https');
 
-function sendEmail(to, subject, html) {
+function sendEmail(to, subject, html, attachments) {
   if (!RESEND_API_KEY) {
     console.log('[Email] No RESEND_API_KEY, skipping email to', to);
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify({
+    const payload = {
       from: EMAIL_FROM,
       to: [to],
       subject: subject,
       html: html
-    });
+    };
+    if (Array.isArray(attachments) && attachments.length) {
+      payload.attachments = attachments;
+    }
+    const data = JSON.stringify(payload);
     const options = {
       hostname: 'api.resend.com',
       path: '/emails',
@@ -1870,6 +1907,41 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ==================== BACKUP ====================
+    // Send current data as JSON-attachment to user's email
+    if (req.method === 'POST' && url === '/api/backup/email') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const r = await sendBackupEmail(user.id, user.email, user.name);
+      if (r.ok) {
+        // Log so frontend can show "Last backup"
+        await logEmailSent(user.id, 'backup_manual').catch(()=>{});
+        sendJSON(res, 200, { ok: true, sizeKB: r.sizeKB });
+      } else {
+        sendJSON(res, 500, { error: r.error || 'Backup failed' });
+      }
+      return;
+    }
+
+    // Get last backup info
+    if (req.method === 'GET' && url === '/api/backup/last') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!pool) { sendJSON(res, 503, { error: 'DB unavailable' }); return; }
+      const r = await pool.query(
+        `SELECT email_type, sent_at FROM email_log
+         WHERE user_id = $1 AND email_type IN ('backup_manual','backup_weekly')
+         ORDER BY sent_at DESC LIMIT 1`,
+        [user.id]
+      );
+      if (r.rows.length) {
+        sendJSON(res, 200, { lastBackup: r.rows[0].sent_at, type: r.rows[0].email_type });
+      } else {
+        sendJSON(res, 200, { lastBackup: null });
+      }
+      return;
+    }
+
     // Send a test push to current user
     if (req.method === 'POST' && url === '/api/push/test') {
       const user = await getSessionUser(req);
@@ -2995,6 +3067,37 @@ async function checkTrialReminders() {
           tag: 'low-stock',
           requireInteraction: false
         }).catch(()=>{});
+      }
+    }
+
+    // === WEEKLY BACKUP — раз на тиждень шлемо JSON на email власника ===
+    // Перевіряємо щодня; для кожного користувача шлемо, якщо останній бекап (manual чи weekly) був ≥ 6 днів тому
+    const usersForBackup = await pool.query(`
+      SELECT u.id, u.name, u.email FROM users u
+      WHERE u.role != 'admin'
+        AND u.id NOT IN (SELECT worker_id FROM worker_links)
+        AND (u.subscription_ends_at > NOW() OR u.trial_ends_at > NOW())
+    `);
+    for (const u of usersForBackup.rows) {
+      try {
+        const last = await pool.query(
+          `SELECT MAX(sent_at) AS last FROM email_log
+           WHERE user_id = $1 AND email_type IN ('backup_weekly','backup_manual')`,
+          [u.id]
+        );
+        const lastDate = last.rows[0] && last.rows[0].last;
+        const daysSince = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 999;
+        if (daysSince < 6) continue;
+        // Check that user wants this email (default true if no prefs row)
+        const prefs = await pool.query(
+          `SELECT email_backup_weekly FROM notification_prefs WHERE user_id = $1`, [u.id]
+        );
+        if (prefs.rows.length && prefs.rows[0].email_backup_weekly === false) continue;
+        console.log(`[Cron] Weekly backup: ${u.email}`);
+        const r = await sendBackupEmail(u.id, u.email, u.name);
+        if (r.ok) await logEmailSent(u.id, 'backup_weekly');
+      } catch(be) {
+        console.error('[Cron] Backup error for', u.email, ':', be.message);
       }
     }
 
