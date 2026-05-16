@@ -2573,7 +2573,10 @@ a.order-link:hover { text-decoration:underline; }
      Решта — defer, виконуються після парсингу в порядку появи.
      Усі функції експортуються через window.X щоб inline-обробники (onclick=...) працювали.
      Backup-UI прибрано (cron на сервері лишається, шле тільки admin). -->
+<!-- SYNC (без defer): utils + features — викликаються на топ-рівні в кінці inline-script -->
 <script src="/js/utils.js"></script>
+<script src="/js/features.js"></script>
+<!-- DEFER: виконуються після парсингу HTML в порядку появи -->
 <script src="/js/pwa-push.js" defer></script>
 <script src="/js/audit.js" defer></script>
 <script src="/js/clients.js" defer></script>
@@ -2583,6 +2586,7 @@ a.order-link:hover { text-decoration:underline; }
 <script src="/js/drag-drop.js" defer></script>
 <script src="/js/production.js" defer></script>
 <script src="/js/crm-mapper.js" defer></script>
+<script src="/js/np-tracking.js" defer></script>
 <script>
 // Instantly restore last viewed page + worker nav (no flash)
 (function(){
@@ -6286,138 +6290,10 @@ function toggleCrmVisibility() {
 }
 
 // ==================== FEATURE TOGGLES ====================
-function getFeatures() {
-  var defaults = { workers:false, production:true, orders:true, fulfillment:false, crm:false, equipment:false, costs:true };
-  try {
-    var saved = JSON.parse(localStorage.getItem('lipo_features'));
-    if (saved) {
-      for (var k in defaults) { if (saved[k] === undefined) saved[k] = defaults[k]; }
-      return saved;
-    }
-  } catch(e) {}
-  return defaults;
-}
+// → винесено в public/js/features.js (getFeatures, saveFeatures, isFeatureOn,
+//   applyFeatures, showFeatureWizard, finishFeatureWizard, checkFeatureWizard,
+//   renderSettingsFeatures, toggleFeatureSetting)
 
-function saveFeatures(features) {
-  localStorage.setItem('lipo_features', JSON.stringify(features));
-  applyFeatures();
-}
-
-function isFeatureOn(id) {
-  return getFeatures()[id] !== false;
-}
-
-var _onboardingFeatures = [
-  { id:'production', icon:'\u{1F3ED}', name:'Виробництво', desc:'Запуск в роботу, здача готової продукції, контроль процесу', default:true },
-  { id:'orders', icon:'\u{1F4E6}', name:'Замовлення', desc:'Облік замовлень клієнтів, відправка, трекінг посилок', default:true },
-  { id:'workers', icon:'\u{1F477}', name:'Команда', desc:'Робота з майстрами, зарплата, склад майстрів', default:false },
-  { id:'fulfillment', icon:'\u{1F3EC}', name:'Фулфілмент', desc:'Передача товарів на зовнішні склади (Розетка, Prom тощо)', default:false },
-  { id:'costs', icon:'\u{1F4B0}', name:'Витрати', desc:'Облік витрат та видатків на бізнес', default:true },
-  { id:'equipment', icon:'\u{1F527}', name:'Обладнання', desc:'Облік обладнання, сервісний журнал', default:false },
-  { id:'crm', icon:'\u{1F517}', name:'CRM інтеграція', desc:'Синхронізація із SalesDrive CRM', default:false }
-];
-
-function applyFeatures() {
-  var f = getFeatures();
-  // For workers, nav visibility is controlled by permissions, not feature toggles.
-  // Skip nav hiding — applyWorkerPermissions() handles it.
-  var isWorker = _currentUser && _currentUser.isWorker;
-  if (!isWorker) {
-    // Hide/show nav buttons by data-page
-    var navMap = {
-      'worker-stock': 'workers',
-      'production': 'production',
-      'orders': 'orders',
-      'salary': 'workers',
-      'expenses': 'costs',
-      'equipment': 'equipment'
-    };
-    document.querySelectorAll('.nav-links button[data-page]').forEach(function(btn) {
-      var page = btn.getAttribute('data-page');
-      var feat = navMap[page];
-      if (feat) {
-        btn.style.display = f[feat] ? '' : 'none';
-      }
-    });
-    // Mobile nav buttons
-    document.querySelectorAll('.mobile-menu-panel button[onclick*="mobileNav"]').forEach(function(btn) {
-      var match = btn.getAttribute('onclick').match(/mobileNav\('([^']+)'\)/);
-      if (match) {
-        var page = match[1];
-        var feat = navMap[page];
-        if (feat) {
-          btn.style.display = f[feat] ? '' : 'none';
-        }
-      }
-    });
-  }
-  // Handle feat-* classed elements
-  var ids = ['workers','production','orders','fulfillment','crm','equipment','costs'];
-  ids.forEach(function(id) {
-    var els = document.querySelectorAll('.feat-'+id);
-    for (var i = 0; i < els.length; i++) {
-      els[i].style.display = f[id] ? '' : 'none';
-    }
-  });
-  // Re-apply CRM visibility (respects both feature toggle and key presence)
-  toggleCrmVisibility();
-}
-
-function showFeatureWizard() {
-  var container = document.getElementById('feat-wizard-options');
-  container.innerHTML = _onboardingFeatures.map(function(feat) {
-    var f = getFeatures();
-    var checked = f[feat.id];
-    return '<label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border-radius:12px;cursor:pointer;border:2px solid '+(checked?'var(--primary)':'transparent')+';transition:all .2s;" '+
-      'onmouseover="this.style.borderColor=\'var(--primary-light)\'" onmouseout="this.style.borderColor=this.querySelector(\'input\').checked?\'var(--primary)\':\'transparent\'">' +
-      '<input type="checkbox" data-feat="'+feat.id+'" '+(checked?'checked':'')+' style="width:20px;height:20px;accent-color:var(--primary);" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--primary)\':\'transparent\'">' +
-      '<span style="font-size:24px;">'+feat.icon+'</span>' +
-      '<div style="flex:1;"><strong style="font-size:15px;">'+feat.name+'</strong><br><span style="font-size:12px;color:var(--text-light);">'+feat.desc+'</span></div>' +
-    '</label>';
-  }).join('');
-  document.getElementById('feat-wizard-modal').style.display = 'flex';
-}
-
-function finishFeatureWizard() {
-  var features = {};
-  document.querySelectorAll('#feat-wizard-options input[data-feat]').forEach(function(cb) {
-    features[cb.getAttribute('data-feat')] = cb.checked;
-  });
-  saveFeatures(features);
-  localStorage.setItem('lipo_features_configured', '1');
-  document.getElementById('feat-wizard-modal').style.display = 'none';
-}
-
-function checkFeatureWizard() {
-  if (!localStorage.getItem('lipo_features_configured')) {
-    showFeatureWizard();
-  }
-}
-
-function renderSettingsFeatures() {
-  var f = getFeatures();
-  var container = document.getElementById('settings-features');
-  if (!container) return;
-  container.innerHTML = _onboardingFeatures.map(function(feat) {
-    var on = !!f[feat.id];
-    return '<div onclick="toggleFeatureSetting(\''+feat.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;cursor:pointer;user-select:none;">' +
-      '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;border:2px solid '+(on?'var(--primary)':'#bbb')+';background:'+(on?'var(--primary)':'#fff')+';color:#fff;font-size:13px;font-weight:bold;flex-shrink:0;">'+(on?'✓':'')+'</span>' +
-      '<span style="font-size:20px;">'+feat.icon+'</span>' +
-      '<div><strong style="font-size:14px;">'+feat.name+'</strong> <span style="font-size:12px;color:var(--text-light);">\u2014 '+feat.desc+'</span></div>' +
-    '</div>';
-  }).join('');
-}
-
-function toggleFeatureSetting(id, forced) {
-  var f = getFeatures();
-  if (typeof forced === 'boolean') {
-    f[id] = forced;
-  } else {
-    f[id] = !f[id];
-  }
-  saveFeatures(f);
-  renderSettingsFeatures();
-}
 
 function saveCrmSettings() {
   var settings = { domain: v('sd-domain').trim(), apiKey: v('sd-apikey').trim() };
@@ -6503,186 +6379,9 @@ function initSyncDateInput() {
 }
 
 // ==================== NOVA POSHTA TRACKING ====================
-// Mapping status code → visual bucket (колір/емодзі/лейбл)
-// Ref: https://devcenter.novaposhta.ua/docs/services/...
-function statusToVisualNP(statusCode) {
-  var sc = parseInt(statusCode, 10) || 0;
-  if (sc === 9 || sc === 10 || sc === 11) return { emoji:'✅', color:'#2E7D32', bg:'#E8F5E9', label:'Вручено' };
-  if (sc === 7 || sc === 8)               return { emoji:'📮', color:'#E65100', bg:'#FFF3E0', label:'У відділенні' };
-  if (sc === 5 || sc === 6)               return { emoji:'🚚', color:'#1565C0', bg:'#E3F2FD', label:'У дорозі' };
-  if (sc === 4)                           return { emoji:'📦', color:'#1565C0', bg:'#E3F2FD', label:'Прийнято' };
-  if (sc === 1 || sc === 2 || sc === 3)   return { emoji:'🏷', color:'#616161', bg:'#F5F5F5', label:'Створено' };
-  if (sc === 102 || sc === 103)           return { emoji:'↩', color:'#C62828', bg:'#FFEBEE', label:'Повернення' };
-  if (sc === 111 || sc === 14)            return { emoji:'❌', color:'#C62828', bg:'#FFEBEE', label:'Скасовано' };
-  return null;
-}
+// → винесено в public/js/np-tracking.js (statusToVisualNP, syncOrderStatusFromTracking,
+//   ttnLooksLikeNP, trackNpOrders, maybeAutoRefreshNpTracking, manualRefreshNpTracking)
 
-// Синхронізація статусу замовлення на основі трекінгу НП
-function syncOrderStatusFromTracking(order) {
-  if (!order.tracking) return false;
-  var rawSc = order.tracking.statusCode != null ? order.tracking.statusCode : order.tracking.StatusCode;
-  if (rawSc == null || rawSc === '') return false;
-  var sc = parseInt(rawSc, 10) || 0;
-  var statuses = getOrderStatuses();
-  var hasStatus = function(id) { return statuses.some(function(s){ return s.id === id; }); };
-  var oldStatus = order.status;
-  // Повернення (102,103) → returned
-  if ((sc === 102 || sc === 103) && hasStatus('returned')) {
-    order.status = 'returned';
-  }
-  // Вручено (9,10,11) → completed
-  else if ((sc === 9 || sc === 10 || sc === 11) && hasStatus('completed')) {
-    order.status = 'completed';
-  }
-  // У відділенні (7,8) або У дорозі (5,6) або Прийнято (4) → shipped
-  else if ((sc >= 4 && sc <= 8) && hasStatus('shipped')) {
-    order.status = 'shipped';
-  }
-  // Створено (1,2,3) → не змінюємо (ТТН створена але ще не відправлена)
-  return order.status !== oldStatus;
-}
-
-// True для ТТН що схожа на Нову Пошту (13-14 цифр).
-function ttnLooksLikeNP(ttn) {
-  return /^\d{13,14}$/.test(String(ttn||'').trim());
-}
-
-// Батчингом тягнемо статуси НП для замовлень з TTN.
-// opts.force=true — ігнорує throttle І фільтр carrier (пробуємо ВСЕ з ТТН)
-function trackNpOrders(opts) {
-  opts = opts || {};
-  var db = getDB();
-  var list = db.orders || [];
-  var nowMs = Date.now();
-  var THROTTLE_MS = 30*60*1000;
-  var DELIVERED_HOLD_MS = 24*60*60*1000;
-
-  var needFetch = [];
-  var skippedNoTtn = 0;
-  var skippedNotNp = 0;
-  var skippedThrottle = 0;
-  list.forEach(function(o){
-    if (!o.ttn) { skippedNoTtn++; return; }
-    // У force-режимі (ручна кнопка) пробуємо всі ТТН без фільтрів.
-    // В авто-режимі — тільки carrier='nova' або числовий формат НП.
-    if (!opts.force) {
-      var isNp = (o.carrier === 'nova') || (!o.carrier && ttnLooksLikeNP(o.ttn));
-      if (!isNp) { skippedNotNp++; return; }
-    }
-    var tr = o.tracking;
-    if (!opts.force && tr && tr.updatedAt) {
-      var updMs = Date.parse(tr.updatedAt) || 0;
-      var isDelivered = tr.statusCode === 9 || tr.statusCode === 10 || tr.statusCode === 11;
-      var hold = isDelivered ? DELIVERED_HOLD_MS : THROTTLE_MS;
-      if (nowMs - updMs < hold) { skippedThrottle++; return; }
-    }
-    needFetch.push(o.ttn);
-  });
-
-  console.log('[lipo] NP track: toFetch=%d, noTTN=%d, notNP=%d, throttled=%d, force=%s',
-    needFetch.length, skippedNoTtn, skippedNotNp, skippedThrottle, !!opts.force);
-
-  if (!needFetch.length) return Promise.resolve({ updated:0, sent:0, total:list.length });
-
-  // батч по 100 ТТН на запит
-  var chunks = [];
-  for (var i=0; i<needFetch.length; i+=100) chunks.push(needFetch.slice(i, i+100));
-  var updated = 0;
-
-  function runChunk(idx) {
-    if (idx >= chunks.length) return Promise.resolve();
-    return fetch('/api/np/track', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ ttns: chunks[idx] })
-    }).then(function(r){
-      return r.text().then(function(txt){
-        var body;
-        try { body = JSON.parse(txt); } catch(e){ body = {error: 'non-JSON ('+r.status+')'}; }
-        return { status: r.status, body: body };
-      });
-    }).then(function(wrap){
-      if (wrap.status === 501) { var e = new Error('not-configured'); e.code='not-configured'; throw e; }
-      if (wrap.status !== 200)  throw new Error(wrap.body.error || ('HTTP '+wrap.status));
-      var db2 = getDB();
-      var results = wrap.body.results || {};
-      (db2.orders||[]).forEach(function(o){
-        if (!o.ttn || !results[o.ttn]) return;
-        o.tracking = results[o.ttn];
-        syncOrderStatusFromTracking(o);
-        updated++;
-      });
-      saveDB(db2);
-      return runChunk(idx+1);
-    });
-  }
-  return runChunk(0).then(function(){ return { updated: updated, sent: needFetch.length, total: list.length }; });
-}
-
-// Авто-оновлення при відкритті сторінки (не частіше 1 раз на 10 хв в межах сесії)
-var _lastNpAutoRefresh = 0;
-function maybeAutoRefreshNpTracking() {
-  if (Date.now() - _lastNpAutoRefresh < 10*60*1000) return;
-  _lastNpAutoRefresh = Date.now();
-  trackNpOrders().then(function(r){
-    if (r.updated > 0) {
-      var ordersTab = document.getElementById('orders');
-      if (ordersTab && ordersTab.classList.contains('active')) renderOrders();
-    }
-  }).catch(function(e){
-    if (e.code === 'not-configured') {
-      console.info('[lipo] NP tracking disabled (NP_API_KEY not set on server)');
-    } else {
-      console.warn('[lipo] NP tracking auto-refresh failed:', e.message);
-    }
-  });
-}
-
-// Ручне оновлення статусів
-function manualRefreshNpTracking() {
-  var btn = document.getElementById('np-refresh-btn');
-  var statusEl = document.getElementById('sync-status');
-  if (!btn) return;
-  btn.disabled = true;
-  var orig = btn.innerHTML;
-  btn.innerHTML = '⏳ Оновлення...';
-  if (statusEl) statusEl.innerHTML = '<span class="text-muted">📍 Запитую статуси НП...</span>';
-  trackNpOrders({force:true}).then(function(r){
-    // Пере-синхронізація статусів для ВСІХ замовлень з наявним трекінгом
-    // (не тільки щойно отриманих — охоплює старі закешовані результати)
-    var db3 = getDB();
-    var statusChanges = 0;
-    (db3.orders||[]).forEach(function(o){
-      if (o.tracking && syncOrderStatusFromTracking(o)) statusChanges++;
-    });
-    if (statusChanges > 0) saveDB(db3);
-    var msg = '';
-    if (r.updated > 0) {
-      msg = '✅ Трекінг НП: оновлено <b>'+r.updated+'</b> з '+r.sent+' ТТН'+(statusChanges>0?' • статусів змінено: <b>'+statusChanges+'</b>':'');
-      btn.innerHTML = '✓ Оновлено '+r.updated;
-    } else if (r.sent > 0) {
-      msg = '⚠ Трекінг НП: відправлено '+r.sent+' ТТН, але НП не повернула статусів. Перевірте що ТТН дійсні.';
-      btn.innerHTML = '⚠ 0 результатів';
-    } else {
-      msg = 'ℹ Трекінг НП: не знайдено замовлень з ТТН для перевірки (всього замовлень: '+r.total+')';
-      btn.innerHTML = '✓ Немає ТТН';
-    }
-    if (statusEl) statusEl.innerHTML = '<span style="font-size:13px;">'+msg+'</span>';
-    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 3000);
-    renderOrders();
-  }).catch(function(e){
-    var msg = '';
-    if (e.code === 'not-configured') {
-      msg = '⚠ <b>Трекінг НП не налаштовано</b>: NP_API_KEY не задано на сервері';
-      btn.innerHTML = '⚠ Не налаштовано';
-    } else {
-      msg = '❌ <b>Помилка трекінгу НП</b>: ' + esc(e.message || 'невідома помилка');
-      btn.innerHTML = '❌ Помилка';
-    }
-    if (statusEl) statusEl.innerHTML = '<span class="text-danger" style="font-size:13px;">'+msg+'</span>';
-    setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 4000);
-  });
-}
 
 function syncSalesDrive() {
   var btn = document.getElementById('sync-btn');
