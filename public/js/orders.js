@@ -369,11 +369,11 @@
             return '<td data-label="Клієнт"><span class="text-muted">Замовлення #'+o.num+'</span></td>';
           }
           var cname = o.client || ((o.firstName||'') + ' ' + (o.lastName||'')).trim() || '—';
-          return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br><a href="tel:'+esc(o.phone)+'" style="font-size:11px;color:var(--text-light);">'+esc(o.phone)+'</a>':'')+'</td>';
+          return '<td data-label="Клієнт">'+esc(cname)+(o.phone?'<br>'+window.buildContactIcons(o.phone, true):'')+'</td>';
         }
         case 'phone': {
           if (isCurrentUserWorker()) return '<td data-label="Телефон"><span class="text-muted">—</span></td>';
-          return '<td data-label="Телефон">'+(o.phone?'<a href="tel:'+esc(o.phone)+'" style="font-size:12px;">'+esc(o.phone)+'</a>':'<span class="text-muted">—</span>')+'</td>';
+          return '<td data-label="Телефон">'+(o.phone?window.buildContactIcons(o.phone, false):'<span class="text-muted">—</span>')+'</td>';
         }
         case 'items': {
           var extra = '';
@@ -513,6 +513,8 @@
         '<td data-label="Дії" style="white-space:nowrap;">'+
           shipBtn+
           (canReturn ? '<button class="btn btn-outline btn-sm" onclick="returnOrderToStock(\''+o.id+'\')" title="Повернути товар на склад / позначити брак" style="margin-right:4px;">📦↩</button>' : '')+
+          '<button class="btn btn-outline btn-sm" onclick="copyTtnMessage(\''+o.id+'\')" title="Скопіювати повідомлення для клієнта з ТТН" style="margin-right:4px;">💬</button>'+
+          '<button class="btn btn-outline btn-sm" onclick="duplicateOrder(\''+o.id+'\')" title="Дублювати замовлення (новий №, дата сьогодні)" style="margin-right:4px;">📋</button>'+
           '<button class="btn btn-outline btn-sm" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати" style="margin-right:4px;">✏️</button>'+
           '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')" title="Видалити">&#x1F5D1;</button></td>'+
       '</tr>';
@@ -585,4 +587,163 @@
   window.renderOrders = renderOrders;
   window.confirmOrder = confirmOrder;
   window.deleteOrder = deleteOrder;
+
+  // ==================== DUPLICATE ORDER ====================
+  // Створює копію замовлення з новим № і датою сьогодні. Скидає shipped/ТТН/трекінг,
+  // оплату на 'unpaid'. Корисно для постійних клієнтів-логопедів («те ж саме що минулого разу»).
+  function duplicateOrder(id) {
+    var db = getDB();
+    var src = db.orders.find(function(x){return x.id===id});
+    if (!src) return;
+    if (!confirm('Дублювати замовлення #'+src.num+' для клієнта «'+(src.client||'?')+'»?\n\nТовари, клієнт і доставка скопіюються. ТТН, оплата і статус скинуться.')) return;
+    var today = new Date().toISOString().slice(0,10);
+    var copy = {
+      id: uid(),
+      num: db.nextOrderNum++,
+      date: today,
+      // Клієнт
+      firstName: src.firstName||'', lastName: src.lastName||'',
+      client: src.client||'',
+      phone: src.phone||'', email: src.email||'',
+      // Доставка (без ТТН і трекінгу)
+      carrier: src.carrier||'',
+      city: src.city||'', warehouse: src.warehouse||'', address: src.address||'',
+      ttn: '', tracking: null, shippingCost: 0,
+      // Оплата — все скидається
+      paymentType: src.paymentType||'',
+      paymentStatus: 'unpaid',
+      // Канал зберігаємо
+      channel: src.channel||'',
+      worker: src.worker||'',
+      comment: src.comment ? '(копія) '+src.comment : '',
+      // Товари — копія
+      items: (src.items||[]).map(function(it){
+        return { productId: it.productId, name: it.name, sku: it.sku||'', qty: it.qty, price: it.price, worker: it.worker||'' };
+      }),
+      total: src.total||0,
+      status: 'new',
+      shipped: false,
+      source: 'manual'
+    };
+    db.orders.push(copy);
+    if (typeof logAudit === 'function') logAudit(db, 'order', copy.id, 'create', { num: copy.num, client: copy.client, duplicatedFrom: src.num });
+    saveDB(db);
+    renderPage('orders');
+    alert('✓ Створено замовлення #'+copy.num+' як копію #'+src.num+'.\nВідкрий ✏️ щоб уточнити.');
+  }
+
+  // ==================== TTN MESSAGE FOR CLIENT ====================
+  // Копіює в clipboard готовий текст для Instagram/Telegram-повідомлення клієнту:
+  // «Ваше замовлення відправлено, ТТН: XXX. Трек: novaposhta.ua/tracking/?cargo_number=XXX»
+  function copyTtnMessage(id) {
+    var db = getDB();
+    var o = db.orders.find(function(x){return x.id===id});
+    if (!o) return;
+    var name = o.firstName || o.client || 'Доброго дня';
+    var lines = ['Доброго дня' + (o.firstName ? ', '+o.firstName : '') + '! 💜'];
+    if (o.shipped && o.ttn) {
+      lines.push('');
+      lines.push('Ваше замовлення #'+o.num+' відправлено 📦');
+      lines.push('');
+      lines.push('ТТН: ' + o.ttn);
+      // Add tracking link if Nova Poshta
+      if (/^\d{13,14}$/.test(o.ttn) && (o.carrier === 'nova' || !o.carrier)) {
+        lines.push('Трекінг: https://novaposhta.ua/tracking/?cargo_number=' + o.ttn);
+      }
+      if (o.paymentStatus === 'unpaid' && o.paymentType === 'cod') {
+        lines.push('');
+        lines.push('Сума до сплати при отриманні: ' + fmt(o.total||0) + ' грн');
+      }
+    } else if (o.paymentStatus === 'unpaid') {
+      lines.push('');
+      lines.push('Ваше замовлення #'+o.num+' прийнято! ✅');
+      lines.push('');
+      var items = (o.items||[]).map(function(i){return '• '+(i.name||'?')+' × '+i.qty;}).join('\n');
+      if (items) lines.push(items);
+      lines.push('');
+      lines.push('Сума: ' + fmt(o.total||0) + ' грн');
+      if (o.paymentType === 'prepayment') {
+        lines.push('Очікую передоплату — реквізити надам додатково 💳');
+      } else if (o.paymentType === 'iban') {
+        lines.push('Очікую оплату на IBAN.');
+      }
+    } else {
+      lines.push('');
+      lines.push('Ваше замовлення #'+o.num+' оформлено.');
+      var items2 = (o.items||[]).map(function(i){return '• '+(i.name||'?')+' × '+i.qty;}).join('\n');
+      if (items2) { lines.push(''); lines.push(items2); }
+    }
+    lines.push('');
+    lines.push('Дякую за вибір! Якщо є питання — пишіть 🙏');
+    var text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){
+        alert('✓ Скопійовано в буфер обміну.\nВставте (Ctrl+V) у Direct/Telegram.\n\nПопередній перегляд:\n\n'+text);
+      }).catch(function(){
+        prompt('Скопіюй цей текст вручну (Ctrl+C):', text);
+      });
+    } else {
+      prompt('Скопіюй цей текст вручну (Ctrl+C):', text);
+    }
+  }
+
+  window.duplicateOrder = duplicateOrder;
+  window.copyTtnMessage = copyTtnMessage;
+
+  // ==================== PREPAYMENT CALCULATOR ====================
+  // Показує блок калькулятора передоплати коли статус=partial
+  function togglePrepayCalc() {
+    var calc = document.getElementById('ord-prepay-calc');
+    var status = document.getElementById('ord-payment-status');
+    if (!calc || !status) return;
+    calc.style.display = status.value === 'partial' ? 'block' : 'none';
+    if (status.value === 'partial') updatePrepayHint();
+  }
+
+  function setPrepay(value, mode) {
+    var total = 0;
+    var totalEl = document.getElementById('ord-total');
+    // ord-total містить text типу "Разом: 500 грн" — парсимо число
+    if (totalEl) {
+      var m = totalEl.textContent.match(/[\d.,]+/);
+      if (m) total = parseFloat(m[0].replace(',', '.')) || 0;
+    }
+    var amount;
+    if (mode === 'fixed') {
+      amount = value;
+    } else {
+      // percent
+      amount = Math.round(total * value);
+    }
+    var inp = document.getElementById('ord-prepay-amount');
+    if (inp) inp.value = amount;
+    updatePrepayHint();
+  }
+
+  function updatePrepayHint() {
+    var hint = document.getElementById('ord-prepay-hint');
+    var inp = document.getElementById('ord-prepay-amount');
+    var totalEl = document.getElementById('ord-total');
+    if (!hint || !inp || !totalEl) return;
+    var total = 0;
+    var m = totalEl.textContent.match(/[\d.,]+/);
+    if (m) total = parseFloat(m[0].replace(',', '.')) || 0;
+    var prepay = parseFloat(inp.value) || 0;
+    var remain = total - prepay;
+    if (total > 0 && prepay > 0) {
+      var pct = Math.round(prepay / total * 100);
+      hint.innerHTML = 'Передоплата: <strong>'+fmt(prepay)+' грн</strong> ('+pct+'%) • Доплата: <strong>'+fmt(remain)+' грн</strong>';
+    } else {
+      hint.textContent = '';
+    }
+  }
+
+  // При зміні input — оновити hint
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.id === 'ord-prepay-amount') updatePrepayHint();
+  });
+
+  window.togglePrepayCalc = togglePrepayCalc;
+  window.setPrepay = setPrepay;
+  window.updatePrepayHint = updatePrepayHint;
 })();
