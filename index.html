@@ -438,6 +438,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="showPage('products')" data-page="products">📦 Склад</button>
     <button onclick="showPage('production')" data-page="production">&#x1F527; &#x0412;&#x0438;&#x0440;&#x043E;&#x0431;&#x043D;&#x0438;&#x0446;&#x0442;&#x0432;&#x043E;</button>
     <button onclick="showPage('orders')" data-page="orders">&#x1F4CB; &#x0417;&#x0430;&#x043C;&#x043E;&#x0432;&#x043B;&#x0435;&#x043D;&#x043D;&#x044F;</button>
+    <button onclick="showPage('clients')" data-page="clients">👥 Клієнти</button>
     <button onclick="showPage('worker-stock')" data-page="worker-stock">👷 Майстри</button>
     <button onclick="showPage('salary')" data-page="salary">&#x1F4B0; &#x0417;&#x041F;</button>
     <button onclick="showPage('costs')" data-page="costs">&#x1F4C8; &#x0421;&#x043E;&#x0431;&#x0456;&#x0432;&#x0430;&#x0440;&#x0442;&#x0456;&#x0441;&#x0442;&#x044C;</button>
@@ -497,6 +498,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="mobileNav('products')">📦 Склад</button>
     <button onclick="mobileNav('production')">🔧 Виробництво</button>
     <button onclick="mobileNav('orders')">📋 Замовлення</button>
+    <button onclick="mobileNav('clients')">👥 Клієнти</button>
     <button onclick="mobileNav('worker-stock')">👷 Майстри</button>
     <button onclick="mobileNav('salary')">💰 Зарплата</button>
     <button onclick="mobileNav('costs')">📈 Собівартість</button>
@@ -784,6 +786,46 @@ a.order-link:hover { text-decoration:underline; }
     </div>
     <div id="ord-page-controls" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
     <div id="ord-page-info" style="font-size:12px;color:var(--text-light);"></div>
+  </div>
+</div>
+
+<!-- ========== CLIENTS ========== -->
+<div id="clients" class="page">
+  <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+    <h2>👥 Клієнти</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="text" id="cli-search" placeholder="Пошук: ім'я, телефон, email..." oninput="renderClients()" style="padding:8px 12px;min-width:240px;">
+      <select id="cli-segment" onchange="renderClients()" style="padding:8px 12px;">
+        <option value="">Усі</option>
+        <option value="repeat">🔁 Повторні (2+)</option>
+        <option value="vip">⭐ VIP (5+ замовлень)</option>
+        <option value="new">🆕 Нові (1 замовлення)</option>
+        <option value="silent">😴 Тихі (90+ днів без покупки)</option>
+        <option value="tagged">🏷 З тегами</option>
+      </select>
+      <select id="cli-tag-filter" onchange="renderClients()" style="padding:8px 12px;display:none;">
+        <option value="">Усі теги</option>
+      </select>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Агрегація з усіх замовлень за номером телефону та email. Натисни 📋 щоб побачити історію замовлень клієнта.</p>
+  <div id="cli-cards" class="cards" style="margin-top:16px;"></div>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table>
+      <thead><tr>
+        <th>Клієнт</th>
+        <th>Контакти</th>
+        <th>Теги</th>
+        <th>Замовлень</th>
+        <th>Сума всього</th>
+        <th>Сер. чек</th>
+        <th>Остання покупка</th>
+        <th>Канали</th>
+        <th>Нотатка</th>
+        <th>Дії</th>
+      </tr></thead>
+      <tbody id="cli-table"></tbody>
+    </table>
   </div>
 </div>
 
@@ -1426,6 +1468,21 @@ a.order-link:hover { text-decoration:underline; }
 </div>
 
 <!-- ========== MODALS ========== -->
+
+<!-- Client Detail -->
+<div class="modal-overlay" id="modal-client-detail">
+  <div class="modal" style="max-width:920px;">
+    <div class="modal-header">
+      <h3 id="cli-detail-title">Картка клієнта</h3>
+      <button class="modal-close" onclick="closeModal('client-detail')">&times;</button>
+    </div>
+    <div class="modal-body" id="cli-detail-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('client-detail')">Закрити</button>
+      <button class="btn btn-primary" onclick="saveClientMeta()">💾 Зберегти теги і нотатку</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add Material -->
 <div class="modal-overlay" id="modal-add-material">
@@ -2445,7 +2502,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}], clientMeta:{}, defects:[] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -2707,7 +2764,7 @@ function showPage(id) {
 
 function renderPage(id) {
   const fn = { dashboard:renderDashboard, materials:renderMaterials, products:renderProducts,
-    production:renderProduction, orders:renderOrders, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, expenses:renderExpenses, equipment:renderEquipment, analytics:renderAnalytics, admin:renderAdmin, settings:renderSettings };
+    production:renderProduction, orders:renderOrders, clients:renderClients, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, expenses:renderExpenses, equipment:renderEquipment, analytics:renderAnalytics, admin:renderAdmin, settings:renderSettings };
   if (id === 'analytics' && !document.getElementById('an-from').value) setAnalyticsPeriod('6m');
   if(fn[id]) fn[id]();
 }
@@ -8152,6 +8209,240 @@ function returnFromWorker(stockId) {
 
   saveDB(db);
   renderPage('worker-stock');
+}
+
+// ==================== CLIENTS ====================
+// Клієнт = агрегація з усіх замовлень за phone+email.
+// Кей: нормалізований телефон (приоритет) або email. Метадані (теги, нотатки)
+// зберігаються в db.clientMeta[clientKey] = { tags: [], note: '' }
+function normPhone(s) {
+  return String(s||'').replace(/[^\d+]/g, '').replace(/^\+?38/, '').replace(/^0/, '');
+}
+function normEmail(s) { return String(s||'').toLowerCase().trim(); }
+
+function clientKeyOf(o) {
+  var p = normPhone(o.phone);
+  var e = normEmail(o.email);
+  if (p) return 'p:'+p;
+  if (e) return 'e:'+e;
+  // Fallback: name only (worst case — old data without contacts)
+  var n = (o.client || ((o.firstName||'')+' '+(o.lastName||''))).trim().toLowerCase();
+  return n ? 'n:'+n : null;
+}
+
+function aggregateClients(db) {
+  var map = {};
+  (db.orders||[]).forEach(function(o){
+    var k = clientKeyOf(o);
+    if (!k) return;
+    if (!map[k]) {
+      map[k] = {
+        key: k,
+        firstName: o.firstName||'', lastName: o.lastName||'',
+        client: o.client || ((o.firstName||'')+' '+(o.lastName||'')).trim(),
+        phone: o.phone||'', email: o.email||'',
+        orders: [], total: 0, count: 0,
+        firstDate: o.date||'', lastDate: o.date||'',
+        channels: {}, paidCount: 0, paidSum: 0, returnedCount: 0
+      };
+    }
+    var c = map[k];
+    c.orders.push(o);
+    c.count++;
+    var t = Number(o.total)||0;
+    c.total += t;
+    if (o.paymentStatus === 'paid') { c.paidCount++; c.paidSum += t; }
+    if (o.returnedToStock) c.returnedCount++;
+    if (o.channel) c.channels[o.channel] = (c.channels[o.channel]||0) + 1;
+    var d = o.date || '';
+    if (d) {
+      if (!c.firstDate || d < c.firstDate) c.firstDate = d;
+      if (!c.lastDate || d > c.lastDate) c.lastDate = d;
+    }
+    // Беремо найповніші контакти/ім'я з останнього з контактом
+    if (!c.phone && o.phone) c.phone = o.phone;
+    if (!c.email && o.email) c.email = o.email;
+    if ((!c.firstName || !c.lastName) && (o.firstName || o.lastName)) {
+      if (!c.firstName) c.firstName = o.firstName || '';
+      if (!c.lastName) c.lastName = o.lastName || '';
+      c.client = (c.firstName + ' ' + c.lastName).trim() || c.client;
+    }
+  });
+  // Apply metadata
+  var meta = db.clientMeta || {};
+  Object.keys(map).forEach(function(k){
+    var m = meta[k] || {};
+    map[k].tags = m.tags || [];
+    map[k].note = m.note || '';
+    map[k].avg = map[k].count ? Math.round(map[k].total / map[k].count) : 0;
+  });
+  return map;
+}
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / (1000*60*60*24));
+}
+
+function renderClients() {
+  var db = getDB();
+  var clientsMap = aggregateClients(db);
+  var clients = Object.keys(clientsMap).map(function(k){ return clientsMap[k]; });
+
+  // Segments
+  var segment = document.getElementById('cli-segment').value;
+  var search = (document.getElementById('cli-search').value||'').toLowerCase().trim();
+  var tagFilterEl = document.getElementById('cli-tag-filter');
+  var tagFilter = tagFilterEl ? tagFilterEl.value : '';
+
+  // Populate tag filter
+  var allTags = {};
+  clients.forEach(function(c){ (c.tags||[]).forEach(function(t){ allTags[t]=true; }); });
+  var tagKeys = Object.keys(allTags).sort();
+  tagFilterEl.innerHTML = '<option value="">Усі теги</option>' + tagKeys.map(function(t){return '<option value="'+esc(t)+'" '+(t===tagFilter?'selected':'')+'>'+esc(t)+'</option>';}).join('');
+  tagFilterEl.style.display = (segment === 'tagged' || tagKeys.length > 0) ? '' : 'none';
+
+  var filtered = clients.filter(function(c){
+    if (segment === 'repeat' && c.count < 2) return false;
+    if (segment === 'vip' && c.count < 5) return false;
+    if (segment === 'new' && c.count !== 1) return false;
+    if (segment === 'silent') {
+      var d = daysSince(c.lastDate);
+      if (d === null || d < 90) return false;
+    }
+    if (segment === 'tagged' && (!c.tags || !c.tags.length)) return false;
+    if (tagFilter && (!c.tags || c.tags.indexOf(tagFilter) === -1)) return false;
+    if (search) {
+      var hay = ((c.client||'')+' '+(c.phone||'')+' '+(c.email||'')+' '+(c.tags||[]).join(' ')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+  // Sort: by lastDate desc
+  filtered.sort(function(a,b){ return (b.lastDate||'').localeCompare(a.lastDate||''); });
+
+  // Cards
+  var total = clients.length;
+  var repeat = clients.filter(function(c){return c.count>=2;}).length;
+  var vip = clients.filter(function(c){return c.count>=5;}).length;
+  var silent = clients.filter(function(c){var d=daysSince(c.lastDate); return d!==null && d>=90;}).length;
+  var totalRevenue = clients.reduce(function(s,c){return s+c.total;}, 0);
+  var avgLTV = total ? Math.round(totalRevenue/total) : 0;
+  document.getElementById('cli-cards').innerHTML =
+    '<div class="card"><div class="card-label">Всього клієнтів</div><div class="card-value">'+total+'</div></div>'+
+    '<div class="card '+(repeat>0?'success':'')+'"><div class="card-label">🔁 Повторні</div><div class="card-value">'+repeat+'</div><div class="card-sub">'+(total?Math.round(repeat/total*100):0)+'% від усіх</div></div>'+
+    '<div class="card"><div class="card-label">⭐ VIP (5+)</div><div class="card-value">'+vip+'</div></div>'+
+    '<div class="card '+(silent>0?'warning':'')+'"><div class="card-label">😴 Тихі (90+ днів)</div><div class="card-value">'+silent+'</div><div class="card-sub">кандидати на ремаркетинг</div></div>'+
+    '<div class="card"><div class="card-label">Середній LTV</div><div class="card-value">'+fmt(avgLTV)+' <span style="font-size:14px;">грн</span></div><div class="card-sub">всього: '+fmt(totalRevenue)+' грн</div></div>';
+
+  // Table
+  document.getElementById('cli-table').innerHTML = filtered.map(function(c){
+    var d = daysSince(c.lastDate);
+    var freshness = d === null ? '—' : (d === 0 ? 'сьогодні' : d===1 ? 'вчора' : d+' дн.');
+    var freshnessColor = d === null ? 'var(--text-light)' : d < 30 ? 'var(--success)' : d < 90 ? 'var(--warning)' : 'var(--danger)';
+    var tagsHtml = (c.tags||[]).map(function(t){return '<span class="badge" style="background:#E1BEE7;color:#4A148C;font-size:10px;margin-right:3px;">'+esc(t)+'</span>';}).join('') || '<span class="text-muted" style="font-size:11px;">—</span>';
+    var contacts = '';
+    if (c.phone) contacts += '<div style="font-size:12px;">📞 '+esc(c.phone)+'</div>';
+    if (c.email) contacts += '<div style="font-size:12px;color:var(--text-light);">✉ '+esc(c.email)+'</div>';
+    if (!contacts) contacts = '<span class="text-muted" style="font-size:11px;">—</span>';
+    var chCount = Object.keys(c.channels||{}).length;
+    var channelsHtml = chCount ? Object.keys(c.channels).sort().map(function(ch){return '<span style="font-size:10px;color:var(--text-light);">'+esc(ch)+(c.channels[ch]>1?' ×'+c.channels[ch]:'')+'</span>';}).join('<br>') : '—';
+    var vipBadge = c.count >= 5 ? ' <span class="badge" style="background:#FFC107;color:#5d4400;font-size:10px;">⭐ VIP</span>' : (c.count >= 2 ? ' <span class="badge" style="background:#E8F5E9;color:#2E7D32;font-size:10px;">🔁</span>' : '');
+    var returnedBadge = c.returnedCount > 0 ? ' <span class="badge" style="background:#FFEBEE;color:#B71C1C;font-size:10px;" title="'+c.returnedCount+' повернень/відмов">↩ '+c.returnedCount+'</span>' : '';
+    var noteTrim = c.note ? (c.note.length > 50 ? c.note.slice(0,50)+'…' : c.note) : '';
+    return '<tr>'+
+      '<td data-label="Клієнт"><strong>'+esc(c.client||'?')+'</strong>'+vipBadge+returnedBadge+'</td>'+
+      '<td data-label="Контакти">'+contacts+'</td>'+
+      '<td data-label="Теги">'+tagsHtml+'</td>'+
+      '<td data-label="Замовлень" style="text-align:center;"><strong>'+c.count+'</strong></td>'+
+      '<td data-label="Сума"><strong>'+fmt(c.total)+' грн</strong>'+(c.paidSum<c.total?'<div style="font-size:11px;color:var(--text-light);">оплачено: '+fmt(c.paidSum)+'</div>':'')+'</td>'+
+      '<td data-label="Сер. чек">'+fmt(c.avg)+' грн</td>'+
+      '<td data-label="Остання" style="color:'+freshnessColor+';font-size:12px;">'+esc(c.lastDate||'—')+'<div style="font-size:10px;">'+freshness+'</div></td>'+
+      '<td data-label="Канали" style="font-size:11px;">'+channelsHtml+'</td>'+
+      '<td data-label="Нотатка" style="font-size:12px;color:var(--text-light);max-width:160px;" title="'+esc(c.note||'')+'">'+esc(noteTrim||'—')+'</td>'+
+      '<td data-label="Дії" style="white-space:nowrap;">'+
+        '<button class="btn btn-outline btn-sm" onclick="openClientDetail(\''+c.key+'\')" title="Картка з історією">📋</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:40px;">'+(clients.length?'Немає клієнтів за поточним фільтром':'Клієнтів ще немає — створи перше замовлення')+'</td></tr>';
+}
+
+var _currentClientKey = null;
+function openClientDetail(key) {
+  var db = getDB();
+  var clients = aggregateClients(db);
+  var c = clients[key];
+  if (!c) return;
+  _currentClientKey = key;
+  document.getElementById('cli-detail-title').textContent = '👤 ' + (c.client || 'Клієнт');
+
+  var ordersSorted = c.orders.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  var statusMap = {};
+  (db.orderStatuses || getOrderStatuses()).forEach(function(s){ statusMap[s.id] = s.label; });
+
+  var ordersHtml = ordersSorted.map(function(o){
+    var statusLbl = statusMap[o.status] || o.status || '—';
+    var itemsLine = (o.items||[]).map(function(i){return esc(i.name)+' ×'+i.qty;}).join(', ');
+    var returnTag = o.returnedToStock ? (o.returnAsDefect ? ' <span style="color:#B71C1C;font-size:11px;">🚫 БРАК</span>' : ' <span style="color:#E65100;font-size:11px;">↩ повернено</span>') : '';
+    var payTag = o.paymentStatus === 'paid' ? ' ✓' : (o.paymentStatus === 'partial' ? ' ◐' : ' ✗');
+    return '<tr style="border-bottom:1px solid #f0f0f0;">'+
+      '<td style="padding:6px 8px;font-size:12px;">#'+o.num+'</td>'+
+      '<td style="padding:6px 8px;font-size:12px;">'+esc(o.date||'')+'</td>'+
+      '<td style="padding:6px 8px;font-size:12px;">'+esc(statusLbl)+returnTag+'</td>'+
+      '<td style="padding:6px 8px;font-size:12px;">'+esc(itemsLine||'—')+'</td>'+
+      '<td style="padding:6px 8px;font-size:12px;text-align:right;font-weight:600;">'+fmt(o.total||0)+' грн'+payTag+'</td>'+
+      '<td style="padding:6px 8px;text-align:center;"><button class="btn btn-outline btn-sm" onclick="closeModal(\'client-detail\');openEditOrder(\''+o.id+'\')" title="Відкрити замовлення" style="font-size:11px;padding:2px 8px;">✏️</button></td>'+
+    '</tr>';
+  }).join('');
+
+  var tagsStr = (c.tags||[]).join(', ');
+  var d = daysSince(c.lastDate);
+  var freshness = d === null ? '—' : d===0?'сьогодні':d===1?'вчора':d+' днів тому';
+
+  document.getElementById('cli-detail-body').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;">'+
+      '<div class="card" style="margin:0;"><div class="card-label">Замовлень</div><div class="card-value">'+c.count+'</div></div>'+
+      '<div class="card" style="margin:0;"><div class="card-label">Сума всього</div><div class="card-value" style="font-size:20px;">'+fmt(c.total)+' грн</div></div>'+
+      '<div class="card" style="margin:0;"><div class="card-label">Середній чек</div><div class="card-value" style="font-size:20px;">'+fmt(c.avg)+' грн</div></div>'+
+      '<div class="card" style="margin:0;"><div class="card-label">Остання покупка</div><div class="card-value" style="font-size:14px;">'+esc(c.lastDate||'—')+'</div><div class="card-sub">'+freshness+'</div></div>'+
+    '</div>'+
+    '<div style="background:#FAFAFE;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">'+
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">'+
+        (c.phone?'<div>📞 <a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a></div>':'')+
+        (c.email?'<div>✉ <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a></div>':'')+
+      '</div>'+
+    '</div>'+
+    '<div class="form-group mb-16"><label>🏷 Теги (через кому)</label>'+
+      '<input type="text" id="cli-meta-tags" value="'+esc(tagsStr)+'" placeholder="напр.: логопед, школа, опт, VIP">'+
+      '<span class="text-muted" style="font-size:11px;margin-top:4px;display:block;">Допомагає сегментувати клієнтів. Один тег = одна спільна риса.</span>'+
+    '</div>'+
+    '<div class="form-group mb-16"><label>📝 Нотатка</label>'+
+      '<textarea id="cli-meta-note" rows="3" placeholder="Спецшкола №...; платить наперед; любить дякувати в Direct...">'+esc(c.note||'')+'</textarea>'+
+    '</div>'+
+    '<div class="section-title" style="margin-top:8px;">Історія замовлень ('+c.count+')</div>'+
+    '<div class="table-wrap" style="max-height:340px;overflow-y:auto;">'+
+      '<table style="width:100%;font-size:12px;">'+
+        '<thead><tr style="background:#F3E5F5;color:#4A148C;position:sticky;top:0;"><th style="padding:6px 8px;text-align:left;">№</th><th style="padding:6px 8px;text-align:left;">Дата</th><th style="padding:6px 8px;text-align:left;">Статус</th><th style="padding:6px 8px;text-align:left;">Товари</th><th style="padding:6px 8px;text-align:right;">Сума</th><th style="padding:6px 8px;"></th></tr></thead>'+
+        '<tbody>'+ordersHtml+'</tbody>'+
+      '</table>'+
+    '</div>';
+
+  openModal('client-detail');
+}
+
+function saveClientMeta() {
+  if (!_currentClientKey) return;
+  var db = getDB();
+  if (!db.clientMeta) db.clientMeta = {};
+  var tagsStr = (document.getElementById('cli-meta-tags').value || '').trim();
+  var tags = tagsStr ? tagsStr.split(',').map(function(t){return t.trim();}).filter(Boolean) : [];
+  var note = (document.getElementById('cli-meta-note').value || '').trim();
+  db.clientMeta[_currentClientKey] = { tags: tags, note: note };
+  saveDB(db);
+  closeModal('client-detail');
+  renderClients();
 }
 
 function renderWorkerStock() {
