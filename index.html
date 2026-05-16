@@ -10097,6 +10097,20 @@ function eqServiceStats(eqId, logs) {
 // ==================== EXPENSES (OpEx) ====================
 function populateExpenseCatSelects() {
   var db = getDB();
+  // Міграція: якщо ключових системних категорій нема — додаємо.
+  // Старі акаунти можуть мати неповний список, бо expenseCategories
+  // зберігається в БД користувача а не в схемі.
+  if (!db.expenseCategories) db.expenseCategories = [];
+  var systemCats = ['📦 Закупка матеріалів'];
+  var changed = false;
+  systemCats.forEach(function(sc){
+    if (db.expenseCategories.indexOf(sc) === -1) {
+      // Додаємо першою — закупка матеріалів зазвичай основна стаття витрат
+      db.expenseCategories.unshift(sc);
+      changed = true;
+    }
+  });
+  if (changed) saveDB(db);
   var cats = db.expenseCategories || [];
   ['exp-cat','exp-tpl-cat','exp-filter-cat'].forEach(function(id) {
     var sel = document.getElementById(id);
