@@ -67,26 +67,29 @@
     return '+' + digits;
   }
 
-  // Будує блок іконок для зв'язку: tel + Telegram + Viber + WhatsApp + копіювати.
-  // `compact` = true: маленькі іконки під ім'ям клієнта. false: повний з номером.
+  // Будує блок іконок для зв'язку.
+  // `compact` = true (під ім'ям клієнта): ТІЛЬКИ номер як tel-посилання,
+  //              без icon-icon-icon — щоб не розпирало колонку.
+  // `compact` = false (окрема колонка "Телефон" або mobile-card): повний
+  //              набір tel + Telegram + Viber + WhatsApp + копіювати.
   function buildContactIcons(phone, compact) {
     if (!phone) return '';
     var p = String(phone);
     var pIntl = normPhoneIntl(p);
+    if (compact) {
+      // Тільки телефон, як було раніше. Іконки видно в окремій колонці "Телефон".
+      return '<a href="tel:'+esc(pIntl)+'" style="font-size:11px;color:var(--text-light);text-decoration:none;">'+esc(p)+'</a>';
+    }
     var pClean = pIntl.replace('+', '');           // for wa.me
     var pNoPlus = pIntl;                            // for viber://
-    var sz = compact ? '14px' : '16px';
-    var gap = compact ? '4px' : '6px';
-    var btnStyle = 'text-decoration:none;font-size:'+sz+';opacity:0.85;cursor:pointer;display:inline-block;';
-    var phoneDisplay = compact
-      ? '<a href="tel:'+esc(pIntl)+'" style="font-size:11px;color:var(--text-light);text-decoration:none;margin-right:6px;">'+esc(p)+'</a>'
-      : '<a href="tel:'+esc(pIntl)+'" style="font-size:12px;color:var(--primary);text-decoration:none;margin-right:8px;">📞 '+esc(p)+'</a>';
-    return '<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:'+gap+';">'+
+    var btnStyle = 'text-decoration:none;font-size:14px;opacity:0.85;cursor:pointer;display:inline-block;line-height:1;';
+    var phoneDisplay = '<a href="tel:'+esc(pIntl)+'" style="font-size:12px;color:var(--primary);text-decoration:none;margin-right:6px;">📞 '+esc(p)+'</a>';
+    return '<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">'+
       phoneDisplay +
       '<a href="https://t.me/'+esc(pNoPlus)+'" target="_blank" rel="noopener" title="Telegram" style="'+btnStyle+'">✈️</a>' +
       '<a href="viber://chat?number='+esc(pNoPlus)+'" title="Viber" style="'+btnStyle+'">💬</a>' +
       '<a href="https://wa.me/'+esc(pClean)+'" target="_blank" rel="noopener" title="WhatsApp" style="'+btnStyle+'">📱</a>' +
-      '<button onclick="event.preventDefault();event.stopPropagation();navigator.clipboard&&navigator.clipboard.writeText(\''+esc(pIntl)+'\').then(function(){this.textContent=\'✅\';}.bind(this));" title="Скопіювати номер" style="background:none;border:none;cursor:pointer;font-size:'+sz+';opacity:0.85;padding:0;">📋</button>' +
+      '<button onclick="event.preventDefault();event.stopPropagation();navigator.clipboard&&navigator.clipboard.writeText(\''+esc(pIntl)+'\').then(function(){this.textContent=\'✅\';}.bind(this));" title="Скопіювати номер" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.85;padding:0;line-height:1;">📋</button>' +
     '</span>';
   }
 
