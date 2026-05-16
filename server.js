@@ -4,6 +4,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+// web-push є optional: якщо пакет не встановлений (наприклад на staging без re-install),
+// сервер усе одно стартує, просто push не працює (лог попередження).
+let webpush = null;
+try { webpush = require('web-push'); } catch(_) { console.warn('[push] web-push not installed — push notifications disabled'); }
 
 const PORT = process.env.PORT || 3999;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -218,7 +222,107 @@ async function initDB() {
   // Add last_login_at column if not exists
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`).catch(()=>{});
 
+  // System key-value (VAPID keys, feature flags)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  // Web Push subscriptions per user
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      user_agent TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)`).catch(()=>{});
+
+  // Notification prefs — додаємо push toggles (мігруємо існуючу таблицю)
+  await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_material_alert BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
+  await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_new_order BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
+  await pool.query(`ALTER TABLE notification_prefs ADD COLUMN IF NOT EXISTS push_order_assigned BOOLEAN NOT NULL DEFAULT true`).catch(()=>{});
+
   console.log('PostgreSQL connected, tables ready');
+
+  // Initialize VAPID keys if not present
+  await initVapidKeys();
+}
+
+// VAPID: ключі генеруються один раз і живуть в system_settings (а не в env).
+// Це дає zero-config — нічого в Render не треба ставити.
+let VAPID = null; // { publicKey, privateKey }
+async function initVapidKeys() {
+  if (!webpush || !pool) return;
+  try {
+    const r = await pool.query(`SELECT value FROM system_settings WHERE key = 'vapid'`);
+    if (r.rows.length && r.rows[0].value && r.rows[0].value.publicKey) {
+      VAPID = r.rows[0].value;
+    } else {
+      const keys = webpush.generateVAPIDKeys();
+      VAPID = keys;
+      await pool.query(
+        `INSERT INTO system_settings (key, value) VALUES ('vapid', $1)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [JSON.stringify(keys)]
+      );
+      console.log('[push] VAPID keys generated and stored');
+    }
+    if (VAPID && VAPID.publicKey) {
+      webpush.setVapidDetails(
+        'mailto:' + ADMIN_EMAIL,
+        VAPID.publicKey,
+        VAPID.privateKey
+      );
+      console.log('[push] VAPID configured, push ready');
+    }
+  } catch (e) {
+    console.error('[push] VAPID init failed:', e.message);
+  }
+}
+
+// Send push to one user (всі його підписки). Видаляє підписки, що повертають 404/410.
+async function sendPushToUser(userId, payload) {
+  if (!webpush || !VAPID || !pool) return { sent: 0, removed: 0 };
+  try {
+    const subs = await pool.query(
+      `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1`,
+      [userId]
+    );
+    if (!subs.rows.length) return { sent: 0, removed: 0 };
+    const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    let sent = 0, removed = 0;
+    for (const s of subs.rows) {
+      try {
+        await webpush.sendNotification({
+          endpoint: s.endpoint,
+          keys: { p256dh: s.p256dh, auth: s.auth }
+        }, body);
+        sent++;
+        pool.query(`UPDATE push_subscriptions SET last_seen_at = NOW() WHERE id = $1`, [s.id]).catch(()=>{});
+      } catch (err) {
+        // 404/410 = subscription expired or revoked → cleanup
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await pool.query(`DELETE FROM push_subscriptions WHERE id = $1`, [s.id]).catch(()=>{});
+          removed++;
+        } else {
+          console.warn('[push] send failed:', err.statusCode, err.body || err.message);
+        }
+      }
+    }
+    return { sent, removed };
+  } catch (e) {
+    console.error('[push] sendPushToUser error:', e.message);
+    return { sent: 0, removed: 0, error: e.message };
+  }
 }
 
 // ==================== USER DATA READ/WRITE ====================
@@ -1707,6 +1811,80 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ==================== PUSH NOTIFICATIONS ====================
+
+    // Returns VAPID public key для frontend (потрібен для PushManager.subscribe).
+    // Не вимагає авторизації — це публічний ключ.
+    if (req.method === 'GET' && url === '/api/push/vapid-key') {
+      if (!VAPID || !VAPID.publicKey) {
+        sendJSON(res, 503, { error: 'Push notifications disabled on this server' });
+        return;
+      }
+      sendJSON(res, 200, { publicKey: VAPID.publicKey });
+      return;
+    }
+
+    // Subscribe device — body: { endpoint, keys: { p256dh, auth }, userAgent }
+    if (req.method === 'POST' && url === '/api/push/subscribe') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!pool) { sendJSON(res, 503, { error: 'DB unavailable' }); return; }
+      const body = JSON.parse(await readBody(req));
+      const sub = body && body.subscription;
+      if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+        sendJSON(res, 400, { error: 'Invalid subscription' });
+        return;
+      }
+      const ua = (body.userAgent || req.headers['user-agent'] || '').slice(0, 200);
+      try {
+        await pool.query(
+          `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (endpoint) DO UPDATE SET user_id = $1, p256dh = $3, auth = $4, user_agent = $5, last_seen_at = NOW()`,
+          [user.id, sub.endpoint, sub.keys.p256dh, sub.keys.auth, ua]
+        );
+        sendJSON(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[push] subscribe error:', e.message);
+        sendJSON(res, 500, { error: e.message });
+      }
+      return;
+    }
+
+    // Unsubscribe (опційно — frontend сам викликає на pushManager.unsubscribe)
+    if (req.method === 'POST' && url === '/api/push/unsubscribe') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      if (!pool) { sendJSON(res, 503, { error: 'DB unavailable' }); return; }
+      const body = JSON.parse(await readBody(req));
+      if (body && body.endpoint) {
+        await pool.query(
+          `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`,
+          [user.id, body.endpoint]
+        );
+      } else {
+        // Без endpoint = unsubscribe всі підписки користувача
+        await pool.query(`DELETE FROM push_subscriptions WHERE user_id = $1`, [user.id]);
+      }
+      sendJSON(res, 200, { ok: true });
+      return;
+    }
+
+    // Send a test push to current user
+    if (req.method === 'POST' && url === '/api/push/test') {
+      const user = await getSessionUser(req);
+      if (!user) { sendJSON(res, 401, { error: 'Not authenticated' }); return; }
+      const r = await sendPushToUser(user.id, {
+        title: '🔔 LipoLand — тест',
+        body: 'Якщо ти це бачиш — push працює! 🎉',
+        url: '/app',
+        tag: 'test',
+        requireInteraction: false
+      });
+      sendJSON(res, 200, r);
+      return;
+    }
+
     // ---- TELEGRAM WEBHOOK ----
     if (req.method === 'POST' && url === '/api/telegram/webhook') {
       try {
@@ -2809,6 +2987,14 @@ async function checkTrialReminders() {
         console.log(`[Cron] Material alert: ${u.email}, ${lowMaterials.length} low`);
         await sendMaterialAlertEmail(u.name || '', u.email, lowMaterials);
         await logEmailSent(u.id, 'material_alert');
+        // Push: ту саму тривогу шлемо ще через push (якщо підписався)
+        sendPushToUser(u.id, {
+          title: '⚠️ Матеріали закінчуються',
+          body: lowMaterials.length + ' матеріал' + (lowMaterials.length===1?'':lowMaterials.length<5?'и':'ів') + ' нижче мінімуму: ' + lowMaterials.slice(0,3).map(m=>m.name).join(', ') + (lowMaterials.length>3?'…':''),
+          url: '/app#materials',
+          tag: 'low-stock',
+          requireInteraction: false
+        }).catch(()=>{});
       }
     }
 
