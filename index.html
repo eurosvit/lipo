@@ -445,6 +445,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="showPage('expenses')" data-page="expenses">💸 Витрати</button>
     <button onclick="showPage('equipment')" data-page="equipment">&#x1F5A8; Обладнання</button>
     <button onclick="showPage('analytics')" data-page="analytics">📉 Аналітика</button>
+    <button onclick="showPage('audit')" data-page="audit">📜 Журнал</button>
     <button onclick="showPage('admin')" data-page="admin" id="nav-admin" style="display:none;">👑 Адмін</button>
     <button onclick="showPage('settings')" data-page="settings">&#x2699;&#xFE0F; &#x041D;&#x0430;&#x043B;&#x0430;&#x0448;&#x0442;&#x0443;&#x0432;&#x0430;&#x043D;&#x043D;&#x044F;</button>
   </div>
@@ -505,6 +506,7 @@ a.order-link:hover { text-decoration:underline; }
     <button onclick="mobileNav('expenses')">💸 Витрати</button>
     <button onclick="mobileNav('equipment')">🖨 Обладнання</button>
     <button onclick="mobileNav('analytics')">📉 Аналітика</button>
+    <button onclick="mobileNav('audit')">📜 Журнал</button>
     <button onclick="mobileNav('admin')" id="mobile-nav-admin" style="display:none;">👑 Адмін</button>
     <button onclick="mobileNav('settings')">⚙️ Налаштування</button>
     <div class="menu-footer">
@@ -1077,6 +1079,60 @@ a.order-link:hover { text-decoration:underline; }
         <tbody id="analytics-channels"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- ========== AUDIT LOG ========== -->
+<div id="audit" class="page">
+  <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+    <h2>📜 Журнал змін</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select id="audit-entity-filter" onchange="renderAuditLog()" style="padding:7px 10px;">
+        <option value="">Усі сутності</option>
+        <option value="order">📋 Замовлення</option>
+        <option value="product">📦 Товар</option>
+        <option value="material">🧵 Матеріал</option>
+        <option value="production">🔧 Виробництво</option>
+        <option value="salary">💰 ЗП</option>
+        <option value="workerStock">👷 Склад майстра</option>
+        <option value="client">👥 Клієнт</option>
+      </select>
+      <select id="audit-action-filter" onchange="renderAuditLog()" style="padding:7px 10px;">
+        <option value="">Усі дії</option>
+        <option value="create">➕ Створено</option>
+        <option value="edit">✏️ Редаговано</option>
+        <option value="delete">🗑 Видалено</option>
+        <option value="status_change">🔄 Статус</option>
+        <option value="ship">📦 Відправлено</option>
+        <option value="unship">↩ Скасовано відправку</option>
+        <option value="return">↩ Повернення</option>
+        <option value="pay">💸 Виплата</option>
+        <option value="complete">✅ Здано</option>
+        <option value="price_change">💰 Ціна</option>
+      </select>
+      <select id="audit-user-filter" onchange="renderAuditLog()" style="padding:7px 10px;">
+        <option value="">Усі користувачі</option>
+      </select>
+      <input type="date" id="audit-date-from" onchange="renderAuditLog()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="Від дати">
+      <span style="color:var(--text-light);">—</span>
+      <input type="date" id="audit-date-to" onchange="renderAuditLog()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" title="До дати">
+      <button class="btn btn-outline btn-sm" onclick="exportAuditLog()" title="Експорт усіх записів у CSV">📥 CSV</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAuditLog()" title="Очистити журнал">🗑 Очистити</button>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--text-light);margin:-12px 0 8px;">Хто/коли/що змінив. Останні 2000 дій (старіші auto-trim). Майстер бачить лише свої дії, власник — усі.</p>
+  <div id="audit-cards" class="cards" style="margin-top:16px;"></div>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table>
+      <thead><tr>
+        <th>Час</th>
+        <th>Користувач</th>
+        <th>Що</th>
+        <th>Дія</th>
+        <th>Деталі</th>
+      </tr></thead>
+      <tbody id="audit-table"></tbody>
+    </table>
   </div>
 </div>
 
@@ -2502,7 +2558,7 @@ const DB_KEY = 'toy_inventory_db';
 let _dbCache = null;
 
 function getDB() {
-  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}], clientMeta:{}, defects:[] };
+  const def = { materials:[], products:[], production:[], orders:[], workers:['Майстер 1'], nextOrderNum:1, workerStock:[], workerStockHistory:[], equipment:[], serviceLog:[], printerSettings:{ colors:6, costPerPageA4:0 }, inkRefills:[], consumables:[], workerRateDefault:{ type:'percent', value:25 }, packagingKits:[], orderChannels:['Instagram','Рекомендація','Etsy','Сайт','Інше'], salaryPayments:[], expenses:[], expenseTemplates:[], expenseCategories:['📦 Закупка матеріалів','🏠 Оренда та комуналка','📢 Реклама','💳 Підписки','📱 Зв\'язок / інтернет','📦 Доставка','🧾 Податки','🔧 Інше'], taxSettings:{ fopGroup:'none', fopGroup2Amount:3000, fopGroup3Rate:5, militaryRate:1, monthOverrides:{} }, orderStatuses:[{id:'new',label:'🆕 Новий',color:'#ffeaa7'},{id:'in_production',label:'🔧 На виробництві',color:'#81ecec'},{id:'shipped',label:'📦 Відправлено',color:'#a29bfe'},{id:'completed',label:'✔ Виконано',color:'#55efc4'}], clientMeta:{}, defects:[], auditLog:[] };
   if (_dbCache) return {...def, ..._dbCache};
   try {
     const d = JSON.parse(localStorage.getItem(DB_KEY));
@@ -2764,7 +2820,7 @@ function showPage(id) {
 
 function renderPage(id) {
   const fn = { dashboard:renderDashboard, materials:renderMaterials, products:renderProducts,
-    production:renderProduction, orders:renderOrders, clients:renderClients, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, expenses:renderExpenses, equipment:renderEquipment, analytics:renderAnalytics, admin:renderAdmin, settings:renderSettings };
+    production:renderProduction, orders:renderOrders, clients:renderClients, 'worker-stock':renderWorkerStock, salary:renderSalary, costs:renderCosts, expenses:renderExpenses, equipment:renderEquipment, analytics:renderAnalytics, audit:renderAuditLog, admin:renderAdmin, settings:renderSettings };
   if (id === 'analytics' && !document.getElementById('an-from').value) setAnalyticsPeriod('6m');
   if(fn[id]) fn[id]();
 }
@@ -4491,6 +4547,7 @@ function completeProduction() {
     var destLabel = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
     db.production.push({ id:uid(), productId:batch.productId, qty:qty, worker:batch.worker, date:batch.date, status:'completed', completedQty:qty, completedDate:new Date().toISOString().slice(0,10), fulfillmentDest:destLabel, completionNote:note });
     batch.qty -= qty;
+    logAudit(db, 'production', batch.id, 'complete', { product: p?p.name:'?', qty: qty, partial: true, worker: batch.worker, dest: destination, note: note });
   } else {
     // Full completion
     batch.status = 'completed';
@@ -4498,6 +4555,7 @@ function completeProduction() {
     batch.completedDate = new Date().toISOString().slice(0,10);
     batch.fulfillmentDest = destination.indexOf('ff:')===0 ? destination.substring(3) : '';
     batch.completionNote = note;
+    logAudit(db, 'production', batch.id, 'complete', { product: p?p.name:'?', qty: qty, partial: false, worker: batch.worker, dest: destination, note: note });
   }
   saveDB(db);
   closeModal('complete-production');
@@ -4747,6 +4805,7 @@ function editCompletedBatch(batchId) {
   }
   batch.completedQty = newQty;
   batch.qty = newQty;
+  logAudit(db, 'production', batch.id, 'edit', { product: p?p.name:'?', oldQty: curQty, newQty: newQty, worker: batch.worker });
   saveDB(db);
   renderPage('production');
 }
@@ -4764,6 +4823,7 @@ function deleteCompletedBatch(batchId) {
       p.templateCovered = Math.max(0, (p.templateCovered||0) - qty);
     }
   }
+  logAudit(db, 'production', batch.id, 'delete', { product: p?p.name:'?', qty: qty, worker: batch.worker, date: batch.completedDate||batch.date });
   db.production = db.production.filter(function(x){return x.id!==batchId});
   saveDB(db);
   renderPage('production');
@@ -4853,11 +4913,13 @@ function setOrderStatus(id, status) {
   var ord = db.orders.find(function(x){return x.id===id});
   if(!ord) return;
   var prevStatus = ord.status;
+  if (prevStatus === status) return; // no-op
   ord.status = status;
   // Автоматично відмічаємо оплату при статусі "Виконано"
   if (status === 'completed' && ord.paymentStatus !== 'paid') {
     ord.paymentStatus = 'paid';
   }
+  logAudit(db, 'order', ord.id, 'status_change', { num: ord.num, from: prevStatus, to: status, client: ord.client });
   saveDB(db);
   // Auto-return: якщо новий статус означає повернення/відмову І ще не повертали
   var statuses = (db.orderStatuses || getOrderStatuses());
@@ -5000,8 +5062,11 @@ function inlineEditItemPrice(span, orderId, itemIdx, currentPrice) {
     var db = getDB();
     var ord = db.orders.find(function(x){ return x.id === orderId; });
     if (!ord || !ord.items || !ord.items[itemIdx]) { renderOrders(); return; }
+    var oldPrice = Number(ord.items[itemIdx].price)||0;
+    if (oldPrice === val) { renderOrders(); return; }
     ord.items[itemIdx].price = val;
     ord.total = ord.items.reduce(function(s, i){ return s + (Number(i.price)||0) * (Number(i.qty)||0); }, 0);
+    logAudit(db, 'order', ord.id, 'price_change', { num: ord.num, item: ord.items[itemIdx].name, oldPrice: oldPrice, newPrice: val, newTotal: ord.total });
     saveDB(db);
     renderOrders();
   }
@@ -5033,7 +5098,9 @@ function inlineEditProductPrice(td, productId, currentPrice) {
     var p = db.products.find(function(x){ return x.id === productId; });
     if (!p) { renderProducts(); return; }
     if (Number(p.sellPrice||0) === val) { renderProducts(); return; }
+    var oldPrice = Number(p.sellPrice||0);
     p.sellPrice = val;
+    logAudit(db, 'product', p.id, 'price_change', { sku: p.sku, name: p.name, oldPrice: oldPrice, newPrice: val });
     saveDB(db);
     renderProducts();
   }
@@ -5281,6 +5348,7 @@ function shipOrderFromStock(id) {
 
   ord.shipped = true;
   ord.shippedDate = today;
+  logAudit(db, 'order', ord.id, 'ship', { num: ord.num, client: ord.client, sourcesCount: (ord.shippedFrom||[]).length, total: ord.total });
   saveDB(db);
   renderPage('orders');
   showUndoToast({
@@ -5817,6 +5885,7 @@ function confirmPickShipment() {
 
   ord.shipped = true;
   ord.shippedDate = today;
+  logAudit(db, 'order', ord.id, 'ship', { num: ord.num, client: ord.client, sourcesCount: (ord.shippedFrom||[]).length, total: ord.total, manual: true });
   saveDB(db);
   closeModal('pick-shipment');
   _pickShipmentCtx = null;
@@ -5882,6 +5951,7 @@ function unshipOrderImpl(id, silent) {
   ord.shipped = false;
   ord.shippedFrom = [];
   ord.shippedDate = null;
+  logAudit(db, 'order', ord.id, 'unship', { num: ord.num, client: ord.client, silent: !!silent });
   saveDB(db);
   renderPage('orders');
 }
@@ -6473,6 +6543,7 @@ function saveOrderEdit() {
     o.items = newItems;
     o.total = newItems.reduce(function(s,i){ return s + (i.price||0)*(i.qty||0); }, 0);
   }
+  logAudit(db, 'order', o.id, 'edit', { num: o.num, client: o.client, itemsCount: (o.items||[]).length, total: o.total, blockedItems: blockItemsUpdate });
   saveDB(db);
   closeModal('edit-order');
   renderPage('orders');
@@ -7194,6 +7265,7 @@ function returnOrderToStock(id, opts) {
   o.returnDate = today;
   o.returnReason = reason || '';
   o.returnAsDefect = asDefect;
+  logAudit(db, 'order', o.id, 'return', { num: o.num, client: o.client, reason: reason||'', asDefect: asDefect, itemsCount: (o.items||[]).length });
   saveDB(db);
   renderPage('orders');
   if (!opts.silent) {
@@ -7207,6 +7279,8 @@ function returnOrderToStock(id, opts) {
 function deleteOrder(id) {
   if(!confirm('Видалити замовлення?')) return;
   var db = getDB();
+  var ord = db.orders.find(function(x){return x.id===id});
+  if (ord) logAudit(db, 'order', ord.id, 'delete', { num: ord.num, client: ord.client, total: ord.total });
   db.orders = db.orders.filter(function(x){return x.id!==id});
   // Also remove any auto-created ЗП entries linked to this order
   if (db.production) db.production = db.production.filter(function(b){ return !(b.source === 'order-auto' && b.orderId === id); });
@@ -8136,6 +8210,7 @@ function workerEditQty(stockId) {
   var db = getDB();
   var item = (db.workerStock||[]).find(function(s){return s.id===stockId});
   if (!item) return;
+  var oldQty = item.qty;
   var newQty = prompt('Скільки зараз "'+item.itemName+'"?', item.qty);
   if (newQty === null) return;
   newQty = parseFloat(newQty);
@@ -8144,6 +8219,7 @@ function workerEditQty(stockId) {
   item.qty = newQty;
   if (!db.workerStockHistory) db.workerStockHistory = [];
   db.workerStockHistory.push({ id:uid(), worker:item.worker, type:item.type, itemId:item.itemId, itemName:item.itemName, qty:Math.abs(diff), action:diff>=0?'додано':'списано', date:new Date().toISOString().slice(0,10), note:'коригування майстром (було '+(item.qty-diff)+' → стало '+newQty+')' });
+  logAudit(db, 'workerStock', stockId, 'adjust', { worker: item.worker, item: item.itemName, type: item.type, oldQty: oldQty, newQty: newQty, diff: diff });
   // Remove if zero
   if (newQty <= 0) db.workerStock = db.workerStock.filter(function(s){return s.id!==stockId});
   saveDB(db);
@@ -8209,6 +8285,163 @@ function returnFromWorker(stockId) {
 
   saveDB(db);
   renderPage('worker-stock');
+}
+
+// ==================== AUDIT LOG ====================
+// Журнал змін — хто/коли/що зробив. Auto-trim до 2000 записів.
+// ВАЖЛИВО: logAudit мутує db, але НЕ викликає saveDB — щоб не дублювати запис.
+// Викликай ПЕРЕД saveDB(db) у виклику-батьку (один db.auditLog.push на одну дію).
+function logAudit(db, entity, entityId, action, details) {
+  if (!db) return;
+  if (!db.auditLog) db.auditLog = [];
+  var userName = (_currentUser && (_currentUser.linkedWorkerName || _currentUser.name)) || 'Невідомо';
+  var userEmail = (_currentUser && _currentUser.email) || '';
+  var isWorker = !!(_currentUser && _currentUser.isWorker);
+  db.auditLog.push({
+    id: uid(),
+    ts: new Date().toISOString(),
+    user: userName,
+    userEmail: userEmail,
+    role: isWorker ? 'worker' : 'owner',
+    entity: entity,       // 'order' | 'product' | 'material' | 'production' | 'salary' | 'workerStock' | 'client'
+    entityId: entityId || '',
+    action: action,       // 'create' | 'edit' | 'delete' | 'status_change' | 'ship' | 'unship' | 'return' | 'pay' ...
+    details: details || {}
+  });
+  // Auto-trim — старіше за 2000 записів видаляється (FIFO)
+  if (db.auditLog.length > 2000) {
+    db.auditLog = db.auditLog.slice(-2000);
+  }
+}
+
+// Локалізація action для відображення
+var _auditActionLabels = {
+  create: '➕ Створено', edit: '✏️ Редаговано', delete: '🗑 Видалено',
+  status_change: '🔄 Статус', ship: '📦 Відправлено', unship: '↩ Скасовано відправку',
+  return: '↩ Повернення', pay: '💸 Виплата', complete: '✅ Здано',
+  start: '▶ Запущено', transfer: '🔄 Передано', adjust: '⚖️ Корекція',
+  price_change: '💰 Ціна'
+};
+var _auditEntityLabels = {
+  order: '📋 Замовлення', product: '📦 Товар', material: '🧵 Матеріал',
+  production: '🔧 Виробництво', salary: '💰 ЗП', workerStock: '👷 Склад майстра',
+  client: '👥 Клієнт'
+};
+
+function renderAuditLog() {
+  var db = getDB();
+  var isW = _currentUser && _currentUser.isWorker;
+  var log = (db.auditLog || []).slice().reverse(); // newest first
+  // Worker bачить тільки свої дії
+  if (isW) {
+    var myEmail = (_currentUser.email||'').toLowerCase();
+    log = log.filter(function(r){ return (r.userEmail||'').toLowerCase() === myEmail; });
+  }
+
+  var entityFilter = document.getElementById('audit-entity-filter');
+  var actionFilter = document.getElementById('audit-action-filter');
+  var userFilter = document.getElementById('audit-user-filter');
+  var dateFromEl = document.getElementById('audit-date-from');
+  var dateToEl = document.getElementById('audit-date-to');
+
+  // Populate user filter (only for owner)
+  if (!isW && userFilter) {
+    var users = {};
+    log.forEach(function(r){ if (r.user) users[r.user] = true; });
+    var curU = userFilter.value;
+    userFilter.innerHTML = '<option value="">Усі користувачі</option>' +
+      Object.keys(users).sort().map(function(u){return '<option value="'+esc(u)+'" '+(u===curU?'selected':'')+'>'+esc(u)+'</option>';}).join('');
+  }
+
+  // Apply filters
+  var eF = entityFilter ? entityFilter.value : '';
+  var aF = actionFilter ? actionFilter.value : '';
+  var uF = !isW && userFilter ? userFilter.value : '';
+  var dF = dateFromEl ? dateFromEl.value : '';
+  var dT = dateToEl ? dateToEl.value : '';
+  var filtered = log.filter(function(r){
+    if (eF && r.entity !== eF) return false;
+    if (aF && r.action !== aF) return false;
+    if (uF && r.user !== uF) return false;
+    var rDay = (r.ts||'').slice(0,10);
+    if (dF && rDay < dF) return false;
+    if (dT && rDay > dT) return false;
+    return true;
+  });
+
+  // Cards: total / today / by-user (top 3)
+  var today = new Date().toISOString().slice(0,10);
+  var todayCount = log.filter(function(r){return (r.ts||'').startsWith(today);}).length;
+  var weekAgo = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
+  var weekCount = log.filter(function(r){return (r.ts||'').slice(0,10) >= weekAgo;}).length;
+  var byUser = {};
+  log.forEach(function(r){ byUser[r.user] = (byUser[r.user]||0)+1; });
+  var topUsers = Object.keys(byUser).sort(function(a,b){return byUser[b]-byUser[a];}).slice(0,3);
+
+  document.getElementById('audit-cards').innerHTML =
+    '<div class="card"><div class="card-label">Всього записів</div><div class="card-value">'+log.length+'</div><div class="card-sub">'+(log.length>=2000?'⚠ auto-trim на 2000':'ліміт: 2000')+'</div></div>'+
+    '<div class="card"><div class="card-label">Сьогодні</div><div class="card-value">'+todayCount+'</div></div>'+
+    '<div class="card"><div class="card-label">За 7 днів</div><div class="card-value">'+weekCount+'</div></div>'+
+    (!isW && topUsers.length ? '<div class="card"><div class="card-label">Топ-користувачі</div><div class="card-value" style="font-size:14px;line-height:1.6;">'+topUsers.map(function(u){return esc(u)+' <span style="color:var(--text-light);font-size:12px;">('+byUser[u]+')</span>';}).join('<br>')+'</div></div>' : '');
+
+  // Table
+  document.getElementById('audit-table').innerHTML = filtered.slice(0, 500).map(function(r){
+    var ts = new Date(r.ts);
+    var dateStr = isNaN(ts.getTime()) ? r.ts : ts.toLocaleString('uk-UA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    var actLbl = _auditActionLabels[r.action] || r.action;
+    var entLbl = _auditEntityLabels[r.entity] || r.entity;
+    var roleBadge = r.role === 'worker' ? '<span class="badge" style="background:#E3F2FD;color:#1565C0;font-size:9px;">👷 майстер</span>' : '<span class="badge" style="background:#F3E5F5;color:#4A148C;font-size:9px;">👑 власник</span>';
+    var detailsStr = '';
+    if (r.details && typeof r.details === 'object') {
+      var parts = [];
+      Object.keys(r.details).forEach(function(k){
+        var v = r.details[k];
+        if (v === null || v === undefined || v === '') return;
+        if (typeof v === 'object') v = JSON.stringify(v);
+        parts.push('<span style="color:var(--text-light);">'+esc(k)+':</span> '+esc(String(v).slice(0,80)));
+      });
+      detailsStr = parts.join(' &middot; ');
+    }
+    return '<tr>'+
+      '<td data-label="Час" style="white-space:nowrap;font-size:12px;color:var(--text-light);">'+esc(dateStr)+'</td>'+
+      '<td data-label="Користувач" style="font-size:12px;"><strong>'+esc(r.user||'?')+'</strong><br>'+roleBadge+'</td>'+
+      '<td data-label="Що" style="font-size:12px;">'+esc(entLbl)+(r.entityId?' <code style="font-size:10px;color:var(--text-light);">'+esc(String(r.entityId).slice(-8))+'</code>':'')+'</td>'+
+      '<td data-label="Дія" style="font-size:12px;font-weight:600;">'+esc(actLbl)+'</td>'+
+      '<td data-label="Деталі" style="font-size:11px;line-height:1.4;">'+detailsStr+'</td>'+
+    '</tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px;">'+(log.length?'Немає записів за поточним фільтром':'Журнал порожній — почни робити зміни')+'</td></tr>';
+
+  if (filtered.length > 500) {
+    document.getElementById('audit-table').innerHTML += '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:10px;font-size:11px;">Показано 500 з '+filtered.length+'. Звузь фільтр щоб побачити старіші.</td></tr>';
+  }
+}
+
+function exportAuditLog() {
+  var db = getDB();
+  var log = (db.auditLog || []).slice();
+  if (!log.length) return alert('Журнал порожній');
+  var headers = ['Час','Користувач','Email','Роль','Що','EntityId','Дія','Деталі'];
+  var rows = log.map(function(r){
+    var detailsStr = r.details ? JSON.stringify(r.details).replace(/"/g,'""') : '';
+    return [r.ts, r.user, r.userEmail, r.role, r.entity, r.entityId, r.action, detailsStr]
+      .map(function(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; })
+      .join(',');
+  });
+  var csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'audit-log-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function clearAuditLog() {
+  if (!confirm('Очистити весь журнал змін? Дію не можна скасувати. Можеш спершу експортувати CSV.')) return;
+  var db = getDB();
+  db.auditLog = [];
+  saveDB(db);
+  renderAuditLog();
 }
 
 // ==================== CLIENTS ====================
@@ -8440,6 +8673,7 @@ function saveClientMeta() {
   var tags = tagsStr ? tagsStr.split(',').map(function(t){return t.trim();}).filter(Boolean) : [];
   var note = (document.getElementById('cli-meta-note').value || '').trim();
   db.clientMeta[_currentClientKey] = { tags: tags, note: note };
+  logAudit(db, 'client', _currentClientKey, 'edit', { tags: tags.join(', '), noteLen: note.length });
   saveDB(db);
   closeModal('client-detail');
   renderClients();
@@ -9073,10 +9307,15 @@ function saveSalaryPayment() {
   if (!db.salaryPayments) db.salaryPayments = [];
   if (_editingSalaryId) {
     var existing = db.salaryPayments.find(function(p){return p.id===_editingSalaryId});
-    if (existing) { existing.worker = worker; existing.amount = amount; existing.note = note; existing.date = date; }
+    if (existing) {
+      logAudit(db, 'salary', existing.id, 'edit', { worker: worker, oldAmount: existing.amount, newAmount: amount, date: date, note: note });
+      existing.worker = worker; existing.amount = amount; existing.note = note; existing.date = date;
+    }
     _editingSalaryId = null;
   } else {
-    db.salaryPayments.push({ id:uid(), worker:worker, amount:amount, note:note, date:date });
+    var newId = uid();
+    db.salaryPayments.push({ id:newId, worker:worker, amount:amount, note:note, date:date });
+    logAudit(db, 'salary', newId, 'pay', { worker: worker, amount: amount, date: date, note: note });
   }
   saveDB(db);
   closeModal('pay-salary');
@@ -9086,6 +9325,8 @@ function saveSalaryPayment() {
 function deleteSalaryPayment(payId) {
   if (!confirm('Видалити цю виплату?')) return;
   var db = getDB();
+  var p = (db.salaryPayments||[]).find(function(x){return x.id===payId});
+  if (p) logAudit(db, 'salary', payId, 'delete', { worker: p.worker, amount: p.amount, date: p.date });
   db.salaryPayments = (db.salaryPayments||[]).filter(function(p){return p.id!==payId});
   saveDB(db);
   renderSalary();
