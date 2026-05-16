@@ -2591,6 +2591,8 @@ a.order-link:hover { text-decoration:underline; }
 <script src="/js/fulfillment.js" defer></script>
 <script src="/js/packaging.js" defer></script>
 <script src="/js/channels.js" defer></script>
+<script src="/js/order-actions.js" defer></script>
+<script src="/js/pagination.js" defer></script>
 <script>
 // Instantly restore last viewed page + worker nav (no flash)
 (function(){
@@ -4213,127 +4215,8 @@ function syncOrderAutoProduction(db, ord) {
 // Channels — винесено в public/js/channels.js
 
 
-function inlineEditTtn(td, orderId, currentVal) {
-  // Prevent double-click creating multiple inputs
-  if (td.querySelector('input')) return;
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.value = currentVal;
-  input.placeholder = 'Введіть ТТН...';
-  input.style.cssText = 'width:100%;font-size:12px;font-family:monospace;padding:4px 8px;border:2px solid var(--primary);border-radius:6px;outline:none;background:#FAFAFE;';
-  input.maxLength = 30;
-  td.innerHTML = '';
-  td.appendChild(input);
-  input.focus();
-  input.select();
+// inlineEdit*, setOrderPayment* — винесено в public/js/order-actions.js
 
-  function save() {
-    var val = input.value.trim();
-    var db = getDB();
-    var ord = db.orders.find(function(x){return x.id===orderId});
-    if (ord) {
-      ord.ttn = val;
-      // Auto-set carrier if looks like NP
-      if (/^\d{14}$/.test(val) && !ord.carrier) ord.carrier = 'nova';
-      // Clear old tracking if TTN changed
-      if (val !== currentVal) ord.tracking = null;
-      saveDB(db);
-    }
-    renderOrders();
-    // Auto-track if new TTN was entered
-    if (val && val !== currentVal && typeof trackNpOrders === 'function') {
-      setTimeout(function(){ trackNpOrders({force:true}); }, 500);
-    }
-  }
-
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); save(); }
-    if (e.key === 'Escape') { renderOrders(); }
-  });
-  input.addEventListener('blur', save);
-}
-
-// Інлайн-редагування ціни позиції в замовленні (для перерахунку Etsy USD/EUR → UAH і т.п.)
-function inlineEditItemPrice(span, orderId, itemIdx, currentPrice) {
-  if (span.querySelector('input')) return;
-  var input = document.createElement('input');
-  input.type = 'number';
-  input.step = '0.01';
-  input.min = '0';
-  input.value = currentPrice;
-  input.style.cssText = 'width:90px;font-size:12px;padding:3px 6px;border:2px solid var(--primary);border-radius:4px;outline:none;background:#FAFAFE;';
-  span.innerHTML = '';
-  span.appendChild(input);
-  input.focus();
-  input.select();
-
-  function save() {
-    var val = parseFloat(input.value);
-    if (isNaN(val) || val < 0) { renderOrders(); return; }
-    var db = getDB();
-    var ord = db.orders.find(function(x){ return x.id === orderId; });
-    if (!ord || !ord.items || !ord.items[itemIdx]) { renderOrders(); return; }
-    var oldPrice = Number(ord.items[itemIdx].price)||0;
-    if (oldPrice === val) { renderOrders(); return; }
-    ord.items[itemIdx].price = val;
-    ord.total = ord.items.reduce(function(s, i){ return s + (Number(i.price)||0) * (Number(i.qty)||0); }, 0);
-    logAudit(db, 'order', ord.id, 'price_change', { num: ord.num, item: ord.items[itemIdx].name, oldPrice: oldPrice, newPrice: val, newTotal: ord.total });
-    saveDB(db);
-    renderOrders();
-  }
-
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { renderOrders(); }
-  });
-  input.addEventListener('blur', save);
-}
-
-function inlineEditProductPrice(td, productId, currentPrice) {
-  if (td.querySelector('input')) return;
-  var input = document.createElement('input');
-  input.type = 'number';
-  input.step = '0.01';
-  input.min = '0';
-  input.value = currentPrice;
-  input.style.cssText = 'width:90px;font-size:13px;padding:4px 6px;border:2px solid var(--primary);border-radius:4px;outline:none;background:#FAFAFE;';
-  td.innerHTML = '';
-  td.appendChild(input);
-  input.focus();
-  input.select();
-
-  function save() {
-    var val = parseFloat(input.value);
-    if (isNaN(val) || val < 0) { renderProducts(); return; }
-    var db = getDB();
-    var p = db.products.find(function(x){ return x.id === productId; });
-    if (!p) { renderProducts(); return; }
-    if (Number(p.sellPrice||0) === val) { renderProducts(); return; }
-    var oldPrice = Number(p.sellPrice||0);
-    p.sellPrice = val;
-    logAudit(db, 'product', p.id, 'price_change', { sku: p.sku, name: p.name, oldPrice: oldPrice, newPrice: val });
-    saveDB(db);
-    renderProducts();
-  }
-
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { renderProducts(); }
-  });
-  input.addEventListener('blur', save);
-}
-
-function setOrderPaymentType(id, val) {
-  var db = getDB();
-  var ord = db.orders.find(function(x){return x.id===id});
-  if(ord) { ord.paymentType = val; saveDB(db); renderPage('orders'); }
-}
-
-function setOrderPaymentStatus(id, val) {
-  var db = getDB();
-  var ord = db.orders.find(function(x){return x.id===id});
-  if(ord) { ord.paymentStatus = val; saveDB(db); renderPage('orders'); }
-}
 
 // ==================== SHIP ORDER FROM STOCK ====================
 // Майстер на замовленні = вказівник, з якого складу списати готовий товар.
@@ -5293,15 +5176,7 @@ function resetOrdCols() {
   renderOrdColSettings();
 }
 
-// ==================== PAGINATION ====================
-var _ordPage = 1;
-var _ordSortCol = 'date';
-var _ordSortDir = 'desc';
-function toggleOrdSort(col) {
-  if (_ordSortCol === col) _ordSortDir = _ordSortDir === 'desc' ? 'asc' : 'desc';
-  else { _ordSortCol = col; _ordSortDir = col === 'total' || col === 'date' ? 'desc' : 'asc'; }
-  renderOrders();
-}
+// Pagination + sort — винесено в public/js/pagination.js (window._ordPage, _ordSortCol, _ordSortDir)
 
 function exportOrdersCsv() {
   var db = getDB();
@@ -5321,68 +5196,6 @@ function exportOrdersCsv() {
   a.click();
 }
 
-function inlineEditNote(td, orderId, currentVal) {
-  if (td.querySelector('textarea')) return;
-  var ta = document.createElement('textarea');
-  ta.value = currentVal.replace(/\\n/g, '\n');
-  ta.placeholder = 'Нотатка...';
-  ta.rows = 2;
-  ta.style.cssText = 'width:100%;font-size:12px;padding:4px 8px;border:2px solid var(--primary);border-radius:6px;outline:none;resize:vertical;min-width:150px;';
-  td.innerHTML = '';
-  td.appendChild(ta);
-  ta.focus();
-  function save() {
-    var val = ta.value.trim();
-    var db = getDB();
-    var ord = db.orders.find(function(x){return x.id===orderId});
-    if (ord) { ord.note = val; saveDB(db); }
-    renderOrders();
-  }
-  ta.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') renderOrders();
-  });
-  ta.addEventListener('blur', save);
-}
-function getOrdPageSize() {
-  var v = localStorage.getItem('lipo_ord_page_size');
-  if (v === 'all') return 'all';
-  var n = parseInt(v, 10);
-  return (n && n > 0) ? n : 25;
-}
-function setOrdPageSize(v) {
-  localStorage.setItem('lipo_ord_page_size', v);
-  _ordPage = 1;
-  renderOrders();
-}
-function setOrdPage(p) {
-  _ordPage = Math.max(1, p);
-  renderOrders();
-  try {
-    var el = document.getElementById('orders');
-    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-  } catch(e){}
-}
-
-function setOrdDatePreset(preset) {
-  var today = new Date();
-  var y = today.getFullYear(), m = today.getMonth();
-  var fromEl = document.getElementById('ord-date-from');
-  var toEl = document.getElementById('ord-date-to');
-  function fmtDate(d){ return d.toISOString().slice(0,10); }
-  if (preset === 'thisMonth') {
-    fromEl.value = fmtDate(new Date(y, m, 1));
-    toEl.value = fmtDate(new Date(y, m+1, 0));
-  } else if (preset === 'lastMonth') {
-    fromEl.value = fmtDate(new Date(y, m-1, 1));
-    toEl.value = fmtDate(new Date(y, m, 0));
-  } else if (preset === 'today') {
-    var s = fmtDate(today);
-    fromEl.value = s; toEl.value = s;
-  } else if (preset === 'clear') {
-    fromEl.value = ''; toEl.value = '';
-  }
-  renderOrders();
-}
 
 function renderOrders() {
   initSyncDateInput();
@@ -5660,56 +5473,6 @@ function renderOrders() {
   populateOrderChannels();
 }
 
-function renderOrdPagination(total, pageSize, pageCount) {
-  var wrap = document.getElementById('orders-pagination');
-  var controls = document.getElementById('ord-page-controls');
-  var info = document.getElementById('ord-page-info');
-  var sel = document.getElementById('ord-page-size');
-  if (!wrap || !controls || !sel) return;
-
-  // Sync select value
-  sel.value = String(pageSize);
-
-  // Hide entire bar if <= 10 items AND default page size (no choice needed)
-  if (total <= 10 && pageSize !== 'all') {
-    wrap.style.display = 'none';
-    return;
-  }
-  wrap.style.display = 'flex';
-
-  if (pageSize === 'all' || pageCount <= 1) {
-    controls.innerHTML = '';
-    info.textContent = total + ' замовлень';
-    return;
-  }
-
-  // Build page buttons: « 1 … (cur-1) cur (cur+1) … N »
-  var btns = [];
-  function pageBtn(p, label, opts) {
-    opts = opts || {};
-    var disabled = opts.disabled ? 'disabled' : '';
-    var active = opts.active;
-    var style = 'padding:4px 10px;border-radius:6px;font-size:13px;border:1px solid '+(active?'var(--primary)':'var(--border)')+';background:'+(active?'var(--primary)':'#fff')+';color:'+(active?'#fff':'var(--text)')+';cursor:'+(opts.disabled?'not-allowed':'pointer')+';min-width:32px;opacity:'+(opts.disabled?'0.4':'1')+';font-weight:'+(active?'600':'400')+';';
-    return '<button '+disabled+' onclick="setOrdPage('+p+')" style="'+style+'">'+label+'</button>';
-  }
-  function ellipsis(){ return '<span style="padding:0 4px;color:var(--text-light);">…</span>'; }
-
-  btns.push(pageBtn(_ordPage-1, '‹', {disabled: _ordPage<=1}));
-
-  // Always show page 1
-  btns.push(pageBtn(1, '1', {active: _ordPage===1}));
-  if (_ordPage > 3) btns.push(ellipsis());
-  for (var p = Math.max(2, _ordPage-1); p <= Math.min(pageCount-1, _ordPage+1); p++) {
-    btns.push(pageBtn(p, String(p), {active: _ordPage===p}));
-  }
-  if (_ordPage < pageCount-2) btns.push(ellipsis());
-  if (pageCount > 1) btns.push(pageBtn(pageCount, String(pageCount), {active: _ordPage===pageCount}));
-
-  btns.push(pageBtn(_ordPage+1, '›', {disabled: _ordPage>=pageCount}));
-
-  controls.innerHTML = btns.join('');
-  info.textContent = 'Стор. ' + _ordPage + ' з ' + pageCount;
-}
 
 function confirmOrder(id) {
   var db = getDB();
