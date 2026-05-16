@@ -2567,9 +2567,13 @@ a.order-link:hover { text-decoration:underline; }
   </div>
 </div>
 
-<!-- Винесені модулі для організації коду. defer = після парсингу HTML, перед DOMContentLoaded.
-     Усі функції експортуються через window.X щоб inline-обробники (onclick=...) продовжували працювати.
+<!-- Винесені модулі для організації коду.
+     utils.js — СИНХРОННИЙ (БЕЗ defer): бо основний inline-script нижче має
+     топ-рівневі виклики renderDashboard()/loadAccount() які використовують esc/fmt.
+     Решта — defer, виконуються після парсингу в порядку появи.
+     Усі функції експортуються через window.X щоб inline-обробники (onclick=...) працювали.
      Backup-UI прибрано (cron на сервері лишається, шле тільки admin). -->
+<script src="/js/utils.js"></script>
 <script src="/js/pwa-push.js" defer></script>
 <script src="/js/audit.js" defer></script>
 <script src="/js/clients.js" defer></script>
@@ -2866,7 +2870,7 @@ fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(u){
     try { loadLinkedWorkers(); } catch(e) {}
   }
 });
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+// uid() — винесено в public/js/utils.js
 
 // ==================== MOBILE MENU ====================
 function toggleMobileMenu() {
@@ -10134,22 +10138,8 @@ function clearEquipmentForm() {
 }
 
 // ==================== HELPERS ====================
-function v(id) { return document.getElementById(id).value; }
-function n(id) { return parseFloat(document.getElementById(id).value)||0; }
-function fmt(n) { return Number(n).toFixed(2).replace(/\.00$/,'').replace(/(\.\d)0$/,'$1'); }
-// Total material qty across main warehouse + all worker stocks (used for stock-out / low-stock alerts)
-function matAtWorkers(db, matId) {
-  return ((db && db.workerStock) || []).reduce(function(s, ws){
-    return s + ((ws.type==='material' && ws.itemId===matId) ? (ws.qty||0) : 0);
-  }, 0);
-}
-function matTotalQty(db, m) { return (m.qty||0) + matAtWorkers(db, m.id); }
-function esc(s) {
-  if(!s) return '';
-  var d = document.createElement('div');
-  d.appendChild(document.createTextNode(s));
-  return d.innerHTML;
-}
+// → винесено в public/js/utils.js (esc, fmt, uid, v, n, matAtWorkers, matTotalQty)
+
 
 // ==================== ADMIN PANEL ====================
 function renderAdmin() {
