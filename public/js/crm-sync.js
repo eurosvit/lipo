@@ -226,7 +226,36 @@
     }
   
     var _ttnDebugCount = 0;
-  
+
+    // Авто-детекція каналу продажу з замовлення SalesDrive.
+    // SalesDrive не передає канал окремим полем, тому скануємо весь об'єкт
+    // замовлення на ключові слова маркетплейсів. Слова специфічні —
+    // хибних збігів практично не буде.
+    var CHANNEL_KEYWORDS = [
+      { keys: ['rozetka', 'розетка'],          channel: 'Rozetka' },
+      { keys: ['prom.ua', 'prom.market'],      channel: 'Prom' },
+      { keys: ['etsy'],                         channel: 'Etsy' },
+      { keys: ['instagram', 'інстаграм'],       channel: 'Instagram' },
+      { keys: ['telegram', 'телеграм'],         channel: 'Telegram' }
+    ];
+    function detectOrderChannel(o) {
+      var hay = '';
+      try { hay = JSON.stringify(o).toLowerCase(); } catch(e) { return ''; }
+      for (var i = 0; i < CHANNEL_KEYWORDS.length; i++) {
+        var rule = CHANNEL_KEYWORDS[i];
+        for (var k = 0; k < rule.keys.length; k++) {
+          if (hay.indexOf(rule.keys[k]) !== -1) return rule.channel;
+        }
+      }
+      return '';
+    }
+    // Гарантує що канал є у db.orderChannels (щоб з'явився у фільтрі/селекті)
+    function ensureChannel(db, channelName) {
+      if (!channelName) return;
+      if (!db.orderChannels) db.orderChannels = [];
+      if (db.orderChannels.indexOf(channelName) === -1) db.orderChannels.push(channelName);
+    }
+
     function processOrdersBatch(orders) {
   
         orders.forEach(function(o) {
@@ -372,7 +401,10 @@
           });
   
           var total = items.reduce(function(s,i){return s + i.qty * i.price}, 0);
-  
+
+          // Авто-детекція каналу (Rozetka / Prom / Etsy / Instagram / Telegram)
+          var detectedChannel = detectOrderChannel(o);
+
           if(existingCrmIds[o.id]) {
             // Update existing order status + backfill delivery/payment if empty
             var existing = db.orders.find(function(x){return x.crmId===o.id});
@@ -399,9 +431,16 @@
               }
               if (!existing.paymentType && paymentType) existing.paymentType = paymentType;
               if (!existing.paymentStatus && paymentStatus) existing.paymentStatus = paymentStatus;
+              // Backfill каналу — тільки якщо ще не заданий (не перезаписуємо ручний вибір)
+              if (!existing.channel && detectedChannel) {
+                existing.channel = detectedChannel;
+                ensureChannel(db, detectedChannel);
+                updatedCount++;
+              }
             }
           } else {
             // Create new order with full delivery/payment info
+            ensureChannel(db, detectedChannel);
             db.orders.push({
               id: uid(),
               num: db.nextOrderNum++,
@@ -420,6 +459,7 @@
               ttn: String(ttn||''),
               paymentType: paymentType,
               paymentStatus: paymentStatus,
+              channel: detectedChannel || '',
               items: items,
               total: total,
               status: 'new', // Always start as "new" in our system — user confirms manually
