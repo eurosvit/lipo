@@ -64,14 +64,26 @@
   function renderShortageActionBody() {
     var ctx = window._shortageCtx;
     if (!ctx) return;
+    var db = getDB();
     var workerNames = (typeof getAllWorkerNames === 'function') ? getAllWorkerNames() : [];
     var body = '<div style="font-size:14px;margin-bottom:12px;">Замовлення <strong>#'+ctx.orderNum+'</strong> — не вистачає на складі:</div>';
     ctx.items.forEach(function(it, idx){
       var workerOpts = '<option value="">— не призначено —</option>' + workerNames.map(function(w){
         return '<option value="'+esc(w)+'" '+(it.worker===w?'selected':'')+'>'+esc(typeof wLabel==='function'?wLabel(w):w)+'</option>';
       }).join('');
-      body += '<div style="background:#FFF8E1;border:1px solid #FFE0B2;border-radius:10px;padding:12px;margin-bottom:10px;">'+
+      // Чи можна виготовити цю позицію? (товар має бути в каталозі)
+      var blockReason = _shortageItemBlockReason(db, it);
+      var cardBg = blockReason ? '#FFEBEE' : '#FFF8E1';
+      var cardBorder = blockReason ? '#EF9A9A' : '#FFE0B2';
+      var warnBlock = blockReason
+        ? '<div style="background:#fff;border:1px solid #EF9A9A;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#C62828;">'+
+            '⚠ <strong>Не можна виготовити:</strong> товар не привʼязаний до каталогу.<br>'+
+            'Закрий це вікно → ✏️ біля замовлення → обери гру з каталогу.'+
+          '</div>'
+        : '';
+      body += '<div style="background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:10px;padding:12px;margin-bottom:10px;">'+
         '<div style="font-size:14px;margin-bottom:8px;"><strong>'+esc(it.name)+'</strong> — '+it.qty+' шт</div>'+
+        warnBlock+
         '<div class="form-row" style="gap:8px;">'+
           '<div class="form-group" style="flex:2;"><label style="font-size:11px;">Майстер</label>'+
             '<select onchange="window._shortageCtx.items['+idx+'].worker=this.value">'+workerOpts+'</select>'+
@@ -118,9 +130,33 @@
     return newId;
   }
   
+  // Перевірка чи можна виготовити позицію. Повертає '' якщо ОК, або текст помилки.
+  function _shortageItemBlockReason(db, it) {
+    if (!it.productId) {
+      return '«'+(it.name||'?')+'» — позиція не привʼязана до товару каталогу.';
+    }
+    var p = db.products.find(function(x){ return x.id === it.productId; });
+    if (!p) {
+      return '«'+(it.name||'?')+'» — товар не знайдено в каталозі (можливо видалений або перестворений).';
+    }
+    return '';
+  }
+
   function shortageDoInstant() {
     if (!window._shortageCtx) return;
     var ctx = window._shortageCtx;
+    var db = getDB();
+    // Перед-перевірка: чи всі позиції привʼязані до існуючих товарів
+    var blocked = [];
+    ctx.items.forEach(function(it){
+      var reason = _shortageItemBlockReason(db, it);
+      if (reason) blocked.push(reason);
+    });
+    if (blocked.length) {
+      alert('❌ Не можна виготовити:\n\n' + blocked.join('\n\n') +
+        '\n\n👉 Закрий це вікно, натисни ✏️ біля замовлення і обери товар з каталогу для кожної позиції.');
+      return;
+    }
     // Перевірка: кожній позиції має бути присвоєний майстер (для нарахування ЗП)
     var unassigned = ctx.items.filter(function(it){ return !it.worker; });
     if (unassigned.length) {
@@ -163,6 +199,18 @@
   function shortageDoProduce() {
     if (!window._shortageCtx) return;
     var ctx = window._shortageCtx;
+    var db = getDB();
+    // Перед-перевірка: чи всі позиції привʼязані до існуючих товарів
+    var blocked = [];
+    ctx.items.forEach(function(it){
+      var reason = _shortageItemBlockReason(db, it);
+      if (reason) blocked.push(reason);
+    });
+    if (blocked.length) {
+      alert('❌ Не можна запустити у виробництво:\n\n' + blocked.join('\n\n') +
+        '\n\n👉 Закрий це вікно, натисни ✏️ біля замовлення і обери товар з каталогу для кожної позиції.');
+      return;
+    }
     var unassigned = ctx.items.filter(function(it){ return !it.worker; });
     if (unassigned.length) {
       if (!confirm('⚠ У '+unassigned.length+' позиц. не призначений майстер. Продовжити?')) return;
