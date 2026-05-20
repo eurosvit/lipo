@@ -76,6 +76,20 @@ th { background:#f1f2f6; text-align:left; padding:10px 12px; font-weight:600; fo
 td { padding:8px 12px; border-top:1px solid var(--border); vertical-align:middle; }
 tr:hover td { background:#fafafa; }
 
+/* Колонка "Дії" приклеєна до правого краю — завжди видна при горизонт. скролі.
+   Тільки на desktop (>640px); на мобайл таблиця стає картками. */
+@media(min-width:641px) {
+  .table-wrap table th:last-child,
+  .table-wrap table td:last-child {
+    position:sticky; right:0;
+    background:var(--card);
+    box-shadow:-6px 0 10px -6px rgba(0,0,0,0.18);
+  }
+  .table-wrap table th:last-child { background:#f1f2f6; z-index:4; }
+  .table-wrap table td:last-child { z-index:2; }
+  .table-wrap table tr:hover td:last-child { background:#fafafa; }
+}
+
 /* BADGES */
 .badge { display:inline-block; padding:3px 10px; border-radius:4px; font-size:12px; font-weight:600; }
 .badge-danger { background:#FFCDD2; color:#C62828; }
