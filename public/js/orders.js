@@ -510,13 +510,19 @@
       return '<tr'+(o.shipped?' style="opacity:0.85;"':'')+(o.returnedToStock?' style="opacity:0.6;background:#FFF8F8;"':'')+'>'+
         '<td data-label="№">'+numBadges+'</td>'+
         cells+
-        '<td data-label="Дії" style="white-space:nowrap;">'+
+        '<td data-label="Дії">'+
           shipBtn+
-          (canReturn ? '<button class="btn btn-outline btn-sm" onclick="returnOrderToStock(\''+o.id+'\')" title="Повернути товар на склад / позначити брак" style="margin-right:4px;">📦↩</button>' : '')+
-          '<button class="btn btn-outline btn-sm" onclick="copyTtnMessage(\''+o.id+'\')" title="Скопіювати повідомлення для клієнта з ТТН" style="margin-right:4px;">💬</button>'+
-          '<button class="btn btn-outline btn-sm" onclick="duplicateOrder(\''+o.id+'\')" title="Дублювати замовлення (новий №, дата сьогодні)" style="margin-right:4px;">📋</button>'+
-          '<button class="btn btn-outline btn-sm" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати" style="margin-right:4px;">✏️</button>'+
-          '<button class="btn btn-danger btn-sm" onclick="deleteOrder(\''+o.id+'\')" title="Видалити">&#x1F5D1;</button></td>'+
+          (canReturn ? '<button class="btn btn-outline btn-sm" onclick="returnOrderToStock(\''+o.id+'\')" title="Повернути товар на склад / позначити брак">📦↩</button>' : '')+
+          '<button class="btn btn-outline btn-sm" onclick="openEditOrder(\''+o.id+'\')" title="Редагувати замовлення">✏️</button>'+
+          '<span class="row-menu-wrap">'+
+            '<button class="btn btn-outline btn-sm" onclick="toggleRowMenu(event,\''+o.id+'\')" title="Більше дій">⋯</button>'+
+            '<div class="row-menu" id="rowmenu-'+o.id+'">'+
+              '<button onclick="closeRowMenus();copyTtnMessage(\''+o.id+'\')">💬 Повідомлення клієнту</button>'+
+              '<button onclick="closeRowMenus();duplicateOrder(\''+o.id+'\')">📋 Дублювати замовлення</button>'+
+              '<button class="danger" onclick="closeRowMenus();deleteOrder(\''+o.id+'\')">🗑 Видалити</button>'+
+            '</div>'+
+          '</span>'+
+        '</td>'+
       '</tr>';
     }).join('') || '<tr><td colspan="'+(visOrdCols.length+2)+'" class="text-muted" style="text-align:center;padding:40px;">Замовлень поки немає</td></tr>';
   
@@ -746,4 +752,40 @@
   window.togglePrepayCalc = togglePrepayCalc;
   window.setPrepay = setPrepay;
   window.updatePrepayHint = updatePrepayHint;
+
+  // ==================== ROW OVERFLOW MENU («⋯») ====================
+  function closeRowMenus() {
+    document.querySelectorAll('.row-menu.show').forEach(function(m){ m.classList.remove('show'); });
+  }
+  function toggleRowMenu(ev, orderId) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    var menu = document.getElementById('rowmenu-'+orderId);
+    if (!menu) return;
+    var wasOpen = menu.classList.contains('show');
+    closeRowMenus();
+    if (!wasOpen) {
+      menu.classList.add('show');
+      // Якщо меню вилазить за нижній край — показати вгору
+      var rect = menu.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 8) {
+        menu.style.top = 'auto';
+        menu.style.bottom = '100%';
+        menu.style.marginBottom = '2px';
+        menu.style.marginTop = '0';
+      } else {
+        menu.style.top = '100%';
+        menu.style.bottom = 'auto';
+        menu.style.marginTop = '2px';
+        menu.style.marginBottom = '0';
+      }
+    }
+  }
+  // Закрити меню при кліку поза ним
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.row-menu-wrap')) closeRowMenus();
+  });
+
+  window.toggleRowMenu = toggleRowMenu;
+  window.closeRowMenus = closeRowMenus;
 })();
